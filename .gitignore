@@ -1,0 +1,29 @@
+# Emacs generated
+*.elc
+*.eln
+auto-save-list/
+eln-cache/
+elpa/
+custom.el
+transient/
+.lsp-session*
+bookmarks
+recentf
+places
+eshell/
+url/
+srecode-map.el
+semanticdb/
+
+# org-roam database (local state)
+org-roam.db
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Backup files
+*~
+\#*\#
+.\#*
