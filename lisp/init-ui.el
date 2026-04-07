@@ -25,9 +25,8 @@
                 (with-selected-frame frame (my/setup-fonts))))
   (my/setup-fonts))
 
-;; ---- modus-themes: accessible, built-in since Emacs 28 ----
+;; ---- modus-themes: accessible, WCAG AAA ----
 (use-package modus-themes
-  :ensure nil
   :demand t
   :config
   (setq modus-themes-mixed-fonts t
