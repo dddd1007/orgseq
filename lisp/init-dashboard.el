@@ -64,17 +64,29 @@
       "Perfection is achieved not when there is nothing more to add, but nothing left to take away. — Saint-Exupery"
       "The tools we use have a profound effect on our thinking habits. — Edsger Dijkstra"))
 
-  (setq dashboard-footer-messages
-        (list (nth (random (length my/dashboard-quotes)) my/dashboard-quotes)))
+  (defun my/dashboard--wrap-quote (text max-width)
+    "Wrap TEXT to MAX-WIDTH at word boundaries, returning a single string."
+    (if (<= (length text) max-width)
+        text
+      (let ((pos max-width))
+        (while (and (> pos 0) (not (eq (aref text pos) ?\s)))
+          (cl-decf pos))
+        (when (= pos 0) (setq pos max-width))
+        (concat (substring text 0 pos) "\n"
+                (string-trim-left (substring text pos))))))
+
+  (defun my/dashboard--pick-quote ()
+    "Pick a random quote and wrap it to fit the dashboard width."
+    (let* ((quote (nth (random (length my/dashboard-quotes)) my/dashboard-quotes))
+           (width (max 40 (- (min 80 (window-width)) 6))))
+      (setq dashboard-footer-messages
+            (list (my/dashboard--wrap-quote quote width)))))
+
+  (my/dashboard--pick-quote)
   (setq dashboard-footer-icon
         (my/dashboard-icon "nf-md-format_quote_open" ""))
 
-  ;; Pick a fresh quote on each dashboard refresh
-  (add-hook 'dashboard-before-initialize-hook
-            (lambda ()
-              (setq dashboard-footer-messages
-                    (list (nth (random (length my/dashboard-quotes))
-                               my/dashboard-quotes)))))
+  (add-hook 'dashboard-before-initialize-hook #'my/dashboard--pick-quote)
 
   ;; Compact component ordering (fewer blank lines)
   (setq dashboard-startupify-list
