@@ -25,13 +25,33 @@
                 (with-selected-frame frame (my/setup-fonts))))
   (my/setup-fonts))
 
-;; ---- doom-themes ----
+;; ---- modus-themes: accessible, built-in since Emacs 28 ----
+(use-package modus-themes
+  :ensure nil
+  :demand t
+  :config
+  (setq modus-themes-mixed-fonts t
+        modus-themes-italic-constructs t
+        modus-themes-bold-constructs t
+        modus-themes-prompts '(bold)
+        modus-themes-completions '((t . (bold)))
+        modus-themes-org-blocks 'tinted-background
+        modus-themes-headings '((1 . (variable-pitch 1.4))
+                                (2 . (1.2))
+                                (3 . (1.1))
+                                (t . (1.0))))
+  (load-theme 'modus-operandi-tinted t))
+
+;; ---- ef-themes: colorful & elegant light/dark themes ----
+(use-package ef-themes
+  :demand t)
+
+;; ---- doom-themes: modern IDE-style themes ----
 (use-package doom-themes
   :demand t
   :config
   (setq doom-themes-enable-bold t
         doom-themes-enable-italic t)
-  (load-theme 'doom-one t)
   (doom-themes-visual-bell-config)
   (doom-themes-org-config))
 
