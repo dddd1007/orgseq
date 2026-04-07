@@ -19,10 +19,7 @@
 (setq inhibit-startup-screen t
       inhibit-startup-message t)
 
-;; 4. Package-quickstart: precomputed autoloads, skip per-package scanning
-(setq package-quickstart t)
-
-;; 5. Skip mtime checks on bytecode during startup
+;; 4. Skip mtime checks on bytecode during startup
 (setq load-prefer-newer nil)
 
 ;; 6. Reduce load-suffixes (no dynamic modules during init)

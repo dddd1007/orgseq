@@ -28,14 +28,12 @@
   (setq server-use-tcp t))
 
 ;; ---- Package management ----
-;; package-quickstart is enabled in early-init.el; Emacs auto-loads the
-;; precomputed autoloads file, so we skip (package-initialize) here.
-;; On first run (or after adding packages), run: M-x package-quickstart-refresh
 (require 'package)
 (setq package-archives
       '(("gnu"    . "https://elpa.gnu.org/packages/")
         ("nongnu" . "https://elpa.nongnu.org/nongnu/")
         ("melpa"  . "https://melpa.org/packages/")))
+(package-initialize)
 (unless package-archive-contents
   (package-refresh-contents))
 
