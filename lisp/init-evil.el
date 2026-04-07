@@ -27,16 +27,16 @@
   :config
   (general-evil-setup t)
 
-  ;; Primary leader: SPC (normal/visual), M-SPC (insert/emacs)
+  ;; Primary leader: SPC (normal/visual/emacs), M-SPC (insert)
   (general-create-definer my/leader-keys
-    :states '(normal insert visual emacs)
+    :states '(normal visual emacs)
     :keymaps 'override
     :prefix "SPC"
     :global-prefix "M-SPC")
 
   ;; Local leader: , (mode-specific bindings)
   (general-create-definer my/local-leader-keys
-    :states '(normal insert visual emacs)
+    :states '(normal visual emacs)
     :keymaps 'override
     :prefix ","
     :global-prefix "M-,")
@@ -86,6 +86,10 @@
     "nf"  '(org-roam-node-find :wk "Find note")
     "ni"  '(org-roam-node-insert :wk "Insert link")
     "nc"  '(org-roam-capture :wk "New note")
+    "na"  '(my/org-open-task-dashboard :wk "Task dashboard")
+    "np"  '(my/org-open-project-dashboard :wk "Project dashboard")
+    "nr"  '(my/org-open-weekly-review :wk "Weekly review")
+    "nt"  '(org-todo-list :wk "All tasks")
     "nb"  '(org-roam-buffer-toggle :wk "Backlinks")
     "nd"  '(org-roam-dailies-capture-today :wk "Daily note")
     "ng"  '(org-roam-ui-mode :wk "Graph view")
@@ -105,6 +109,13 @@
     "hf"  '(describe-function :wk "Function")
     "hv"  '(describe-variable :wk "Variable")
     "hk"  '(describe-key :wk "Key")
+
+    ;; SPC m - Markdown
+    "m"   '(:ignore t :wk "markdown")
+    "mp"  '(markdown-preview :wk "Preview")
+    "me"  '(markdown-export :wk "Export")
+    "mt"  '(markdown-toc-generate-toc :wk "Insert TOC")
+    "mr"  '(markdown-toc-refresh-toc :wk "Refresh TOC")
 
     ;; SPC t - Toggle
     "t"   '(:ignore t :wk "toggle")

@@ -8,8 +8,9 @@ This project produces a deployable `~/.emacs.d/` configuration. The output is Em
 
 ### Core Stack
 - **Editing**: Evil mode (Vim keybindings) + general.el (SPC leader keys)
+- **Markdown**: markdown-mode + markdown-toc (preview/export/TOC workflow)
 - **Completion**: Vertico + Orderless + Consult + Marginalia + Embark
-- **PKM Engine**: org-roam (Zettelkasten) + org-transclusion + org-ql
+- **PKM Engine**: org-roam + md-roam (Org/Markdown mixed graph) + org-transclusion + org-ql
 - **UI**: doom-themes + doom-modeline + org-modern + nerd-icons
 - **Fonts**: CJK mixed typesetting (set-fontset-font + face-font-rescale-alist)
 
@@ -23,9 +24,10 @@ org-seq/
 ├── lisp/
 │   ├── init-ui.el         # Fonts, themes, modeline (loaded 1st)
 │   ├── init-completion.el # Vertico stack (loaded 2nd)
-│   ├── init-org.el        # Org-mode base + org-modern + evil-org (loaded 3rd)
-│   ├── init-roam.el       # org-roam + capture templates + dailies (loaded 4th)
-│   ├── init-pkm.el        # org-transclusion + org-ql (loaded 5th)
+│   ├── init-markdown.el   # Markdown mode + TOC + preview/export (loaded 3rd)
+│   ├── init-org.el        # Org-mode base + org-modern + evil-org (loaded 4th)
+│   ├── init-roam.el       # org-roam + capture templates + dailies (loaded 5th)
+│   ├── init-pkm.el        # org-transclusion + org-ql (loaded 6th)
 │   └── init-evil.el       # Evil + evil-collection + general.el + which-key + magit (loaded last)
 ├── .claude/
 │   ├── settings.local.json # Permissions for Claude Code
@@ -88,12 +90,12 @@ org-seq/
 
 ### Adding a New Module
 1. Create `lisp/init-<name>.el` with proper header and `(provide 'init-<name>)`
-2. Add `(require 'init-<name>)` in `init.el` — **load order matters**: UI/completion -> org stack -> evil (last, needs org for evil-org)
+2. Add `(require 'init-<name>)` in `init.el` — **load order matters**: UI/completion -> markdown/content -> org stack -> evil (last, needs org for evil-org)
 3. Update the directory layout section in this file
 
 ### Module Load Order (init.el)
 ```
-init-ui -> init-completion -> init-org -> init-roam -> init-pkm -> init-evil
+init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm -> init-evil
 ```
 - `init-evil` loads last because `evil-org` (in init-org) uses `:after (org evil)`
 - `init-org` before `init-roam` because org-roam depends on org

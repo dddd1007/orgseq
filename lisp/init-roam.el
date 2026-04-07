@@ -1,5 +1,14 @@
 ;;; init-roam.el --- org-roam PKM engine -*- lexical-binding: t; -*-
 
+;; md-roam is not on MELPA; install from GitHub once.
+(unless (package-installed-p 'md-roam)
+  (if (fboundp 'package-vc-install)
+      (condition-case err
+          (package-vc-install "https://github.com/nobiot/md-roam")
+        (error
+         (message "⚠️ org-seq: failed to install md-roam: %s" err)))
+    (message "⚠️ org-seq: package-vc-install unavailable, skip md-roam bootstrap.")))
+
 (use-package org-roam
   :demand t
   :custom
@@ -23,7 +32,6 @@
                      (expand-file-name "lit" org-roam-directory)
                      (expand-file-name "concepts" org-roam-directory)))
     (make-directory dir t))
-  (org-roam-db-autosync-mode)
 
   ;; Backlinks buffer on the right side
   (add-to-list 'display-buffer-alist
@@ -79,6 +87,18 @@
            :target (file+head+olp "%<%Y-%m-%d>.org"
                                   "#+title: %<%Y-%m-%d>\n"
                                   ("Journal"))))))
+
+;; ---- md-roam: mixed Org + Markdown graph for Obsidian compatibility ----
+;; Enable md-roam before org-roam autosync.
+(use-package md-roam
+  :after org-roam
+  :if (locate-library "md-roam")
+  :custom
+  (md-roam-file-extension "md")
+  :config
+  (setq org-roam-file-extensions '("org" "md"))
+  (md-roam-mode 1)
+  (org-roam-db-autosync-mode 1))
 
 ;; ---- Full-text search in org-roam directory ----
 (defun my/org-roam-rg-search ()

@@ -23,10 +23,18 @@ Primary target: **Windows** (with Linux/macOS compatibility).
    git clone <repo-url> ~/CodeProject/org-seq
    ```
 
-2. Copy config to Emacs directory:
+2. Copy config to Emacs directory (PowerShell, Windows):
+   ```powershell
+   New-Item -ItemType Directory -Force "$HOME/.emacs.d" | Out-Null
+   Copy-Item -Force early-init.el, init.el "$HOME/.emacs.d/"
+   Copy-Item -Recurse -Force lisp "$HOME/.emacs.d/"
+   ```
+
+   Linux/macOS:
    ```bash
+   mkdir -p ~/.emacs.d
    cp early-init.el init.el ~/.emacs.d/
-   cp -r lisp/ ~/.emacs.d/lisp/
+   cp -r lisp ~/.emacs.d/
    ```
 
 3. Launch Emacs — packages will auto-install on first run (needs internet).
@@ -39,21 +47,31 @@ Primary target: **Windows** (with Linux/macOS compatibility).
 
 ## Key Bindings
 
-All leader keys use `SPC` (normal/visual mode) or `M-SPC` (insert mode).
+Leader keys use `SPC` in normal/visual mode. In insert mode, use `M-SPC`.
 
 | Key | Action |
 |-----|--------|
 | `SPC SPC` | M-x |
 | `SPC n f` | Find note (org-roam) |
 | `SPC n c` | New note |
+| `SPC n a` | Task dashboard (all org-roam tasks) |
+| `SPC n p` | Project dashboard |
+| `SPC n r` | Weekly review |
+| `SPC n t` | All tasks list |
 | `SPC n d` | Daily note |
 | `SPC n b` | Toggle backlinks |
 | `SPC n g` | Graph view |
+| `SPC m p` | Markdown preview |
+| `SPC m e` | Markdown export |
+| `SPC m t` | Markdown TOC insert |
+| `SPC m r` | Markdown TOC refresh |
 | `SPC /` | Project-wide search (ripgrep) |
 | `SPC ,` | Switch buffer |
 | `SPC g g` | Magit status |
 
 Press `SPC` and wait for the which-key popup to see all available keys.
+
+Task flow (GTD style): `TODO -> NEXT -> IN-PROGRESS -> DONE`, plus `WAITING` and `SOMEDAY`.
 
 ## Module Structure
 
@@ -61,10 +79,13 @@ Press `SPC` and wait for the which-key popup to see all available keys.
 |--------|---------|
 | `init-ui.el` | Fonts (CJK mixed), doom-themes, doom-modeline |
 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
+| `init-markdown.el` | Markdown mode + TOC + preview/export |
 | `init-org.el` | Org-mode config + org-modern + evil-org |
-| `init-roam.el` | org-roam + capture templates + dailies + graph UI |
+| `init-roam.el` | org-roam + md-roam (org/md mixed graph) + dailies + graph UI |
 | `init-pkm.el` | org-transclusion + org-ql |
 | `init-evil.el` | Evil mode + general.el leader keys + magit |
+
+Obsidian workflow: use Emacs as the editing/workbench, and use Obsidian as a fast reading/search client on the same vault (`org` + `md` indexed by org-roam/md-roam).
 
 ## Reference
 
