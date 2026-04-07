@@ -23,6 +23,12 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
+# Local Claude Code config
+.claude/settings.local.json
+
+# Session history
+history/
+
 # Debug/test logs
 *.log
 

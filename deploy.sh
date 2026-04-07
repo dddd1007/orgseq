@@ -156,8 +156,19 @@ verify_deployment() {
     local files=("$TARGET/early-init.el" "$TARGET/init.el")
     while IFS= read -r f; do files+=("$f"); done < <(find "$lisp_dir" -name '*.el')
 
-    if emacs --batch -Q -L "$TARGET" -L "$lisp_dir" -f batch-byte-compile "${files[@]}" 2>&1 | grep -i "error"; then
-        warn "Byte-compile produced errors (see above)"
+    local output
+    local status
+    set +e
+    output="$(emacs --batch -Q -L "$TARGET" -L "$lisp_dir" -f batch-byte-compile "${files[@]}" 2>&1)"
+    status=$?
+    set -e
+
+    if [[ "$status" -ne 0 ]]; then
+        warn "Byte-compile check failed (exit code $status)"
+        [[ -n "$output" ]] && printf '%s\n' "$output"
+    elif printf '%s\n' "$output" | grep -qi "warning"; then
+        warn "Byte-compile produced warnings:"
+        printf '%s\n' "$output"
     else
         pass "All files byte-compile cleanly"
     fi

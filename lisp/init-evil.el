@@ -110,6 +110,10 @@
     "lo"  '(my/workspace-toggle-outline :wk "Toggle outline")
     "le"  '(my/workspace-toggle-terminal :wk "Toggle terminal")
 
+    ;; SPC m - Markdown
+    "m"   '(:ignore t :wk "markdown")
+    "mv"  '(my/markdown-toggle-live-preview :wk "Toggle live preview")
+
     ;; SPC t - Toggle
     "t"   '(:ignore t :wk "toggle")
     "tt"  '(consult-theme :wk "Theme")

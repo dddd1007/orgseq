@@ -1,5 +1,8 @@
 ;;; init-ui.el --- Fonts, themes, modeline -*- lexical-binding: t; -*-
 
+(require 'cl-lib)
+(require 'subr-x)
+
 ;; ---- CJK mixed typesetting ----
 (defvar my/cjk-font-candidates
   '("Sarasa Fixed SC" "LXGW WenKai Mono" "Microsoft YaHei UI" "SimHei")
@@ -73,22 +76,76 @@
   :demand t
   :init (doom-modeline-mode 1)
   :custom
-  (doom-modeline-height 25)
+  (doom-modeline-height 22)
   (doom-modeline-bar-width 4)
   (doom-modeline-icon t)
-  (doom-modeline-buffer-file-name-style 'auto)
+  (doom-modeline-major-mode-icon nil)
+  (doom-modeline-minor-modes nil)
+  (doom-modeline-buffer-encoding nil)
+  (doom-modeline-buffer-file-name-style 'truncate-upto-project)
   (doom-modeline-project-detection 'project))
 
 ;; ---- valign: pixel-perfect table alignment with variable-width fonts ----
 (use-package valign
   :hook (org-mode . valign-mode))
 
-;; ---- olivetti: centered writing with limited body width ----
+;; ---- olivetti: centered writing with adaptive body width ----
+(defvar my/olivetti-body-width-min 88
+  "Minimum body width for `olivetti-mode'.")
+
+(defvar my/olivetti-body-width-max 140
+  "Maximum body width for `olivetti-mode'.")
+
+(defvar my/olivetti-body-width-scale 0.62
+  "Body width as a fraction of the current window width.")
+
+(defvar-local my/olivetti-face-remaps nil
+  "Face remaps used to flatten Olivetti side areas.")
+
+(defun my/olivetti-compute-width (&optional window)
+  "Compute adaptive `olivetti-body-width' for WINDOW."
+  (let* ((window (or window (selected-window)))
+         (window-width (window-total-width window))
+         (target-width (floor (* window-width my/olivetti-body-width-scale))))
+    (max my/olivetti-body-width-min
+         (min my/olivetti-body-width-max target-width))))
+
+(defun my/olivetti-apply-face-remaps ()
+  "Flatten Olivetti side-area faces to match the main text background."
+  (unless my/olivetti-face-remaps
+    (setq-local my/olivetti-face-remaps
+                (list (face-remap-add-relative 'left-margin 'default)
+                      (face-remap-add-relative 'right-margin 'default)
+                      (face-remap-add-relative 'fringe 'default)))))
+
+(defun my/olivetti-refresh-window (&optional window)
+  "Refresh Olivetti layout in WINDOW."
+  (let ((window (or window (selected-window))))
+    (with-current-buffer (window-buffer window)
+      (when (bound-and-true-p olivetti-mode)
+        (my/olivetti-apply-face-remaps)
+        (setq-local olivetti-body-width (my/olivetti-compute-width window))
+        ;; Remove extra fringes in writing buffers so the centered area feels cleaner.
+        (setq-local fringes-outside-margins nil)
+        (set-window-fringes window 0 0)
+        (olivetti-set-width olivetti-body-width)))))
+
+(defun my/olivetti-refresh-all-windows (&optional frame)
+  "Refresh Olivetti layout in all live windows on FRAME."
+  (dolist (window (window-list frame 'no-minibuffer))
+    (my/olivetti-refresh-window window)))
+
+(defun my/olivetti-setup ()
+  "Enable adaptive Olivetti layout for the current buffer."
+  (olivetti-mode 1)
+  (my/olivetti-refresh-window))
+
 (use-package olivetti
-  :hook ((org-mode . olivetti-mode)
-         (markdown-mode . olivetti-mode))
+  :hook (org-mode . my/olivetti-setup)
   :custom
-  (olivetti-body-width 88))
+  (olivetti-style nil)
+  :config
+  (add-hook 'window-size-change-functions #'my/olivetti-refresh-all-windows))
 
 ;; ---- General UI settings ----
 (setq-default cursor-type 'bar)
@@ -102,6 +159,8 @@
   (display-line-numbers-mode 0))
 
 (dolist (mode '(org-mode-hook
+               dashboard-mode-hook
+               treemacs-mode-hook
                term-mode-hook
                shell-mode-hook
                eshell-mode-hook))

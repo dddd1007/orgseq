@@ -1,5 +1,8 @@
 ;;; init-workspace.el --- Three-column workspace layout -*- lexical-binding: t; -*-
 
+(require 'cl-lib)
+(require 'subr-x)
+
 ;; Layout (16:9 display):
 ;;   ┌──────────┬────────────────────────┬────────────┐
 ;;   │ treemacs │                        │  outline   │
@@ -24,7 +27,7 @@
 (use-package treemacs
   :demand t
   :custom
-  (treemacs-width 28)
+  (treemacs-width 24)
   (treemacs-width-is-initially-locked t)
   (treemacs-position 'left)
   (treemacs-show-hidden-files nil)
@@ -126,7 +129,7 @@
           (switch-to-buffer dash))))))
 
 (defun my/workspace-startup ()
-  "Startup layout: treemacs + editor + outline. Terminal deferred to SPC l e."
+  "Startup layout: treemacs + dashboard. Outline and terminal are on demand."
   (delete-other-windows)
   (my/workspace-open-treemacs)
   (let ((editor-win (car (cl-remove-if
@@ -134,15 +137,6 @@
                                                       (buffer-name (window-buffer w))))
                           (window-list)))))
     (when editor-win
-      (select-window editor-win)
-      ;; Split right panel for outline
-      (let* ((right-cols (max 28 (floor (* (window-total-width editor-win) 0.20))))
-             (_right-win (split-window editor-win
-                                       (- (window-total-width editor-win) right-cols)
-                                       'right)))
-        ;; Enable imenu-list from editor window so it tracks the correct buffer
-        (imenu-list-minor-mode 1))
-      ;; Focus back to editor, show dashboard
       (select-window editor-win)
       (when-let ((dash (get-buffer "*dashboard*")))
         (switch-to-buffer dash)))))

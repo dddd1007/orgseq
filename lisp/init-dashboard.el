@@ -26,7 +26,7 @@
   :demand t
   :config
   (setq dashboard-startup-banner
-        (expand-file-name "banner.txt"
+        (expand-file-name "banner-compact.txt"
                           (file-name-directory
                            (or load-file-name buffer-file-name))))
 
@@ -38,12 +38,12 @@
         dashboard-recentf-show-base t
         dashboard-recentf-item-format "%s")
 
-  ;; Fixed overhead: banner(8) + nav(1) + info(1) + section-header(2) + footer(3) + spacing(3) = 18
-  (defvar my/dashboard-fixed-lines 18)
+  ;; Fixed overhead with compact banner and tighter section spacing.
+  (defvar my/dashboard-fixed-lines 11)
 
   (defun my/dashboard-recents-count ()
     "Compute recent files count based on current frame height."
-    (max 3 (min 12 (- (frame-text-lines) my/dashboard-fixed-lines))))
+    (max 5 (min 16 (- (frame-text-lines) my/dashboard-fixed-lines))))
 
   (setq dashboard-items `((recents . ,(my/dashboard-recents-count))))
   (setq dashboard-item-shortcuts '((recents . "r")))
@@ -54,18 +54,16 @@
               (setq dashboard-items
                     `((recents . ,(my/dashboard-recents-count))))))
 
-  ;; Footer: keybinding hints (two short lines)
+  ;; Footer: keep one short line so the dashboard stays scannable.
   (setq dashboard-footer-messages
-        '("SPC n d daily  |  SPC n a agenda  |  SPC n f find\nSPC l l layout  |  SPC l t tree  |  SPC l e term"))
+        '("SPC n d today  |  SPC n f find  |  SPC n r review"))
   (setq dashboard-footer-icon
         (my/dashboard-icon "nf-md-keyboard" ""))
 
   ;; Compact component ordering (fewer blank lines)
   (setq dashboard-startupify-list
         '(dashboard-insert-banner
-          dashboard-insert-newline
           dashboard-insert-navigator
-          dashboard-insert-newline
           dashboard-insert-init-info
           dashboard-insert-items
           dashboard-insert-footer))
@@ -73,13 +71,19 @@
   ;; Quick action buttons — horizontal row
   (setq dashboard-navigator-buttons
         `(((,(my/dashboard-icon "nf-md-notebook_edit")
-           " Today's Note " "Create or open today's daily note  [SPC n d]"
+           " Today " "Open today's daily note  [SPC n d]"
            (lambda (&rest _) (org-roam-dailies-capture-today)))
+          (,(my/dashboard-icon "nf-md-magnify")
+           " Find " "Find an org-roam note  [SPC n f]"
+           (lambda (&rest _) (org-roam-node-find)))
           (,(my/dashboard-icon "nf-md-format_list_checks")
-           " Task Dashboard " "Open GTD task dashboard  [SPC n a]"
-           (lambda (&rest _) (org-agenda nil "n")))
+           " Tasks " "Open GTD task dashboard  [SPC n a]"
+           (lambda (&rest _) (my/org-open-task-dashboard)))
+          (,(my/dashboard-icon "nf-md-calendar_week")
+           " Review " "Open weekly review  [SPC n r]"
+           (lambda (&rest _) (my/org-open-weekly-review)))
           (,(my/dashboard-icon "nf-md-history")
-           " Restore Last File " "Open the most recently edited file"
+           " Last File " "Open the most recently edited file"
            (lambda (&rest _) (my/dashboard-open-last-file))))))
 
   (setq initial-buffer-choice

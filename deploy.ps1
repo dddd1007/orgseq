@@ -170,10 +170,17 @@ function Test-Deployment {
 
     try {
         $output = & emacs @emacsArgs 2>&1
-        $errors = $output | Where-Object { $_ -match "Error|error" }
-        if ($errors) {
+        $compileExitCode = $LASTEXITCODE
+        $warnings = $output | Where-Object { $_ -match "Warning|warning" }
+        if ($compileExitCode -ne 0) {
+            Write-Warn "Byte-compile check failed (exit code $compileExitCode)"
+            if ($output) {
+                $output | ForEach-Object { Write-Host "    $_" -ForegroundColor Yellow }
+            }
+        }
+        elseif ($warnings) {
             Write-Warn "Byte-compile warnings:"
-            $errors | ForEach-Object { Write-Host "    $_" -ForegroundColor Yellow }
+            $warnings | ForEach-Object { Write-Host "    $_" -ForegroundColor Yellow }
         }
         else {
             Write-Pass "All files byte-compile cleanly"
