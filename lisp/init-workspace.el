@@ -1,6 +1,6 @@
 ;;; init-workspace.el --- Three-column workspace layout -*- lexical-binding: t; -*-
 
-;; Layout target (16:9 display):
+;; Layout (16:9 display, ~1400x860 initial frame):
 ;;   ┌──────────┬────────────────────────┬────────────┐
 ;;   │ treemacs │                        │  outline   │
 ;;   │  (~15%)  │     main editor        │   (~20%)   │
@@ -9,13 +9,20 @@
 ;;   │          │                        │   (~20%)   │
 ;;   └──────────┴────────────────────────┴────────────┘
 
-;; ---- Frame: maximized horizontal layout ----
+;; ---- Frame: VSCode/Logseq-like initial size ----
 (when (display-graphic-p)
-  (push '(fullscreen . maximized) default-frame-alist))
+  (let* ((fw (x-display-pixel-width))
+         (fh (x-display-pixel-height))
+         (w  (min (floor (* fw 0.75)) 1600))
+         (h  (min (floor (* fh 0.80)) 960)))
+    (push `(width  . (text-pixels . ,w)) default-frame-alist)
+    (push `(height . (text-pixels . ,h)) default-frame-alist)
+    (push '(left . 0.5) default-frame-alist)
+    (push '(top  . 0.5) default-frame-alist)))
 
 ;; ---- treemacs: file tree rooted at NoteHQ ----
 (use-package treemacs
-  :commands (treemacs treemacs-select-window)
+  :demand t
   :custom
   (treemacs-width 30)
   (treemacs-width-is-initially-locked t)
@@ -24,61 +31,65 @@
   (treemacs-no-png-images nil)
   (treemacs-indentation 2)
   (treemacs-sorting 'alphabetic-asc)
+  (treemacs-is-never-other-window nil)
   :config
   (treemacs-follow-mode t)
   (treemacs-filewatch-mode t)
   (treemacs-fringe-indicator-mode 'always))
 
 (use-package treemacs-evil
-  :after (treemacs evil))
+  :after (treemacs evil)
+  :demand t)
 
 (use-package treemacs-nerd-icons
   :after (treemacs nerd-icons)
+  :demand t
   :config (treemacs-load-theme "nerd-icons"))
 
 ;; ---- imenu-list: outline sidebar ----
 (use-package imenu-list
-  :commands imenu-list-smart-toggle
+  :demand t
   :custom
   (imenu-list-position 'right)
-  (imenu-list-size 0.2)
+  (imenu-list-size 0.23)
   (imenu-list-focus-after-activation nil)
   (imenu-list-auto-resize nil))
 
-;; ---- vterm: terminal emulator ----
-;; ⚠️ Windows/MSYS2: vterm requires libvterm and CMake to compile.
-;; If vterm fails to build, eat (Emulate A Terminal) is a pure-elisp fallback.
-(if (and (eq system-type 'windows-nt)
-         (not (locate-library "vterm")))
-    (use-package eat
-      :commands (eat eat-other-window)
-      :custom
-      (eat-term-name "xterm-256color"))
+;; ---- Terminal ----
+;; ⚠️ Windows/MSYS2: vterm needs libvterm + CMake.
+;; Fallback chain: vterm → eat → eshell.
+(cond
+ ((and (eq system-type 'windows-nt)
+       (not (locate-library "vterm")))
+  (use-package eat
+    :commands (eat eat-other-window)
+    :custom (eat-term-name "xterm-256color")))
+ (t
   (use-package vterm
     :commands (vterm vterm-other-window)
     :custom
     (vterm-max-scrollback 10000)
     (vterm-shell (if (eq system-type 'windows-nt)
-                     (or (executable-find "bash")
-                         "powershell")
-                   (or (getenv "SHELL") "/bin/bash")))))
+                     (or (executable-find "bash") "powershell")
+                   (or (getenv "SHELL") "/bin/bash"))))))
 
 ;; ---- Workspace orchestration ----
 
+(defvar my/workspace--initialized nil)
+
 (defun my/workspace-open-treemacs ()
   "Open treemacs rooted at NoteHQ."
-  (require 'treemacs)
   (let ((note-dir (file-truename "~/NoteHQ/")))
     (make-directory note-dir t)
-    (unless (treemacs-current-visibility)
+    (treemacs-select-window)
+    (unless (treemacs-is-treemacs-window-selected?)
       (treemacs))
-    (treemacs-do-add-project-to-workspace note-dir "NoteHQ")))
-
-(defun my/workspace-open-outline ()
-  "Open imenu-list outline in right side."
-  (require 'imenu-list)
-  (unless (get-buffer-window imenu-list-buffer-name)
-    (imenu-list-smart-toggle)))
+    (let ((existing (treemacs-current-workspace)))
+      (unless (cl-find note-dir
+                       (treemacs-workspace->projects existing)
+                       :test #'string=
+                       :key #'treemacs-project->path)
+        (treemacs-do-add-project-to-workspace note-dir "NoteHQ")))))
 
 (defun my/workspace-open-terminal ()
   "Open terminal in bottom-right, rooted at NoteHQ."
@@ -88,44 +99,44 @@
     (make-directory note-dir t)
     (if (and term-buf (get-buffer-window term-buf))
         (select-window (get-buffer-window term-buf))
-      ;; Find or create the terminal in a bottom-right split
-      (when-let ((outline-win (get-buffer-window imenu-list-buffer-name)))
+      (when-let ((outline-win (get-buffer-window
+                               (get-buffer "*Ilist*"))))
         (select-window outline-win))
       (let ((term-win (split-window-below)))
         (select-window term-win)
-        (if (fboundp 'vterm)
-            (progn (vterm "*NoteHQ-term*"))
-          (if (fboundp 'eat)
-              (progn (eat) (rename-buffer "*NoteHQ-term*" t))
-            (progn (eshell) (rename-buffer "*NoteHQ-term*" t))))))))
+        (cond
+         ((fboundp 'vterm)  (vterm "*NoteHQ-term*"))
+         ((fboundp 'eat)    (eat) (rename-buffer "*NoteHQ-term*" t))
+         (t                 (eshell) (rename-buffer "*NoteHQ-term*" t)))))))
 
 (defun my/workspace-setup ()
   "Set up three-column workspace layout."
   (interactive)
   (delete-other-windows)
-  ;; 1. Open treemacs on the left
+  ;; Left: treemacs
   (my/workspace-open-treemacs)
-  ;; 2. Select main editor window
+  ;; Return to main editor
   (other-window 1)
-  ;; 3. Create right column: split for outline + terminal
-  (let ((right-win (split-window-right (- (floor (* (frame-width) 0.20))))))
-    ;; 4. Outline in right-top
-    (select-window right-win)
-    (my/workspace-open-outline)
-    ;; 5. Terminal in right-bottom
-    (my/workspace-open-terminal))
-  ;; 6. Return focus to main editor
-  (windmove-left)
-  (when (string-match "Treemacs" (buffer-name))
-    (windmove-right)))
+  ;; Right column
+  (split-window-right (- (floor (* (window-total-width) 0.78))))
+  ;; Move to right column
+  (windmove-right)
+  ;; Top-right: outline
+  (imenu-list-smart-toggle)
+  ;; Bottom-right: terminal
+  (my/workspace-open-terminal)
+  ;; Focus main editor
+  (select-window (get-buffer-window (other-buffer (current-buffer) t)))
+  (when (string-match-p "\\*Treemacs\\|\\*Ilist\\|\\*NoteHQ" (buffer-name))
+    (windmove-right))
+  (setq my/workspace--initialized t))
 
 (defun my/workspace-toggle-sidebar ()
   "Toggle treemacs sidebar."
   (interactive)
-  (require 'treemacs)
   (pcase (treemacs-current-visibility)
     ('visible (delete-window (treemacs-get-local-window)))
-    (_ (my/workspace-open-treemacs))))
+    (_        (my/workspace-open-treemacs))))
 
 (defun my/workspace-toggle-outline ()
   "Toggle imenu-list outline."
@@ -139,6 +150,12 @@
     (if (and term-buf (get-buffer-window term-buf))
         (delete-window (get-buffer-window term-buf))
       (my/workspace-open-terminal))))
+
+;; Auto-open workspace on startup
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (when (display-graphic-p)
+              (run-at-time 0.5 nil #'my/workspace-setup))))
 
 (provide 'init-workspace)
 ;;; init-workspace.el ends here
