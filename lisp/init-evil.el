@@ -73,12 +73,21 @@
 
     ;; ── SPC a — Agenda / GTD ──
     "a"   '(:ignore t :wk "agenda")
+    "ad"  '(my/org-dashboard :wk "GTD Dashboard")
     "aa"  '(org-agenda :wk "Dispatcher")
-    "an"  '(my/org-open-task-dashboard :wk "Task dashboard")
-    "ap"  '(my/org-open-project-dashboard :wk "Project dashboard")
+    "an"  '(my/org-open-task-dashboard :wk "GTD overview")
+    "ap"  '(my/org-open-project-dashboard :wk "Projects")
     "aw"  '(my/org-open-weekly-review :wk "Weekly review")
-    "at"  '(org-todo-list :wk "All tasks")
     "ac"  '(org-capture :wk "Capture")
+    "ae"  '(my/gtd-set-state :wk "State picker")
+    "au"  '(my/org-open-upcoming :wk "Upcoming")
+    "a0"  '(my/org-open-inbox :wk "Inbox")
+    "a1"  '(my/org-open-today :wk "Today")
+    "a3"  '(my/org-open-anytime :wk "Anytime")
+    "a4"  '(my/org-open-waiting :wk "Waiting")
+    "a5"  '(my/org-open-someday :wk "Someday")
+    "a6"  '(my/org-open-logbook :wk "Logbook")
+    "a7"  '(my/org-pick-context :wk "Context view")
     "ar"  '((lambda () (interactive) (my/org-roam-agenda-files t)) :wk "Refresh cache")
 
     ;; ── SPC b — Buffer ──
