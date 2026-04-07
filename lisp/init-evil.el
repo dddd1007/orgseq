@@ -125,12 +125,17 @@
   :commands magit-status)
 
 ;; ---- which-key: key hint popup ----
-;; Built-in since Emacs 30; fall back to MELPA on 29.
-(use-package which-key
-  :ensure (< emacs-major-version 30)
-  :demand t
-  :init (which-key-mode)
-  :config (setq which-key-idle-delay 0.3))
+;; Built-in since Emacs 30; install from MELPA only on 29.
+(if (>= emacs-major-version 30)
+    (use-package which-key
+      :ensure nil
+      :demand t
+      :init (which-key-mode)
+      :config (setq which-key-idle-delay 0.3))
+  (use-package which-key
+    :demand t
+    :init (which-key-mode)
+    :config (setq which-key-idle-delay 0.3)))
 
 (provide 'init-evil)
 ;;; init-evil.el ends here
