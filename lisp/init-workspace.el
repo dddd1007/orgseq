@@ -64,12 +64,10 @@
   (imenu-list-focus-after-activation nil)
   (imenu-list-auto-resize nil))
 
-;; ---- Terminal: eat (pure elisp, no compile needed) ----
-(use-package eat
-  :commands (eat eat-other-window)
-  :custom
-  (eat-term-name "xterm-256color")
-  (eat-shell-command my/workspace-shell))
+;; ---- Terminal: eshell (built-in, works on all platforms) ----
+(setq eshell-directory-name (expand-file-name "eshell/" user-emacs-directory))
+(when (eq system-type 'windows-nt)
+  (setq explicit-shell-file-name my/workspace-shell))
 
 ;; ---- Workspace orchestration ----
 
@@ -86,11 +84,12 @@
         (treemacs-do-add-project-to-workspace note-dir "NoteHQ")))))
 
 (defun my/workspace-open-terminal ()
-  "Open terminal in the selected window, rooted at NoteHQ."
+  "Open eshell terminal in the selected window, rooted at NoteHQ."
   (let ((default-directory (file-truename "~/NoteHQ/")))
     (make-directory default-directory t)
-    (eat)
-    (rename-buffer "*NoteHQ-term*" t)))
+    (let ((buf (eshell 'new)))
+      (with-current-buffer buf
+        (rename-buffer "*NoteHQ-term*" t)))))
 
 (defun my/workspace-setup ()
   "Set up three-column workspace layout."
