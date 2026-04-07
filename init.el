@@ -37,6 +37,9 @@
       use-package-expand-minimally t
       use-package-verbose nil)
 
+;; Allow package.el to upgrade built-in packages (Transient, Org, etc.)
+(setq package-install-upgrade-built-in t)
+
 ;; ---- Module load path ----
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 
@@ -50,10 +53,11 @@
   :init (savehist-mode))
 
 ;; ---- External dependency checks ----
-(dolist (tool '(("rg" . "ripgrep: winget install BurntSushi.ripgrep.MSVC")
-               ("fd" . "fd: winget install sharkdp.fd")))
+(dolist (tool '(("rg" . "ripgrep") ("fd" . "fd-find")))
   (unless (executable-find (car tool))
-    (message "⚠️ org-seq: %s not found. Install: %s" (car tool) (cdr tool))))
+    (message "⚠️ org-seq: %s (%s) not found. Install via your package manager%s."
+             (car tool) (cdr tool)
+             (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))
 
 ;; ---- Load modules ----
 ;; Order: UI -> completion -> markdown -> org -> roam -> pkm -> ai -> dashboard -> workspace -> evil (last)

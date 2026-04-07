@@ -12,6 +12,7 @@ This project produces a deployable `~/.emacs.d/` configuration. The output is Em
 - **Completion**: Vertico + Orderless + Consult + Marginalia + Embark
 - **PKM Engine**: org-roam + md-roam (Org/Markdown mixed graph) + org-transclusion + org-ql
 - **AI**: gptel (LLM client, OpenRouter) + ob-gptel (org-babel AI blocks)
+- **Menus**: casual (Transient keyboard-driven menus for built-in modes)
 - **UI**: modus-themes (default) + doom-modeline + org-modern + nerd-icons + olivetti
 - **Fonts**: CJK mixed typesetting (set-fontset-font + face-font-rescale-alist)
 

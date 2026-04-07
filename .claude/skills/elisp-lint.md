@@ -20,7 +20,7 @@ Run byte-compilation checks on all `.el` files in the org-seq project to catch e
 ```bash
 for f in early-init.el init.el lisp/*.el; do
   echo "=== Checking $f ==="
-  emacs --batch -f batch-byte-compile "$f" 2>&1
+  emacs --batch -Q -L . -L lisp -f batch-byte-compile "$f" 2>&1
   rm -f "${f}c"
 done
 ```

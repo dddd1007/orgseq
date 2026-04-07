@@ -102,6 +102,54 @@
            " Last File " "Open the most recently edited file"
            (lambda (&rest _) (my/dashboard-open-last-file))))))
 
+  ;; ---- Vertical centering ----
+
+  (defvar-local my/dashboard--content-lines nil
+    "Cached line count of dashboard content before padding.")
+
+  (defun my/dashboard-vertically-center ()
+    "Pad the top of the dashboard buffer to vertically center content."
+    (when-let ((buf (get-buffer dashboard-buffer-name)))
+      (with-current-buffer buf
+        (let ((inhibit-read-only t))
+          ;; Strip existing top padding
+          (goto-char (point-min))
+          (while (and (not (eobp)) (looking-at-p "^$"))
+            (delete-region (line-beginning-position)
+                           (min (1+ (line-end-position)) (point-max))))
+          ;; Strip trailing blank lines
+          (goto-char (point-max))
+          (while (and (> (point) (point-min))
+                      (progn (forward-line -1) (looking-at-p "^$")))
+            (delete-region (line-beginning-position)
+                           (min (1+ (line-end-position)) (point-max))))
+          ;; Cache the true content height
+          (setq my/dashboard--content-lines
+                (count-lines (point-min) (point-max)))
+          ;; Insert top padding
+          (let* ((win (or (get-buffer-window buf) (selected-window)))
+                 (win-height (window-body-height win))
+                 (pad (max 0 (/ (- win-height my/dashboard--content-lines) 2))))
+            (goto-char (point-min))
+            (insert (make-string pad ?\n))
+            (goto-char (point-min)))))))
+
+  (add-hook 'dashboard-after-initialize-hook #'my/dashboard-vertically-center)
+
+  (defvar my/dashboard--resize-timer nil
+    "Debounce timer for dashboard resize centering.")
+
+  (defun my/dashboard-recenter-on-resize (&optional _frame)
+    "Re-center dashboard when window size changes (debounced)."
+    (when (and (get-buffer dashboard-buffer-name)
+               (get-buffer-window dashboard-buffer-name))
+      (when my/dashboard--resize-timer
+        (cancel-timer my/dashboard--resize-timer))
+      (setq my/dashboard--resize-timer
+            (run-with-idle-timer 0.1 nil #'my/dashboard-vertically-center))))
+
+  (add-hook 'window-size-change-functions #'my/dashboard-recenter-on-resize)
+
   (setq initial-buffer-choice
         (lambda () (get-buffer-create dashboard-buffer-name)))
 

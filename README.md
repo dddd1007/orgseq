@@ -57,8 +57,9 @@ Leader keys use `SPC` in normal/visual mode. In insert mode, use `M-SPC`.
 | `SPC a n` | GTD task dashboard |
 | `SPC a p` | GTD project dashboard |
 | `SPC a w` | GTD weekly review |
-| `SPC a t` | All tasks list |
 | `SPC a c` | Org capture |
+| `SPC a d` | GTD Dashboard (live counts) |
+| `SPC a u` | Upcoming tasks (grouped by day) |
 | `SPC n f` | Find note (org-roam) |
 | `SPC n c` | New note (org-roam capture) |
 | `SPC n i` | Insert link (org-roam) |
@@ -73,6 +74,7 @@ Leader keys use `SPC` in normal/visual mode. In insert mode, use `M-SPC`.
 | `SPC i r` | AI rewrite region |
 | `SPC i s` | AI summarize note |
 | `SPC i l` | AI translate |
+| `SPC c c` | Casual menu (contextual Transient) |
 | `SPC /` | Project-wide search (ripgrep) |
 | `SPC ,` | Switch buffer |
 | `SPC g g` | Magit status |

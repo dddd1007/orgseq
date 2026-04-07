@@ -103,6 +103,14 @@
     "bp"  '(previous-buffer :wk "Previous")
     "bN"  '(next-buffer :wk "Next")
 
+    ;; ── SPC c — Casual (contextual Transient menus) ──
+    "c"   '(:ignore t :wk "casual")
+    "cc"  '(casual-editkit-main-tmenu :wk "EditKit (global)")
+    "ca"  '(casual-agenda-tmenu :wk "Agenda menu")
+    "cd"  '(casual-dired-tmenu :wk "Dired menu")
+    "cb"  '(casual-bookmarks-tmenu :wk "Bookmarks menu")
+    "cs"  '(casual-isearch-tmenu :wk "I-Search menu")
+
     ;; ── SPC e — Eval / Execute ──
     "e"   '(:ignore t :wk "eval")
     "ee"  '(eval-last-sexp :wk "Last sexp")
@@ -283,6 +291,31 @@
          (which-key--hide-popup)
        (when (fboundp 'which-key-abort)
          (which-key-abort))))))
+
+;; ---- Casual: Transient keyboard menus for built-in modes ----
+(use-package casual
+  :defer t
+  :config
+  ;; Mode-specific C-o bindings
+  (with-eval-after-load 'org-agenda
+    (keymap-set org-agenda-mode-map "C-o" #'casual-agenda-tmenu)
+    (keymap-set org-agenda-mode-map "M-j" #'org-agenda-clock-goto)
+    (keymap-set org-agenda-mode-map "J" #'bookmark-jump))
+  (with-eval-after-load 'dired
+    (keymap-set dired-mode-map "C-o" #'casual-dired-tmenu))
+  (with-eval-after-load 'ibuffer
+    (keymap-set ibuffer-mode-map "C-o" #'casual-ibuffer-tmenu)
+    (keymap-set ibuffer-mode-map "s" #'casual-ibuffer-sortby-tmenu))
+  (with-eval-after-load 'info
+    (keymap-set Info-mode-map "C-o" #'casual-info-tmenu))
+  (with-eval-after-load 'bookmark
+    (keymap-set bookmark-bmenu-mode-map "C-o" #'casual-bookmarks-tmenu))
+  (with-eval-after-load 'isearch
+    (keymap-set isearch-mode-map "C-o" #'casual-isearch-tmenu))
+  (with-eval-after-load 'calc
+    (keymap-set calc-mode-map "C-o" #'casual-calc-tmenu))
+  (with-eval-after-load 're-builder
+    (keymap-set reb-mode-map "C-o" #'casual-re-builder-tmenu)))
 
 (provide 'init-evil)
 ;;; init-evil.el ends here

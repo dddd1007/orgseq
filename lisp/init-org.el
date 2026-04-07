@@ -183,6 +183,9 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
                                   (if (= count 2) "" "s")))
             (dolist (m markers)
               (goto-char m)
+              (org-todo "DONE"))
+            (save-excursion
+              (org-back-to-heading t)
               (org-todo "DONE")))
         (org-todo "DONE")))))
 
@@ -199,6 +202,9 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
                                   (if (= count 2) "" "s")))
             (dolist (m markers)
               (goto-char m)
+              (org-todo "CANCELLED"))
+            (save-excursion
+              (org-back-to-heading t)
               (org-todo "CANCELLED")))
         (org-todo "CANCELLED")))))
 
@@ -244,7 +250,9 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
       (when (member (org-get-todo-state) my/gtd-closed-states)
         (let ((start (line-beginning-position))
               (end (save-excursion (org-end-of-subtree t t) (point))))
-          (org-flag-region start end flag 'outline))))))
+          (if (fboundp 'org-fold-region)
+              (org-fold-region start end flag 'outline)
+            (org-flag-region start end flag 'outline)))))))
 
 (defun my/gtd-toggle-hide-done ()
   "Toggle visibility of DONE/CANCELLED headings."
@@ -664,7 +672,6 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
 ;; ═══════════════════════════════════════════════════════════════════════════
 
 (use-package org
-  :ensure nil
   :demand t
   :config
   (setq org-startup-indented t
