@@ -181,8 +181,8 @@ Excludes the current heading itself."
       (if (> count 1)
           (when (y-or-n-p (format "Complete \"%s\" and %d child task%s? "
                                   (org-get-heading t t t t)
-                                  (1- count)
-                                  (if (= count 2) "" "s")))
+                                  count
+                                  (if (= count 1) "" "s")))
             (dolist (m markers)
               (goto-char m)
               (org-todo "DONE"))
@@ -200,8 +200,8 @@ Excludes the current heading itself."
       (if (> count 1)
           (when (y-or-n-p (format "Cancel \"%s\" and %d child task%s? "
                                   (org-get-heading t t t t)
-                                  (1- count)
-                                  (if (= count 2) "" "s")))
+                                  count
+                                  (if (= count 1) "" "s")))
             (dolist (m markers)
               (goto-char m)
               (org-todo "CANCELLED"))

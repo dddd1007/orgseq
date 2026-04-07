@@ -1,5 +1,7 @@
 ;;; init-dashboard.el --- Startup dashboard -*- lexical-binding: t; -*-
 
+(require 'cl-lib)
+
 ;; ---- recentf: track recently opened files ----
 (require 'recentf)
 (setq recentf-max-saved-items 30

@@ -87,7 +87,7 @@ SPC a 0    → 打开 Inbox 视图
 ```
 
 对每条 inbox 条目，决定其归宿：
-- 设置 TODO 状态：`, q` → 按 `n`（NEXT）、`t`（TODO）、`s`（SOMEDAY）等
+- 设置状态：`, q` → 按 `n`（NEXT）、`i`（IN-PROGRESS）、`w`（WAITING）、`s`（SOMEDAY）、`k`（DONE）、`x`（CANCEL）、`p`（PROJECT）
 - 归档到项目：`, r`（refile 到其他 heading）
 - 设置日期：`, s`（schedule）或 `, d`（deadline）
 - 添加上下文标签：`, t`（设置 @work、@home 等 tag）
