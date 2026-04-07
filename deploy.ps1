@@ -197,8 +197,8 @@ function Write-PostInstall {
     Write-Host "    1. Launch Emacs — packages auto-install on first run (needs internet)"
     Write-Host "    2. Run:  M-x nerd-icons-install-fonts"
     Write-Host "       Then right-click downloaded .ttf files → Install (Windows)"
-    Write-Host "    3. org-roam vault at ~/org-roam/ is auto-created on first launch"
-    Write-Host "    4. Point Obsidian at ~/org-roam/ to use it as reading client"
+    Write-Host "    3. Notes root at ~/NoteHQ/, org-roam at ~/NoteHQ/Roam/ (auto-created)"
+    Write-Host "    4. Point Obsidian at ~/NoteHQ/ to use it as reading client"
     Write-Host ""
     Write-Host "  Key bindings:  SPC → leader menu  |  SPC n a → task dashboard" -ForegroundColor DarkGray
     Write-Host ""

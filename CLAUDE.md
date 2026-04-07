@@ -112,7 +112,7 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm
 ## Key Design Decisions
 
 - **package.el over straight.el**: Emacs 29+ has `package-vc-install` for git sources. Simpler for our config size.
-- **Flat org-roam structure**: org-roam uses ID links (not file paths), so folders add no value. Only `daily/`, `lit/`, `concepts/` as subdirs.
+- **NoteHQ directory layout**: All notes live under `~/NoteHQ/`. org-roam uses `~/NoteHQ/Roam/` (with `daily/`, `lit/`, `concepts/` subdirs). Other subdirectories under NoteHQ can hold non-roam notes; GTD agenda scans the entire NoteHQ tree.
 - **No GCMH**: Direct `gc-cons-threshold` (16MB) is safer than gcmh's timer-based approach.
 - **org-modern over org-superstar**: org-modern uses text properties (more efficient), actively maintained by Daniel Mendler.
 - **org-supertag is experimental**: Included but behind awareness — frequent API changes, not on MELPA.

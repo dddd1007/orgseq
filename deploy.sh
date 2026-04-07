@@ -176,8 +176,8 @@ print_summary() {
     if [[ "$(uname -s)" == *"MINGW"* || "$(uname -s)" == *"MSYS"* ]]; then
         echo "       Then right-click downloaded .ttf files → Install (Windows)"
     fi
-    echo "    3. org-roam vault at ~/org-roam/ is auto-created on first launch"
-    echo "    4. Point Obsidian at ~/org-roam/ to use it as reading client"
+    echo "    3. Notes root at ~/NoteHQ/, org-roam at ~/NoteHQ/Roam/ (auto-created)"
+    echo "    4. Point Obsidian at ~/NoteHQ/ to use it as reading client"
     echo ""
     echo "  Key bindings:  SPC → leader menu  |  SPC n a → task dashboard"
     echo ""

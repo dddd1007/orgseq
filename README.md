@@ -86,7 +86,9 @@ Task flow (GTD style): `TODO -> NEXT -> IN-PROGRESS -> DONE`, plus `WAITING` and
 | `init-pkm.el` | org-transclusion + org-ql |
 | `init-evil.el` | Evil mode + general.el leader keys + magit |
 
-Obsidian workflow: use Emacs as the editing/workbench, and use Obsidian as a fast reading/search client on the same vault (`org` + `md` indexed by org-roam/md-roam).
+Notes live under `~/NoteHQ/`. org-roam uses `~/NoteHQ/Roam/`; other subdirectories are for non-roam notes. Tasks from all subdirectories appear in the GTD dashboard.
+
+Obsidian workflow: point Obsidian at `~/NoteHQ/` as vault, use Emacs as the editing/workbench, Obsidian as a fast reading/search client.
 
 ## Reference
 

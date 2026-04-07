@@ -1,15 +1,18 @@
 ;;; init-org.el --- Org-mode base configuration -*- lexical-binding: t; -*-
 
+(defvar my/note-home (file-truename "~/NoteHQ/")
+  "Root directory for all notes. org-roam lives under Roam/ subdirectory.")
+
 (defun my/org-roam-root-directory ()
   "Return the org-roam root directory, with fallback."
   (file-truename
    (if (boundp 'org-roam-directory)
        org-roam-directory
-     "~/org-roam/")))
+     (expand-file-name "Roam" my/note-home))))
 
 (defun my/org-roam-agenda-files ()
-  "Return all agenda candidate files under org-roam."
-  (let ((root (my/org-roam-root-directory)))
+  "Return all agenda candidate files under NoteHQ."
+  (let ((root my/note-home))
     (if (file-directory-p root)
         (directory-files-recursively root "\\.\\(org\\|md\\)\\'")
       nil)))

@@ -15,9 +15,9 @@
 (use-package org-roam
   :demand t
   :custom
-  (org-roam-directory (file-truename "~/org-roam/"))
+  (org-roam-directory (file-truename "~/NoteHQ/Roam/"))
   (org-roam-db-location
-   (expand-file-name "org-roam.db" (file-truename "~/org-roam/")))
+   (expand-file-name "org-roam.db" (file-truename "~/NoteHQ/Roam/")))
   (org-roam-completion-everywhere t)
   (org-roam-node-display-template
    (concat "${title:*} " (propertize "${tags:10}" 'face 'org-tag)))
