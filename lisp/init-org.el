@@ -3,16 +3,40 @@
 (defvar my/note-home (file-truename "~/NoteHQ/")
   "Root directory for all notes. org-roam lives under Roam/ subdirectory.")
 
-(defun my/org-roam-agenda-files ()
-  "Return all agenda candidate files under NoteHQ."
-  (let ((root my/note-home))
-    (if (file-directory-p root)
-        (directory-files-recursively root "\\.org\\'")
-      nil)))
+(defvar my/agenda-cache nil
+  "Cached list of .org files under `my/note-home'.")
+
+(defvar my/agenda-cache-timestamp 0
+  "Time (float seconds) when `my/agenda-cache' was last populated.")
+
+(defvar my/agenda-cache-ttl 300
+  "Seconds before the agenda file cache expires.  Default 5 minutes.")
+
+(defun my/org-roam-agenda-files (&optional force)
+  "Return .org files under NoteHQ, using a TTL cache.
+With non-nil FORCE (or prefix arg interactively), bypass the cache."
+  (interactive "P")
+  (let ((now (float-time)))
+    (when (or force
+              (null my/agenda-cache)
+              (> (- now my/agenda-cache-timestamp) my/agenda-cache-ttl))
+      (let ((root my/note-home))
+        (setq my/agenda-cache
+              (if (file-directory-p root)
+                  (directory-files-recursively root "\\.org\\'")
+                nil)
+              my/agenda-cache-timestamp now))
+      (message "org-seq: agenda cache refreshed (%d files)" (length my/agenda-cache))))
+  my/agenda-cache)
 
 (defun my/org-refresh-agenda-files ()
-  "Refresh `org-agenda-files' from org-roam files."
+  "Set `org-agenda-files' from the cached file list."
   (setq org-agenda-files (my/org-roam-agenda-files)))
+
+(defun my/org-invalidate-agenda-cache ()
+  "Force the next agenda access to rescan NoteHQ."
+  (setq my/agenda-cache nil
+        my/agenda-cache-timestamp 0))
 
 (defun my/org-open-task-dashboard ()
   "Open unified task dashboard from all org-roam notes."
@@ -149,7 +173,7 @@
                   ((org-agenda-overriding-header "Someday / Maybe review")))))))
 
   (my/org-refresh-agenda-files)
-  (add-hook 'org-capture-after-finalize-hook #'my/org-refresh-agenda-files)
+  (add-hook 'org-capture-after-finalize-hook #'my/org-invalidate-agenda-cache)
 
   ;; Refile: move headings across files
   (setq org-refile-targets '((nil :maxlevel . 3)

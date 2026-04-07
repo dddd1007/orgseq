@@ -27,7 +27,7 @@ Desktop.ini
 .claude/settings.local.json
 
 # Session history
-history/
+history
 
 # Debug/test logs
 *.log
