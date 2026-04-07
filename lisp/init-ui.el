@@ -49,13 +49,13 @@
                                 (t . (1.0))))
   (load-theme 'modus-operandi-tinted t))
 
-;; ---- ef-themes: colorful & elegant light/dark themes ----
+;; ---- ef-themes: colorful & elegant light/dark themes (lazy, for switching) ----
 (use-package ef-themes
-  :demand t)
+  :defer t)
 
-;; ---- doom-themes: modern IDE-style themes ----
+;; ---- doom-themes: modern IDE-style themes (lazy, for switching) ----
 (use-package doom-themes
-  :demand t
+  :defer t
   :config
   (setq doom-themes-enable-bold t
         doom-themes-enable-italic t)
@@ -83,18 +83,29 @@
 (use-package valign
   :hook (org-mode . valign-mode))
 
+;; ---- olivetti: centered writing with limited body width ----
+(use-package olivetti
+  :hook ((org-mode . olivetti-mode)
+         (markdown-mode . olivetti-mode))
+  :custom
+  (olivetti-body-width 88))
+
 ;; ---- General UI settings ----
 (setq-default cursor-type 'bar)
 (blink-cursor-mode -1)
 (global-display-line-numbers-mode 1)
 (column-number-mode 1)
 
-;; Disable line numbers in certain modes
+;; Disable line numbers in prose/terminal modes
+(defun my/disable-line-numbers ()
+  "Disable `display-line-numbers-mode'."
+  (display-line-numbers-mode 0))
+
 (dolist (mode '(org-mode-hook
                term-mode-hook
                shell-mode-hook
                eshell-mode-hook))
-  (add-hook mode (lambda () (display-line-numbers-mode 0))))
+  (add-hook mode #'my/disable-line-numbers))
 
 (provide 'init-ui)
 ;;; init-ui.el ends here

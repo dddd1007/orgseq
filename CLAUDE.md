@@ -11,7 +11,7 @@ This project produces a deployable `~/.emacs.d/` configuration. The output is Em
 - **Markdown**: markdown-mode + markdown-toc (preview/export/TOC workflow)
 - **Completion**: Vertico + Orderless + Consult + Marginalia + Embark
 - **PKM Engine**: org-roam + md-roam (Org/Markdown mixed graph) + org-transclusion + org-ql
-- **UI**: doom-themes + doom-modeline + org-modern + nerd-icons
+- **UI**: modus-themes (default) + doom-modeline + org-modern + nerd-icons + olivetti
 - **Fonts**: CJK mixed typesetting (set-fontset-font + face-font-rescale-alist)
 
 ### Directory Layout
@@ -22,13 +22,16 @@ org-seq/
 ├── early-init.el          # Pre-GUI: GC suppression, UI blocking, native-comp
 ├── init.el                # Bootstrap: package.el, use-package, module loading
 ├── lisp/
-│   ├── init-ui.el         # Fonts, themes, modeline (loaded 1st)
+│   ├── init-ui.el         # Fonts, themes, modeline, olivetti (loaded 1st)
 │   ├── init-completion.el # Vertico stack (loaded 2nd)
 │   ├── init-markdown.el   # Markdown mode + TOC + preview/export (loaded 3rd)
 │   ├── init-org.el        # Org-mode base + org-modern + evil-org (loaded 4th)
-│   ├── init-roam.el       # org-roam + capture templates + dailies (loaded 5th)
+│   ├── init-roam.el       # org-roam + md-roam + capture + dailies (loaded 5th)
 │   ├── init-pkm.el        # org-transclusion + org-ql (loaded 6th)
-│   └── init-evil.el       # Evil + evil-collection + general.el + which-key + magit (loaded last)
+│   ├── init-dashboard.el  # Startup dashboard with recent files (loaded 7th)
+│   ├── init-workspace.el  # Three-column layout: treemacs + outline + terminal (loaded 8th)
+│   ├── init-evil.el       # Evil + evil-collection + general.el + which-key + magit (loaded last)
+│   └── banner.txt         # ASCII art banner for dashboard
 ├── .claude/
 │   ├── settings.local.json # Permissions for Claude Code
 │   └── skills/
@@ -97,10 +100,12 @@ org-seq/
 
 ### Module Load Order (init.el)
 ```
-init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm -> init-evil
+init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm -> init-dashboard -> init-workspace -> init-evil
 ```
 - `init-evil` loads last because `evil-org` (in init-org) uses `:after (org evil)`
 - `init-org` before `init-roam` because org-roam depends on org
+- `init-dashboard` after `init-roam` because it needs org-roam and nerd-icons to be ready
+- `init-workspace` after `init-dashboard` because startup layout displays the dashboard buffer
 - `init-pkm` before `init-evil` because leader keys reference `my/org-roam-rg-search`
 
 ### Claude Code Skills

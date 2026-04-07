@@ -82,11 +82,12 @@ Task flow (GTD style): `TODO -> NEXT -> IN-PROGRESS -> DONE`, plus `WAITING` and
 
 | Module | Purpose |
 |--------|---------|
-| `init-ui.el` | Fonts (CJK mixed), doom-themes, doom-modeline |
+| `init-ui.el` | Fonts (CJK mixed), modus-themes (default), doom-modeline, olivetti |
 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
 | `init-markdown.el` | Markdown mode + TOC + preview/export |
-| `init-org.el` | Org-mode config + org-modern + evil-org |
+| `init-org.el` | Org-mode config + org-modern + evil-org + GTD agenda |
 | `init-roam.el` | org-roam + md-roam (org/md mixed graph) + dailies + graph UI |
+| `init-dashboard.el` | Startup dashboard with recent files and quick actions |
 | `init-workspace.el` | Three-column layout: treemacs + outline + terminal |
 | `init-pkm.el` | org-transclusion + org-ql |
 | `init-evil.el` | Evil mode + general.el leader keys + magit |

@@ -14,7 +14,7 @@
   "Return all agenda candidate files under NoteHQ."
   (let ((root my/note-home))
     (if (file-directory-p root)
-        (directory-files-recursively root "\\.\\(org\\|md\\)\\'")
+        (directory-files-recursively root "\\.org\\'")
       nil)))
 
 (defun my/org-refresh-agenda-files ()

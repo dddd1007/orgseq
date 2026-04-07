@@ -23,6 +23,9 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
+# Debug/test logs
+*.log
+
 # Backup files
 *~
 \#*\#

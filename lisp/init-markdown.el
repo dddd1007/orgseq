@@ -3,7 +3,6 @@
 (defun my/markdown-setup ()
   "Apply opinionated defaults for Markdown editing."
   (visual-line-mode 1)
-  (setq-local fill-column 100)
   (display-line-numbers-mode 0))
 
 (use-package markdown-mode

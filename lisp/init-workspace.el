@@ -9,31 +9,36 @@
 ;;   │          │                        │   (~20%)   │
 ;;   └──────────┴────────────────────────┴────────────┘
 
-;; ---- Frame: VSCode/Logseq-like initial size ----
+;; ---- Frame: large initial size for writing ----
 (when (display-graphic-p)
   (let* ((fw (x-display-pixel-width))
          (fh (x-display-pixel-height))
-         (w  (min (floor (* fw 0.75)) 1600))
-         (h  (min (floor (* fh 0.80)) 960)))
+         (w  (min (floor (* fw 0.88)) 1920))
+         (h  (min (floor (* fh 0.90)) 1080)))
     (push `(width  . (text-pixels . ,w)) default-frame-alist)
     (push `(height . (text-pixels . ,h)) default-frame-alist)
     (push '(left . 0.5) default-frame-alist)
     (push '(top  . 0.5) default-frame-alist)))
 
-;; ---- MSYS2 shell detection ----
-(defvar my/workspace-shell
-  (cond
-   ((executable-find "bash") (executable-find "bash"))
-   ((executable-find "powershell") (executable-find "powershell"))
-   ((getenv "SHELL"))
-   (t "cmd.exe"))
-  "Shell to use for the workspace terminal.")
+;; ---- MSYS2 shell detection (deferred until terminal is actually needed) ----
+(defvar my/workspace-shell nil
+  "Shell for workspace terminal. Detected lazily on first use.")
+
+(defun my/workspace-detect-shell ()
+  "Detect available shell, cached after first call."
+  (or my/workspace-shell
+      (setq my/workspace-shell
+            (cond
+             ((executable-find "bash") (executable-find "bash"))
+             ((executable-find "powershell") (executable-find "powershell"))
+             ((getenv "SHELL"))
+             (t "cmd.exe")))))
 
 ;; ---- treemacs: file tree rooted at NoteHQ ----
 (use-package treemacs
   :demand t
   :custom
-  (treemacs-width 30)
+  (treemacs-width 28)
   (treemacs-width-is-initially-locked t)
   (treemacs-position 'left)
   (treemacs-show-hidden-files nil)
@@ -43,12 +48,10 @@
   (treemacs-is-never-other-window nil)
   :config
   (treemacs-follow-mode t)
-  (treemacs-filewatch-mode t)
   (treemacs-fringe-indicator-mode 'always))
 
 (use-package treemacs-evil
-  :after (treemacs evil)
-  :demand t)
+  :after (treemacs evil))
 
 (use-package treemacs-nerd-icons
   :after (treemacs nerd-icons)
@@ -57,17 +60,15 @@
 
 ;; ---- imenu-list: outline sidebar ----
 (use-package imenu-list
-  :demand t
+  :commands (imenu-list-smart-toggle imenu-list-minor-mode)
   :custom
   (imenu-list-position 'right)
-  (imenu-list-size 0.23)
+  (imenu-list-size 0.20)
   (imenu-list-focus-after-activation nil)
   (imenu-list-auto-resize nil))
 
-;; ---- Terminal: eshell (built-in, works on all platforms) ----
+;; ---- Terminal: eshell (built-in, spawned on demand) ----
 (setq eshell-directory-name (expand-file-name "eshell/" user-emacs-directory))
-(when (eq system-type 'windows-nt)
-  (setq explicit-shell-file-name my/workspace-shell))
 
 ;; ---- Workspace orchestration ----
 
@@ -77,9 +78,10 @@
     (make-directory note-dir t)
     (treemacs-select-window)
     (let ((ws (treemacs-current-workspace)))
-      (unless (cl-find note-dir
+      (unless (cl-find (file-name-as-directory note-dir)
                        (treemacs-workspace->projects ws)
-                       :test #'string=
+                       :test (lambda (a b)
+                               (string= a (file-name-as-directory b)))
                        :key #'treemacs-project->path)
         (treemacs-do-add-project-to-workspace note-dir "NoteHQ")))))
 
@@ -106,29 +108,55 @@
                           (window-list)))))
     (select-window editor-win)
 
-    ;; Step 3: split editor → editor (left ~78%) | right panel (~22%)
-    (let* ((right-cols (max 30 (floor (* (window-total-width editor-win) 0.22))))
+    ;; Step 3: split editor -> editor (~80%) | right panel (~20%)
+    (let* ((right-cols (max 28 (floor (* (window-total-width editor-win) 0.20))))
            (right-win (split-window editor-win (- (window-total-width editor-win) right-cols)
                                     'right)))
 
-      ;; Step 4: right panel → outline (top 60%) | terminal (bottom 40%)
-      (select-window right-win)
-      (switch-to-buffer (get-buffer-create "*Ilist*"))
-      (imenu-list-minor-mode 1)
-
+      ;; Step 4: right panel -> outline (top 60%) | terminal (bottom 40%)
       (let* ((term-rows (max 8 (floor (* (window-total-height right-win) 0.40))))
              (term-win (split-window right-win (- (window-total-height right-win) term-rows)
                                      'below)))
         (select-window term-win)
-        (my/workspace-open-terminal))))
+        (my/workspace-open-terminal))
 
-  ;; Step 5: focus back to main editor
+      ;; Enable imenu-list from editor window so it tracks the right buffer
+      (select-window editor-win)
+      (imenu-list-minor-mode 1)))
+
+  ;; Step 5: focus back to main editor, show dashboard if no file is open
   (let ((editor-win (car (cl-remove-if
                           (lambda (w)
                             (string-match-p "\\*Treemacs\\|\\*Ilist\\|\\*NoteHQ"
                                             (buffer-name (window-buffer w))))
                           (window-list)))))
-    (when editor-win (select-window editor-win))))
+    (when editor-win
+      (select-window editor-win)
+      (when-let ((dash (get-buffer "*dashboard*")))
+        (unless (cl-some #'buffer-file-name (buffer-list))
+          (switch-to-buffer dash))))))
+
+(defun my/workspace-startup ()
+  "Startup layout: treemacs + editor + outline. Terminal deferred to SPC l e."
+  (delete-other-windows)
+  (my/workspace-open-treemacs)
+  (let ((editor-win (car (cl-remove-if
+                          (lambda (w) (string-match-p "Treemacs"
+                                                      (buffer-name (window-buffer w))))
+                          (window-list)))))
+    (when editor-win
+      (select-window editor-win)
+      ;; Split right panel for outline
+      (let* ((right-cols (max 28 (floor (* (window-total-width editor-win) 0.20))))
+             (_right-win (split-window editor-win
+                                       (- (window-total-width editor-win) right-cols)
+                                       'right)))
+        ;; Enable imenu-list from editor window so it tracks the correct buffer
+        (imenu-list-minor-mode 1))
+      ;; Focus back to editor, show dashboard
+      (select-window editor-win)
+      (when-let ((dash (get-buffer "*dashboard*")))
+        (switch-to-buffer dash)))))
 
 (defun my/workspace-toggle-sidebar ()
   "Toggle treemacs sidebar."
@@ -143,18 +171,23 @@
   (imenu-list-smart-toggle))
 
 (defun my/workspace-toggle-terminal ()
-  "Toggle NoteHQ terminal."
+  "Toggle NoteHQ terminal. When opening, split below the current window."
   (interactive)
   (let ((term-buf (get-buffer "*NoteHQ-term*")))
     (if (and term-buf (get-buffer-window term-buf))
         (delete-window (get-buffer-window term-buf))
-      (my/workspace-open-terminal))))
+      (let ((win (split-window nil (floor (* (window-total-height) 0.6)) 'below)))
+        (select-window win)
+        (if term-buf
+            (switch-to-buffer term-buf)
+          (my/workspace-open-terminal))))))
 
-;; Auto-open workspace on GUI startup
+;; Startup: lightweight layout (treemacs + dashboard, no terminal)
+;; Use SPC l l for full 3-column layout with terminal
 (add-hook 'emacs-startup-hook
           (lambda ()
             (when (display-graphic-p)
-              (run-at-time 0.5 nil #'my/workspace-setup))))
+              (run-at-time 0.3 nil #'my/workspace-startup))))
 
 (provide 'init-workspace)
 ;;; init-workspace.el ends here

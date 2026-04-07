@@ -34,13 +34,6 @@
     :prefix "SPC"
     :global-prefix "M-SPC")
 
-  ;; Local leader: , (mode-specific bindings)
-  (general-create-definer my/local-leader-keys
-    :states '(normal visual emacs)
-    :keymaps 'override
-    :prefix ","
-    :global-prefix "M-,")
-
   ;; ---- Doom-style SPC key groups ----
   (my/leader-keys
     ;; Top-level shortcuts
@@ -143,6 +136,20 @@
     :demand t
     :init (which-key-mode)
     :config (setq which-key-idle-delay 0.3)))
+
+;; ---- Auto-dismiss which-key popup after 10s of inactivity ----
+(defvar my/which-key-auto-dismiss-seconds 10
+  "Seconds of idle time before auto-dismissing the which-key popup.")
+
+(run-with-idle-timer
+ my/which-key-auto-dismiss-seconds t
+ (lambda ()
+   (when (and (fboundp 'which-key--popup-showing-p)
+              (which-key--popup-showing-p))
+     (if (fboundp 'which-key--hide-popup)
+         (which-key--hide-popup)
+       (when (fboundp 'which-key-abort)
+         (which-key-abort))))))
 
 (provide 'init-evil)
 ;;; init-evil.el ends here

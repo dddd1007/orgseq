@@ -21,10 +21,9 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-function Write-Status($icon, $msg) { Write-Host "  $icon $msg" }
-function Write-Pass($msg) { Write-Status "✓" $msg -ForegroundColor Green }
-function Write-Warn($msg) { Write-Status "⚠" $msg -ForegroundColor Yellow }
-function Write-Fail($msg) { Write-Status "✗" $msg -ForegroundColor Red }
+function Write-Pass($msg) { Write-Host "  ✓ $msg" -ForegroundColor Green }
+function Write-Warn($msg) { Write-Host "  ⚠ $msg" -ForegroundColor Yellow }
+function Write-Fail($msg) { Write-Host "  ✗ $msg" -ForegroundColor Red }
 function Write-Section($msg) { Write-Host "`n── $msg ──" -ForegroundColor Cyan }
 
 # ── Prerequisites ──
