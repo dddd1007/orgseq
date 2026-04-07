@@ -36,6 +36,8 @@ org-seq/
 ��       ├── add-package.md     # /add-package — add new package following conventions
 │       ├── deploy-config.md   # /deploy-config — deploy to ~/.emacs.d/
 │       └── check-windows-deps.md # /check-windows-deps — verify external deps
+├── deploy.ps1             # Windows deployment script (PowerShell)
+├── deploy.sh              # Linux/macOS deployment script (Bash)
 ├── README.md              # Quick start and usage guide
 ├── LICENSE                # MIT license
 ├── snippets/              # YASnippet templates (future)

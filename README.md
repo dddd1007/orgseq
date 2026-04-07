@@ -21,21 +21,22 @@ Primary target: **Windows** (with Linux/macOS compatibility).
 1. Clone this repo:
    ```bash
    git clone <repo-url> ~/CodeProject/org-seq
+   cd ~/CodeProject/org-seq
    ```
 
-2. Copy config to Emacs directory (PowerShell, Windows):
+2. Run the deploy script (checks prerequisites, backs up existing config, deploys):
+
+   PowerShell (Windows):
    ```powershell
-   New-Item -ItemType Directory -Force "$HOME/.emacs.d" | Out-Null
-   Copy-Item -Force early-init.el, init.el "$HOME/.emacs.d/"
-   Copy-Item -Recurse -Force lisp "$HOME/.emacs.d/"
+   .\deploy.ps1
    ```
 
-   Linux/macOS:
+   Bash (Linux/macOS):
    ```bash
-   mkdir -p ~/.emacs.d
-   cp early-init.el init.el ~/.emacs.d/
-   cp -r lisp ~/.emacs.d/
+   ./deploy.sh
    ```
+
+   Options: `--force` (skip prompts), `--skip-checks` (skip prerequisite check), `--target DIR` (custom directory).
 
 3. Launch Emacs — packages will auto-install on first run (needs internet).
 
