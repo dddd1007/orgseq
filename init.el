@@ -56,13 +56,14 @@
     (message "⚠️ org-seq: %s not found. Install: %s" (car tool) (cdr tool))))
 
 ;; ---- Load modules ----
-;; Order: UI -> completion -> markdown -> org -> roam -> pkm -> dashboard -> workspace -> evil (last)
+;; Order: UI -> completion -> markdown -> org -> roam -> pkm -> ai -> dashboard -> workspace -> evil (last)
 (require 'init-ui)
 (require 'init-completion)
 (require 'init-markdown)
 (require 'init-org)
 (require 'init-roam)
 (require 'init-pkm)
+(require 'init-ai)
 (require 'init-dashboard)
 (require 'init-workspace)
 (require 'init-evil)

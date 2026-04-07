@@ -131,6 +131,19 @@
     "hp"  '(describe-package :wk "Package")
     "ha"  '(apropos :wk "Apropos")
 
+    ;; ── SPC i — AI ──
+    "i"   '(:ignore t :wk "AI")
+    "ii"  '(gptel-send :wk "Send to LLM")
+    "im"  '(gptel-menu :wk "Menu (models/params)")
+    "ic"  '(gptel :wk "Chat buffer")
+    "ir"  '(gptel-rewrite :wk "Rewrite region")
+    "ia"  '(gptel-add :wk "Add context")
+    "is"  '(my/ai-summarize :wk "Summarize")
+    "it"  '(my/ai-suggest-tags :wk "Suggest tags")
+    "il"  '(my/ai-translate :wk "Translate")
+    "ik"  '(my/ai-connections :wk "Find connections")
+    "ip"  '(my/ai-improve :wk "Improve writing")
+
     ;; ── SPC l — Layout / workspace ──
     "l"   '(:ignore t :wk "layout")
     "ll"  '(my/workspace-setup :wk "Open workspace")

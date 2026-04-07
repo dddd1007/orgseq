@@ -11,6 +11,7 @@ This project produces a deployable `~/.emacs.d/` configuration. The output is Em
 - **Markdown**: markdown-mode + markdown-toc (preview/export/TOC workflow)
 - **Completion**: Vertico + Orderless + Consult + Marginalia + Embark
 - **PKM Engine**: org-roam + md-roam (Org/Markdown mixed graph) + org-transclusion + org-ql
+- **AI**: gptel (LLM client, OpenRouter) + ob-gptel (org-babel AI blocks)
 - **UI**: modus-themes (default) + doom-modeline + org-modern + nerd-icons + olivetti
 - **Fonts**: CJK mixed typesetting (set-fontset-font + face-font-rescale-alist)
 
@@ -28,8 +29,9 @@ org-seq/
 │   ├── init-org.el        # Org-mode base + org-modern + evil-org (loaded 4th)
 │   ├── init-roam.el       # org-roam + md-roam + capture + dailies (loaded 5th)
 │   ├── init-pkm.el        # org-transclusion + org-ql (loaded 6th)
-│   ├── init-dashboard.el  # Startup dashboard with recent files (loaded 7th)
-│   ├── init-workspace.el  # Three-column layout: treemacs + outline + terminal (loaded 8th)
+│   ├── init-ai.el         # gptel + ob-gptel + PKM AI commands (loaded 7th)
+│   ├── init-dashboard.el  # Startup dashboard with recent files (loaded 8th)
+│   ├── init-workspace.el  # Three-column layout: treemacs + outline + terminal (loaded 9th)
 │   ├── init-evil.el       # Evil + evil-collection + general.el + which-key + magit (loaded last)
 │   └── banner.txt         # ASCII art banner for dashboard
 ├── .claude/
@@ -100,10 +102,11 @@ org-seq/
 
 ### Module Load Order (init.el)
 ```
-init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm -> init-dashboard -> init-workspace -> init-evil
+init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm -> init-ai -> init-dashboard -> init-workspace -> init-evil
 ```
 - `init-evil` loads last because `evil-org` (in init-org) uses `:after (org evil)`
 - `init-org` before `init-roam` because org-roam depends on org
+- `init-ai` after `init-pkm` because it uses gptel with org-roam context; before `init-dashboard`
 - `init-dashboard` after `init-roam` because it needs org-roam and nerd-icons to be ready
 - `init-workspace` after `init-dashboard` because startup layout displays the dashboard buffer
 - `init-pkm` before `init-evil` because leader keys reference `my/org-roam-rg-search`
