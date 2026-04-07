@@ -203,5 +203,48 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
   (require 'evil-org-agenda)
   (evil-org-agenda-set-keys))
 
+;; ---- Local leader keys for Org buffers ----
+;; Bound to , (normal/visual) and M-, (insert).
+;; Requires general.el (loaded later in init-evil), so defer via eval-after-load.
+(with-eval-after-load 'general
+  (general-define-key
+   :states '(normal visual emacs)
+   :keymaps 'org-mode-map
+   :prefix ","
+   :global-prefix "M-,"
+
+   ""   '(nil :wk "org")
+
+   ;; Top-level org operations
+   "r"  '(org-refile :wk "Refile")
+   "a"  '(org-archive-subtree :wk "Archive")
+   "t"  '(org-set-tags-command :wk "Set tags")
+   "p"  '(org-set-property :wk "Set property")
+   "e"  '(org-set-effort :wk "Set effort")
+   "x"  '(org-export-dispatch :wk "Export")
+   "l"  '(org-insert-link :wk "Insert link")
+   "L"  '(org-store-link :wk "Store link")
+   "s"  '(org-schedule :wk "Schedule")
+   "d"  '(org-deadline :wk "Deadline")
+   "i"  '(org-time-stamp :wk "Timestamp")
+   "I"  '(org-time-stamp-inactive :wk "Timestamp (inactive)")
+   "n"  '(org-narrow-to-subtree :wk "Narrow to subtree")
+   "w"  '(widen :wk "Widen")
+   "c"  '(org-toggle-checkbox :wk "Toggle checkbox")
+
+   ;; , k — Clock
+   "k"  '(:ignore t :wk "clock")
+   "ki" '(org-clock-in :wk "Clock in")
+   "ko" '(org-clock-out :wk "Clock out")
+   "kg" '(org-clock-goto :wk "Goto clock")
+   "kr" '(org-clock-report :wk "Report")
+   "kc" '(org-clock-cancel :wk "Cancel")
+
+   ;; , b — Babel
+   "b"  '(:ignore t :wk "babel")
+   "be" '(org-babel-execute-src-block :wk "Execute block")
+   "bb" '(org-babel-execute-buffer :wk "Execute buffer")
+   "bt" '(org-babel-tangle :wk "Tangle")))
+
 (provide 'init-org)
 ;;; init-org.el ends here

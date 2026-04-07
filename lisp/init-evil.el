@@ -1,5 +1,28 @@
 ;;; init-evil.el --- Evil mode + SPC leader keys -*- lexical-binding: t; -*-
 
+;; ---- Utility functions for leader keys ----
+
+(defun my/copy-file-path ()
+  "Copy the current buffer's file path to the kill ring."
+  (interactive)
+  (if-let ((path (buffer-file-name)))
+      (progn (kill-new path) (message "Copied: %s" path))
+    (message "Buffer has no file")))
+
+(defun my/delete-current-file ()
+  "Delete the current file and kill its buffer."
+  (interactive)
+  (let ((file (buffer-file-name)))
+    (when (and file (yes-or-no-p (format "Delete %s?" file)))
+      (delete-file file) (kill-buffer))))
+
+(defun my/switch-to-dashboard ()
+  "Switch to the *dashboard* buffer, or refresh if absent."
+  (interactive)
+  (if-let ((buf (get-buffer "*dashboard*")))
+      (switch-to-buffer buf)
+    (dashboard-open)))
+
 ;; ---- Evil core ----
 (use-package evil
   :demand t
@@ -34,29 +57,158 @@
     :prefix "SPC"
     :global-prefix "M-SPC")
 
-  ;; ---- Doom-style SPC key groups ----
+  ;; ================================================================
+  ;; SPC leader key system
+  ;; ================================================================
+
   (my/leader-keys
-    ;; Top-level shortcuts
+    ;; ── Top-level shortcuts ──
     "SPC" '(execute-extended-command :wk "M-x")
     "."   '(find-file :wk "Find file")
     ","   '(consult-buffer :wk "Switch buffer")
     "/"   '(consult-ripgrep :wk "Project search")
     "TAB" '(evil-switch-to-windows-last-buffer :wk "Last buffer")
+    "RET" '(bookmark-jump :wk "Jump to bookmark")
+    "'"   '(my/workspace-toggle-terminal :wk "Terminal popup")
 
-    ;; SPC b - Buffer
+    ;; ── SPC a — Agenda / GTD ──
+    "a"   '(:ignore t :wk "agenda")
+    "aa"  '(org-agenda :wk "Dispatcher")
+    "an"  '(my/org-open-task-dashboard :wk "Task dashboard")
+    "ap"  '(my/org-open-project-dashboard :wk "Project dashboard")
+    "aw"  '(my/org-open-weekly-review :wk "Weekly review")
+    "at"  '(org-todo-list :wk "All tasks")
+    "ac"  '(org-capture :wk "Capture")
+    "ar"  '((lambda () (interactive) (my/org-roam-agenda-files t)) :wk "Refresh cache")
+
+    ;; ── SPC b — Buffer ──
     "b"   '(:ignore t :wk "buffer")
     "bb"  '(consult-buffer :wk "Switch")
     "bd"  '(kill-current-buffer :wk "Kill")
     "bs"  '(save-buffer :wk "Save")
+    "bS"  '(evil-write-all :wk "Save all")
+    "bn"  '(evil-buffer-new :wk "New")
+    "br"  '(revert-buffer-quick :wk "Revert")
+    "bl"  '(ibuffer :wk "List (ibuffer)")
+    "bm"  '(bookmark-set :wk "Bookmark set")
+    "bp"  '(previous-buffer :wk "Previous")
+    "bN"  '(next-buffer :wk "Next")
 
-    ;; SPC f - File
+    ;; ── SPC e — Eval / Execute ──
+    "e"   '(:ignore t :wk "eval")
+    "ee"  '(eval-last-sexp :wk "Last sexp")
+    "eb"  '(eval-buffer :wk "Buffer")
+    "er"  '(eval-region :wk "Region")
+    "ed"  '(eval-defun :wk "Defun")
+
+    ;; ── SPC f — File ──
     "f"   '(:ignore t :wk "file")
     "ff"  '(find-file :wk "Open file")
     "fr"  '(consult-recent-file :wk "Recent files")
     "fs"  '(save-buffer :wk "Save")
+    "fS"  '(write-file :wk "Save as")
     "fp"  '((lambda () (interactive) (find-file user-init-file)) :wk "Config")
+    "fd"  '(consult-find :wk "Find by name (fd)")
+    "fR"  '(rename-visited-file :wk "Rename")
+    "fD"  '(my/delete-current-file :wk "Delete")
+    "fy"  '(my/copy-file-path :wk "Copy path")
 
-    ;; SPC w - Window
+    ;; ── SPC g — Git ──
+    "g"   '(:ignore t :wk "git")
+    "gg"  '(magit-status :wk "Status")
+    "gb"  '(magit-blame-addition :wk "Blame")
+    "gl"  '(magit-log-current :wk "Log")
+    "gd"  '(magit-diff-dwim :wk "Diff")
+    "gf"  '(magit-file-dispatch :wk "File ops")
+
+    ;; ── SPC h — Help ──
+    "h"   '(:ignore t :wk "help")
+    "hf"  '(describe-function :wk "Function")
+    "hv"  '(describe-variable :wk "Variable")
+    "hk"  '(describe-key :wk "Key")
+    "hm"  '(describe-mode :wk "Mode")
+    "hi"  '(info :wk "Info manual")
+    "hp"  '(describe-package :wk "Package")
+    "ha"  '(apropos :wk "Apropos")
+
+    ;; ── SPC l — Layout / workspace ──
+    "l"   '(:ignore t :wk "layout")
+    "ll"  '(my/workspace-setup :wk "Open workspace")
+    "lt"  '(my/workspace-toggle-sidebar :wk "Toggle treemacs")
+    "lo"  '(my/workspace-toggle-outline :wk "Toggle outline")
+    "le"  '(my/workspace-toggle-terminal :wk "Toggle terminal")
+    "ld"  '(my/switch-to-dashboard :wk "Dashboard")
+
+    ;; ── SPC n — Notes / org-roam ──
+    "n"   '(:ignore t :wk "notes")
+    "nf"  '(org-roam-node-find :wk "Find note")
+    "ni"  '(org-roam-node-insert :wk "Insert link")
+    "nc"  '(org-roam-capture :wk "New note")
+    "nb"  '(org-roam-buffer-toggle :wk "Backlinks")
+    "ng"  '(org-roam-ui-mode :wk "Graph view")
+    "ns"  '(my/org-roam-rg-search :wk "Search notes")
+    "na"  '(org-roam-alias-add :wk "Add alias")
+    "nr"  '(org-roam-ref-add :wk "Add ref")
+
+    ;; SPC n d — Dailies
+    "nd"  '(:ignore t :wk "dailies")
+    "ndd" '(org-roam-dailies-capture-today :wk "Capture today")
+    "ndt" '(org-roam-dailies-goto-today :wk "Goto today")
+    "ndy" '(org-roam-dailies-goto-yesterday :wk "Yesterday")
+    "ndT" '(org-roam-dailies-goto-tomorrow :wk "Tomorrow")
+    "ndf" '(org-roam-dailies-find-date :wk "Find date")
+    "ndc" '(org-roam-dailies-capture-date :wk "Capture date")
+    "ndp" '(org-roam-dailies-goto-previous-note :wk "Previous note")
+    "ndn" '(org-roam-dailies-goto-next-note :wk "Next note")
+
+    ;; SPC n t — Transclusion
+    "nt"  '(:ignore t :wk "transclusion")
+    "nta" '(org-transclusion-add :wk "Add")
+    "ntt" '(org-transclusion-mode :wk "Toggle mode")
+    "ntm" '(org-transclusion-transient-menu :wk "Menu")
+    "ntr" '(org-transclusion-refresh :wk "Refresh")
+
+    ;; SPC n q — Query (org-ql)
+    "nq"  '(:ignore t :wk "query")
+    "nqs" '(org-ql-search :wk "Search")
+    "nqv" '(org-ql-view :wk "View")
+
+    ;; ── SPC o — Open ──
+    "o"   '(:ignore t :wk "open")
+    "ot"  '(my/workspace-toggle-terminal :wk "Terminal")
+    "od"  '(my/switch-to-dashboard :wk "Dashboard")
+    "oa"  '(org-agenda :wk "Agenda")
+    "of"  '(treemacs :wk "File tree")
+    "oe"  '((lambda () (interactive) (find-file user-emacs-directory)) :wk "Config dir")
+
+    ;; ── SPC p — Project ──
+    "p"   '(:ignore t :wk "project")
+    "pp"  '(project-switch-project :wk "Switch project")
+    "pf"  '(project-find-file :wk "Find file")
+    "ps"  '(consult-ripgrep :wk "Search")
+    "pb"  '(project-switch-to-buffer :wk "Buffer")
+
+    ;; ── SPC s — Search ──
+    "s"   '(:ignore t :wk "search")
+    "ss"  '(consult-line :wk "Buffer")
+    "sp"  '(consult-ripgrep :wk "Project")
+    "si"  '(consult-imenu :wk "Imenu")
+    "so"  '(consult-outline :wk "Outline")
+    "sb"  '(consult-bookmark :wk "Bookmark")
+    "sf"  '(consult-find :wk "File by name")
+    "sr"  '(query-replace :wk "Replace")
+    "sR"  '(query-replace-regexp :wk "Replace regexp")
+
+    ;; ── SPC t — Toggle ──
+    "t"   '(:ignore t :wk "toggle")
+    "tt"  '(consult-theme :wk "Theme")
+    "tl"  '(display-line-numbers-mode :wk "Line numbers")
+    "tw"  '(visual-line-mode :wk "Word wrap")
+    "to"  '(olivetti-mode :wk "Olivetti")
+    "tf"  '(toggle-frame-fullscreen :wk "Fullscreen")
+    "ti"  '(org-modern-mode :wk "Org-modern")
+
+    ;; ── SPC w — Window ──
     "w"   '(:ignore t :wk "window")
     "wv"  '(evil-window-vsplit :wk "Vsplit")
     "ws"  '(evil-window-split :wk "Hsplit")
@@ -66,67 +218,22 @@
     "wj"  '(evil-window-down :wk "Down")
     "wk"  '(evil-window-up :wk "Up")
     "wl"  '(evil-window-right :wk "Right")
+    "w="  '(balance-windows :wk "Balance")
+    "w>"  '(evil-window-increase-width :wk "Width +")
+    "w<"  '(evil-window-decrease-width :wk "Width -")
+    "w+"  '(evil-window-increase-height :wk "Height +")
+    "w-"  '(evil-window-decrease-height :wk "Height -")
+    "wo"  '(other-window :wk "Other window")
 
-    ;; SPC s - Search
-    "s"   '(:ignore t :wk "search")
-    "ss"  '(consult-line :wk "Buffer")
-    "sp"  '(consult-ripgrep :wk "Project")
-    "si"  '(consult-imenu :wk "Imenu")
-    "so"  '(consult-outline :wk "Outline")
-
-    ;; SPC n - Notes (PKM core)
-    "n"   '(:ignore t :wk "notes")
-    "nf"  '(org-roam-node-find :wk "Find note")
-    "ni"  '(org-roam-node-insert :wk "Insert link")
-    "nc"  '(org-roam-capture :wk "New note")
-    "na"  '(my/org-open-task-dashboard :wk "Task dashboard")
-    "np"  '(my/org-open-project-dashboard :wk "Project dashboard")
-    "nr"  '(my/org-open-weekly-review :wk "Weekly review")
-    "nt"  '(org-todo-list :wk "All tasks")
-    "nb"  '(org-roam-buffer-toggle :wk "Backlinks")
-    "nd"  '(org-roam-dailies-capture-today :wk "Daily note")
-    "ng"  '(org-roam-ui-mode :wk "Graph view")
-    "ns"  '(my/org-roam-rg-search :wk "Search notes")
-
-    ;; SPC p - Project
-    "p"   '(:ignore t :wk "project")
-    "pp"  '(project-switch-project :wk "Switch project")
-    "pf"  '(project-find-file :wk "Project file")
-
-    ;; SPC g - Git
-    "g"   '(:ignore t :wk "git")
-    "gg"  '(magit-status :wk "Magit")
-
-    ;; SPC h - Help
-    "h"   '(:ignore t :wk "help")
-    "hf"  '(describe-function :wk "Function")
-    "hv"  '(describe-variable :wk "Variable")
-    "hk"  '(describe-key :wk "Key")
-
-    ;; SPC l - Layout / workspace
-    "l"   '(:ignore t :wk "layout")
-    "ll"  '(my/workspace-setup :wk "Open workspace")
-    "lt"  '(my/workspace-toggle-sidebar :wk "Toggle treemacs")
-    "lo"  '(my/workspace-toggle-outline :wk "Toggle outline")
-    "le"  '(my/workspace-toggle-terminal :wk "Toggle terminal")
-
-    ;; SPC m - Markdown
-    "m"   '(:ignore t :wk "markdown")
-    "mv"  '(my/markdown-toggle-live-preview :wk "Toggle live preview")
-
-    ;; SPC t - Toggle
-    "t"   '(:ignore t :wk "toggle")
-    "tt"  '(consult-theme :wk "Theme")
-    "tl"  '(display-line-numbers-mode :wk "Line numbers")
-
-    ;; SPC q - Quit
+    ;; ── SPC q — Quit ──
     "q"   '(:ignore t :wk "quit")
     "qq"  '(save-buffers-kill-emacs :wk "Quit Emacs")))
 
 ;; ---- magit: Git interface ----
 ;; ⚠️ Windows: may be slow on large repos, set magit-git-executable to full path if needed
 (use-package magit
-  :commands magit-status)
+  :commands (magit-status magit-blame-addition magit-log-current
+             magit-diff-dwim magit-file-dispatch))
 
 ;; ---- which-key: key hint popup ----
 ;; Built-in since Emacs 30; install from MELPA only on 29.
