@@ -66,6 +66,10 @@ Leader keys use `SPC` in normal/visual mode. In insert mode, use `M-SPC`.
 | `, e` | Markdown export (markdown buffers only) |
 | `, t` | Markdown TOC insert (markdown buffers only) |
 | `, r` | Markdown TOC refresh (markdown buffers only) |
+| `SPC l l` | Open 3-column workspace |
+| `SPC l t` | Toggle treemacs sidebar |
+| `SPC l o` | Toggle outline sidebar |
+| `SPC l e` | Toggle terminal |
 | `SPC /` | Project-wide search (ripgrep) |
 | `SPC ,` | Switch buffer |
 | `SPC g g` | Magit status |
@@ -83,6 +87,7 @@ Task flow (GTD style): `TODO -> NEXT -> IN-PROGRESS -> DONE`, plus `WAITING` and
 | `init-markdown.el` | Markdown mode + TOC + preview/export |
 | `init-org.el` | Org-mode config + org-modern + evil-org |
 | `init-roam.el` | org-roam + md-roam (org/md mixed graph) + dailies + graph UI |
+| `init-workspace.el` | Three-column layout: treemacs + outline + terminal |
 | `init-pkm.el` | org-transclusion + org-ql |
 | `init-evil.el` | Evil mode + general.el leader keys + magit |
 

@@ -63,6 +63,7 @@
 (require 'init-org)
 (require 'init-roam)
 (require 'init-pkm)
+(require 'init-workspace)
 (require 'init-evil)
 
 ;;; init.el ends here

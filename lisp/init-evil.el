@@ -110,6 +110,13 @@
     "hv"  '(describe-variable :wk "Variable")
     "hk"  '(describe-key :wk "Key")
 
+    ;; SPC l - Layout / workspace
+    "l"   '(:ignore t :wk "layout")
+    "ll"  '(my/workspace-setup :wk "Open workspace")
+    "lt"  '(my/workspace-toggle-sidebar :wk "Toggle treemacs")
+    "lo"  '(my/workspace-toggle-outline :wk "Toggle outline")
+    "le"  '(my/workspace-toggle-terminal :wk "Toggle terminal")
+
     ;; SPC t - Toggle
     "t"   '(:ignore t :wk "toggle")
     "tt"  '(consult-theme :wk "Theme")
