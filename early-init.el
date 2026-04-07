@@ -22,8 +22,4 @@
 (setq native-comp-async-report-warnings-errors 'silent
       native-comp-jit-compilation t)
 
-;; 5. Windows-specific early settings
-(when (eq system-type 'windows-nt)
-  (setq w32-pipe-read-delay 0))
-
 ;;; early-init.el ends here

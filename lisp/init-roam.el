@@ -86,10 +86,15 @@
           ("j" "Journal" entry "* %<%H:%M> Journal\n%?\n"
            :target (file+head+olp "%<%Y-%m-%d>.org"
                                   "#+title: %<%Y-%m-%d>\n"
-                                  ("Journal"))))))
+                                  ("Journal")))))
+
+  ;; Autosync fallback: if md-roam is unavailable, start autosync here.
+  ;; When md-roam IS available, its use-package block below will call
+  ;; org-roam-db-autosync-mode after enabling md-roam-mode.
+  (unless (locate-library "md-roam")
+    (org-roam-db-autosync-mode)))
 
 ;; ---- md-roam: mixed Org + Markdown graph for Obsidian compatibility ----
-;; Enable md-roam before org-roam autosync.
 (use-package md-roam
   :after org-roam
   :if (locate-library "md-roam")

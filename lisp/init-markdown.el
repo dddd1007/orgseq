@@ -29,5 +29,22 @@
   :init
   (setq markdown-toc-header-toc-title "## Table of Contents"))
 
+;; ---- Local leader keys for Markdown buffers ----
+;; Bound to , (normal/visual) and M-, (insert).
+;; Requires general.el (loaded later in init-evil), so defer via eval-after-load.
+(with-eval-after-load 'general
+  (general-define-key
+   :states '(normal visual emacs)
+   :keymaps '(markdown-mode-map gfm-mode-map)
+   :prefix ","
+   :global-prefix "M-,"
+   "" '(nil :wk "markdown")
+   "p" '(markdown-preview :wk "Preview")
+   "e" '(markdown-export :wk "Export")
+   "t" '(markdown-toc-generate-toc :wk "Insert TOC")
+   "r" '(markdown-toc-refresh-toc :wk "Refresh TOC")
+   "o" '(markdown-toggle-markup-hiding :wk "Toggle markup")
+   "l" '(markdown-insert-link :wk "Insert link")))
+
 (provide 'init-markdown)
 ;;; init-markdown.el ends here

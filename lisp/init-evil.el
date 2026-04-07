@@ -110,13 +110,6 @@
     "hv"  '(describe-variable :wk "Variable")
     "hk"  '(describe-key :wk "Key")
 
-    ;; SPC m - Markdown
-    "m"   '(:ignore t :wk "markdown")
-    "mp"  '(markdown-preview :wk "Preview")
-    "me"  '(markdown-export :wk "Export")
-    "mt"  '(markdown-toc-generate-toc :wk "Insert TOC")
-    "mr"  '(markdown-toc-refresh-toc :wk "Refresh TOC")
-
     ;; SPC t - Toggle
     "t"   '(:ignore t :wk "toggle")
     "tt"  '(consult-theme :wk "Theme")

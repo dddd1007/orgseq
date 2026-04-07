@@ -61,10 +61,10 @@ Leader keys use `SPC` in normal/visual mode. In insert mode, use `M-SPC`.
 | `SPC n d` | Daily note |
 | `SPC n b` | Toggle backlinks |
 | `SPC n g` | Graph view |
-| `SPC m p` | Markdown preview |
-| `SPC m e` | Markdown export |
-| `SPC m t` | Markdown TOC insert |
-| `SPC m r` | Markdown TOC refresh |
+| `, p` | Markdown preview (markdown buffers only) |
+| `, e` | Markdown export (markdown buffers only) |
+| `, t` | Markdown TOC insert (markdown buffers only) |
+| `, r` | Markdown TOC refresh (markdown buffers only) |
 | `SPC /` | Project-wide search (ripgrep) |
 | `SPC ,` | Switch buffer |
 | `SPC g g` | Magit status |

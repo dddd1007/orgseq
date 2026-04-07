@@ -11,7 +11,7 @@
   "Return all agenda candidate files under org-roam."
   (let ((root (my/org-roam-root-directory)))
     (if (file-directory-p root)
-        (directory-files-recursively root "\\.org\\'")
+        (directory-files-recursively root "\\.\\(org\\|md\\)\\'")
       nil)))
 
 (defun my/org-refresh-agenda-files ()
