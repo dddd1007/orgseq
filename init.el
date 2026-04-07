@@ -72,4 +72,10 @@
 (require 'init-workspace)
 (require 'init-evil)
 
+;; ---- Emacs server ----
+;; Start server so emacsclient can connect instantly.
+;; Windows: server-use-tcp is set above; clients use emacsclient -c -a ""
+(unless (or (daemonp) (server-running-p))
+  (server-start))
+
 ;;; init.el ends here
