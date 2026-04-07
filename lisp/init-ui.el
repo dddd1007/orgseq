@@ -1,22 +1,30 @@
 ;;; init-ui.el --- Fonts, themes, modeline -*- lexical-binding: t; -*-
 
 ;; ---- CJK mixed typesetting ----
+(defvar my/cjk-font-candidates
+  '("Sarasa Fixed SC" "LXGW WenKai Mono" "Microsoft YaHei UI" "SimHei")
+  "CJK font candidates in preference order.")
+
+(defun my/first-available-font (candidates)
+  "Return the first installed font from CANDIDATES."
+  (cl-find-if (lambda (f) (member f (font-family-list))) candidates))
+
 (defun my/setup-fonts ()
   "Configure mixed CJK/Latin fonts."
   (when (display-graphic-p)
-    ;; Latin font
     (set-face-attribute 'default nil
                         :family "Cascadia Code"
-                        :height 130)  ; 13pt
+                        :height 130)
 
-    ;; CJK font: han, kana, symbol, cjk-misc, bopomofo
-    (dolist (charset '(kana han symbol cjk-misc bopomofo))
-      (set-fontset-font t charset
-                        (font-spec :family "LXGW WenKai Mono")))
-
-    ;; Rescale CJK font to align with Latin
-    (setq face-font-rescale-alist
-          '(("LXGW WenKai Mono" . 1.1)))))
+    (when-let ((cjk (my/first-available-font my/cjk-font-candidates)))
+      (dolist (charset '(kana han symbol cjk-misc bopomofo))
+        (set-fontset-font t charset (font-spec :family cjk)))
+      (setq face-font-rescale-alist
+            (cond
+             ((string= cjk "Sarasa Fixed SC")     `((,cjk . 1.0)))
+             ((string= cjk "LXGW WenKai Mono")    `((,cjk . 1.1)))
+             (t                                    `((,cjk . 1.05)))))
+      (message "org-seq: CJK font → %s" cjk))))
 
 ;; Handle daemon mode
 (if (daemonp)
