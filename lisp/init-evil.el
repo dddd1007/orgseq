@@ -42,7 +42,8 @@
 
 (use-package evil-collection
   :after evil
-  :config (evil-collection-init))
+  :config (evil-collection-init
+           '(bookmark dired ibuffer info magit org org-roam)))
 
 ;; ---- general.el: leader key framework ----
 (use-package general

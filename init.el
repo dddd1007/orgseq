@@ -8,6 +8,12 @@
             (message "Emacs loaded in %s with %d garbage collections."
                      (emacs-init-time) gcs-done)))
 
+;; ---- Runtime performance (Doom-style) ----
+(setq-default bidi-display-reordering 'left-to-right)
+(setq bidi-inhibit-bpa t)
+(setq-default cursor-in-non-selected-windows nil)
+(setq highlight-nonselected-windows nil)
+
 ;; ---- Windows performance tuning ----
 (when (eq system-type 'windows-nt)
   (setq read-process-output-max (* 1024 1024))  ; 1MB
@@ -22,12 +28,14 @@
   (setq server-use-tcp t))
 
 ;; ---- Package management ----
+;; package-quickstart is enabled in early-init.el; Emacs auto-loads the
+;; precomputed autoloads file, so we skip (package-initialize) here.
+;; On first run (or after adding packages), run: M-x package-quickstart-refresh
 (require 'package)
 (setq package-archives
       '(("gnu"    . "https://elpa.gnu.org/packages/")
         ("nongnu" . "https://elpa.nongnu.org/nongnu/")
         ("melpa"  . "https://melpa.org/packages/")))
-(package-initialize)
 (unless package-archive-contents
   (package-refresh-contents))
 
@@ -52,12 +60,14 @@
   :ensure nil
   :init (savehist-mode))
 
-;; ---- External dependency checks ----
-(dolist (tool '(("rg" . "ripgrep") ("fd" . "fd-find")))
-  (unless (executable-find (car tool))
-    (message "⚠️ org-seq: %s (%s) not found. Install via your package manager%s."
-             (car tool) (cdr tool)
-             (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))
+;; ---- External dependency checks (deferred to avoid process spawns during init) ----
+(run-with-idle-timer 2 nil
+  (lambda ()
+    (dolist (tool '(("rg" . "ripgrep") ("fd" . "fd-find")))
+      (unless (executable-find (car tool))
+        (message "⚠️ org-seq: %s (%s) not found. Install via your package manager%s."
+                 (car tool) (cdr tool)
+                 (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
 ;; Order: UI -> completion -> markdown -> org -> roam -> pkm -> ai -> dashboard -> workspace -> evil (last)

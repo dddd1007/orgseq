@@ -127,6 +127,7 @@
 ;; ---- org-roam-ui: browser-based graph visualization ----
 (use-package org-roam-ui
   :after org-roam
+  :commands org-roam-ui-mode
   :config
   (setq org-roam-ui-sync-theme t
         org-roam-ui-follow t

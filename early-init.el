@@ -19,7 +19,21 @@
 (setq inhibit-startup-screen t
       inhibit-startup-message t)
 
-;; 4. Native-comp settings
+;; 4. Package-quickstart: precomputed autoloads, skip per-package scanning
+(setq package-quickstart t)
+
+;; 5. Skip mtime checks on bytecode during startup
+(setq load-prefer-newer nil)
+
+;; 6. Reduce load-suffixes (no dynamic modules during init)
+(defvar my--original-load-suffixes load-suffixes)
+(setq load-suffixes '(".elc" ".el"))
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (setq load-suffixes my--original-load-suffixes
+                  load-prefer-newer t)))
+
+;; 7. Native-comp settings
 (setq native-comp-async-report-warnings-errors 'silent
       native-comp-jit-compilation t)
 

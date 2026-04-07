@@ -24,8 +24,13 @@
     (push '(top  . 0.5) default-frame-alist)))
 
 ;; ---- treemacs: file tree rooted at NoteHQ ----
+;; Deferred: loaded when workspace-startup or workspace-setup runs (~0.3s after init)
 (use-package treemacs
-  :demand t
+  :defer t
+  :commands (treemacs treemacs-select-window treemacs-current-visibility
+             treemacs-get-local-window treemacs-current-workspace
+             treemacs-workspace->projects treemacs-project->path
+             treemacs-do-add-project-to-workspace)
   :custom
   (treemacs-width 24)
   (treemacs-width-is-initially-locked t)
@@ -44,7 +49,6 @@
 
 (use-package treemacs-nerd-icons
   :after (treemacs nerd-icons)
-  :demand t
   :config (treemacs-load-theme "nerd-icons"))
 
 ;; ---- imenu-list: outline sidebar ----

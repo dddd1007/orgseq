@@ -16,7 +16,8 @@
 
 ;; ---- org-ql: SQL-like query language for org ----
 (use-package org-ql
-  :after org)
+  :after org
+  :commands (org-ql-search org-ql-view))
 
 ;; ---- org-supertag: structured tag system (experimental) ----
 ;; Uncomment when ready to experiment:

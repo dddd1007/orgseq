@@ -14,7 +14,9 @@
 
 ;; ---- gptel: LLM client ----
 (use-package gptel
-  :demand t
+  :defer t
+  :commands (gptel gptel-send gptel-menu gptel-rewrite gptel-add
+             gptel-request gptel-make-openai gptel-make-preset)
   :config
   (setq gptel-default-mode 'org-mode)
 
