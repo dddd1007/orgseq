@@ -190,7 +190,7 @@ print_summary() {
     echo "    3. Notes root at ~/NoteHQ/, org-roam at ~/NoteHQ/Roam/ (auto-created)"
     echo "    4. Point Obsidian at ~/NoteHQ/ to use it as reading client"
     echo ""
-    echo "  Key bindings:  SPC → leader menu  |  SPC n a → task dashboard"
+    echo "  Key bindings:  SPC → leader menu  |  SPC a n → task dashboard"
     echo ""
 }
 

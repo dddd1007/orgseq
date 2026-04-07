@@ -33,7 +33,7 @@ org-seq/
 │   ├── init-dashboard.el  # Startup dashboard with recent files (loaded 8th)
 │   ├── init-workspace.el  # Three-column layout: treemacs + outline + terminal (loaded 9th)
 │   ├── init-evil.el       # Evil + evil-collection + general.el + which-key + magit (loaded last)
-│   └── banner.txt         # ASCII art banner for dashboard
+│   └── banner-compact.txt # ASCII art banner for dashboard
 ├── .claude/
 │   ├── settings.local.json # Permissions for Claude Code
 │   └── skills/
@@ -109,7 +109,7 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm
 - `init-ai` after `init-pkm` because it uses gptel with org-roam context; before `init-dashboard`
 - `init-dashboard` after `init-roam` because it needs org-roam and nerd-icons to be ready
 - `init-workspace` after `init-dashboard` because startup layout displays the dashboard buffer
-- `init-pkm` before `init-evil` because leader keys reference `my/org-roam-rg-search`
+- `init-pkm` before `init-evil` because leader keys reference transclusion/org-ql commands
 
 ### Claude Code Skills
 - `/elisp-lint` — Byte-compile check all `.el` files, report errors

@@ -54,30 +54,34 @@ Leader keys use `SPC` in normal/visual mode. In insert mode, use `M-SPC`.
 | Key | Action |
 |-----|--------|
 | `SPC SPC` | M-x |
+| `SPC a n` | GTD task dashboard |
+| `SPC a p` | GTD project dashboard |
+| `SPC a w` | GTD weekly review |
+| `SPC a t` | All tasks list |
+| `SPC a c` | Org capture |
 | `SPC n f` | Find note (org-roam) |
-| `SPC n c` | New note |
-| `SPC n a` | Task dashboard (all org-roam tasks) |
-| `SPC n p` | Project dashboard |
-| `SPC n r` | Weekly review |
-| `SPC n t` | All tasks list |
-| `SPC n d` | Daily note |
+| `SPC n c` | New note (org-roam capture) |
 | `SPC n i` | Insert link (org-roam) |
-| `SPC n s` | Search notes (ripgrep) |
 | `SPC n b` | Toggle backlinks |
+| `SPC n s` | Search notes (ripgrep) |
 | `SPC n g` | Graph view |
-| `, p` | Markdown preview (markdown buffers only) |
-| `, e` | Markdown export (markdown buffers only) |
-| `, t` | Markdown TOC insert (markdown buffers only) |
-| `, r` | Markdown TOC refresh (markdown buffers only) |
-| `, o` | Toggle markup hiding (markdown buffers only) |
-| `, l` | Insert link (markdown buffers only) |
-| `SPC l l` | Open 3-column workspace |
-| `SPC l t` | Toggle treemacs sidebar |
-| `SPC l o` | Toggle outline sidebar |
-| `SPC l e` | Toggle terminal |
+| `SPC n d d` | Daily note (capture today) |
+| `SPC n d t` | Daily note (goto today) |
+| `SPC i i` | Send to AI (gptel) |
+| `SPC i m` | AI menu (models/params) |
+| `SPC i c` | AI chat buffer |
+| `SPC i r` | AI rewrite region |
+| `SPC i s` | AI summarize note |
+| `SPC i l` | AI translate |
 | `SPC /` | Project-wide search (ripgrep) |
 | `SPC ,` | Switch buffer |
 | `SPC g g` | Magit status |
+| `SPC l l` | Open 3-column workspace |
+| `, r` | Org refile (org buffers) |
+| `, x` | Org export (org buffers) |
+| `, k i` | Clock in (org buffers) |
+| `, v` | Toggle preview (markdown buffers) |
+| `, e` | Export (markdown buffers) |
 
 Press `SPC` and wait for the which-key popup to see all available keys.
 
@@ -93,6 +97,7 @@ Task flow (GTD style): `TODO -> NEXT -> IN-PROGRESS -> DONE`, plus `WAITING` and
 | `init-org.el` | Org-mode config + org-modern + evil-org + GTD agenda |
 | `init-roam.el` | org-roam + md-roam (org/md mixed graph) + dailies + graph UI |
 | `init-pkm.el` | org-transclusion + org-ql |
+| `init-ai.el` | gptel (LLM client, OpenRouter) + ob-gptel (org-babel AI) |
 | `init-dashboard.el` | Startup dashboard with recent files and quick actions |
 | `init-workspace.el` | Three-column layout: treemacs + outline + terminal |
 | `init-evil.el` | Evil mode + general.el leader keys + magit |

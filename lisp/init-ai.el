@@ -34,34 +34,32 @@
 
   (setq gptel-model 'deepseek/deepseek-chat-v3-0324)
 
-  (setq gptel--system-message
-        "You are a helpful PKM assistant in Emacs. Respond concisely in the user's language. Preserve org-mode markup when working with notes.")
+  ;; PKM-oriented default system prompt (public API)
+  (push '(pkm . "You are a helpful PKM assistant in Emacs. Respond concisely in the user's language. Preserve org-mode markup when working with notes.")
+        gptel-directives)
 
   ;; Org-mode: branching conversations per heading
   (setq gptel-org-branching-context t)
 
   ;; ---- PKM Presets ----
-  ;; Available via gptel-menu (@preset-name) or programmatically
+  ;; Available via gptel-menu (@preset-name) or programmatically.
+  ;; gptel-make-preset requires gptel v0.9.9+; guard for older versions.
+  (when (fboundp 'gptel-make-preset)
+    (gptel-make-preset 'summarize
+      :description "Summarize note"
+      :system "Summarize the following text concisely, preserving key concepts and their relationships. Use the same language as the input. Format with org-mode markup.")
 
-  (gptel-make-preset 'summarize
-    :description "Summarize note"
-    :system "Summarize the following text concisely, preserving key concepts and their relationships. Use the same language as the input. Format with org-mode markup.")
+    (gptel-make-preset 'suggest-tags
+      :description "Suggest filetags"
+      :system "Based on this note content, suggest 3-5 relevant tags. Output ONLY in #+filetags: :tag1:tag2:tag3: format. No explanation needed.")
 
-  (gptel-make-preset 'suggest-tags
-    :description "Suggest filetags"
-    :system "Based on this note content, suggest 3-5 relevant tags. Output ONLY in #+filetags: :tag1:tag2:tag3: format. No explanation needed.")
+    (gptel-make-preset 'translate
+      :description "Translate CN↔EN"
+      :system "You are a professional translator. If the input is Chinese, translate to English. If English, translate to Chinese. Preserve formatting. Output only the translation.")
 
-  (gptel-make-preset 'improve
-    :description "Improve writing"
-    :rewrite-message "Improve the clarity, flow, and precision of this text. Preserve its meaning, voice, and language. Keep org-mode markup intact.")
-
-  (gptel-make-preset 'translate
-    :description "Translate CN↔EN"
-    :system "You are a professional translator. If the input is Chinese, translate to English. If English, translate to Chinese. Preserve formatting. Output only the translation.")
-
-  (gptel-make-preset 'connections
-    :description "Suggest note connections"
-    :system "Based on this note from a Zettelkasten PKM system, suggest 3-5 related concepts or topics that might already exist as separate notes. For each, briefly explain the connection. Use org-mode list format. Respond in the same language as the input."))
+    (gptel-make-preset 'connections
+      :description "Suggest note connections"
+      :system "Based on this note from a Zettelkasten PKM system, suggest 3-5 related concepts or topics that might already exist as separate notes. For each, briefly explain the connection. Use org-mode list format. Respond in the same language as the input.")))
 
 ;; ---- Custom PKM AI commands ----
 
@@ -112,9 +110,7 @@
   "Improve writing quality of selected region via gptel-rewrite."
   (interactive)
   (unless (use-region-p) (user-error "Select a region to improve"))
-  (let ((gptel--rewrite-message
-         "Improve the clarity, flow, and precision. Preserve meaning, voice, and language. Keep org-mode markup intact."))
-    (call-interactively #'gptel-rewrite)))
+  (call-interactively #'gptel-rewrite))
 
 (defun my/ai-connections ()
   "Suggest conceptual connections for the current note."

@@ -20,7 +20,7 @@ Copy the org-seq configuration to the user's Emacs directory for use.
 5. Remind the user about post-deployment steps:
    - First launch will download packages (needs internet)
    - Run `M-x nerd-icons-install-fonts` then manually install .ttf files (Windows)
-   - `~/org-roam/` and subdirs are auto-created on first launch by init-roam.el
+   - `~/NoteHQ/Roam/` and subdirs are auto-created on first launch by init-roam.el
    - Install external tools: `rg` (ripgrep), `fd` (fd-find)
 
 ## Files NOT deployed (stay in repo only)

@@ -26,6 +26,9 @@ Desktop.ini
 # Local Claude Code config
 .claude/settings.local.json
 
+# Cursor IDE state
+.cursor/
+
 # Session history
 history
 

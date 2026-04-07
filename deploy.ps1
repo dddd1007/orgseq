@@ -206,7 +206,7 @@ function Write-PostInstall {
     Write-Host "    3. Notes root at ~/NoteHQ/, org-roam at ~/NoteHQ/Roam/ (auto-created)"
     Write-Host "    4. Point Obsidian at ~/NoteHQ/ to use it as reading client"
     Write-Host ""
-    Write-Host "  Key bindings:  SPC → leader menu  |  SPC n a → task dashboard" -ForegroundColor DarkGray
+    Write-Host "  Key bindings:  SPC → leader menu  |  SPC a n → task dashboard" -ForegroundColor DarkGray
     Write-Host ""
 }
 

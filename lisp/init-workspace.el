@@ -63,7 +63,7 @@
 
 (defun my/workspace-open-treemacs ()
   "Open treemacs rooted at NoteHQ."
-  (let ((note-dir (file-truename "~/NoteHQ/")))
+  (let ((note-dir my/note-home))
     (make-directory note-dir t)
     (treemacs-select-window)
     (let ((ws (treemacs-current-workspace)))
@@ -79,7 +79,7 @@
 
 (defun my/workspace-open-terminal ()
   "Open eshell terminal in the selected window, rooted at NoteHQ."
-  (let ((default-directory (file-truename "~/NoteHQ/")))
+  (let ((default-directory my/note-home))
     (make-directory default-directory t)
     (let ((buf (eshell 'new)))
       (with-current-buffer buf

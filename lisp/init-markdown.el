@@ -47,7 +47,7 @@
 
 (defun my/markdown-preview-buffer-p ()
   "Return non-nil when current buffer is a Markdown live preview buffer."
-  (and markdown-live-preview-source-buffer
+  (and (bound-and-true-p markdown-live-preview-source-buffer)
        (buffer-live-p markdown-live-preview-source-buffer)))
 
 (defun my/markdown-switch-to-live-preview ()
