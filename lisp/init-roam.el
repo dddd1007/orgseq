@@ -1,13 +1,16 @@
 ;;; init-roam.el --- org-roam PKM engine -*- lexical-binding: t; -*-
 
-;; md-roam is not on MELPA; install from GitHub once.
-(unless (package-installed-p 'md-roam)
-  (if (fboundp 'package-vc-install)
-      (condition-case err
-          (package-vc-install "https://github.com/nobiot/md-roam")
-        (error
-         (message "⚠️ org-seq: failed to install md-roam: %s" err)))
-    (message "⚠️ org-seq: package-vc-install unavailable, skip md-roam bootstrap.")))
+;; md-roam is not on MELPA; bootstrap from GitHub.
+;; Emacs 30+ can use use-package :vc directly (see md-roam block below).
+;; For Emacs 29, install via package-vc-install before use-package loads it.
+(when (< emacs-major-version 30)
+  (unless (package-installed-p 'md-roam)
+    (if (fboundp 'package-vc-install)
+        (condition-case err
+            (package-vc-install "https://github.com/nobiot/md-roam")
+          (error
+           (message "⚠️ org-seq: failed to install md-roam: %s" err)))
+      (message "⚠️ org-seq: package-vc-install unavailable, skip md-roam bootstrap."))))
 
 (use-package org-roam
   :demand t
@@ -95,15 +98,25 @@
     (org-roam-db-autosync-mode)))
 
 ;; ---- md-roam: mixed Org + Markdown graph for Obsidian compatibility ----
-(use-package md-roam
-  :after org-roam
-  :if (locate-library "md-roam")
-  :custom
-  (md-roam-file-extension "md")
-  :config
-  (setq org-roam-file-extensions '("org" "md"))
-  (md-roam-mode 1)
-  (org-roam-db-autosync-mode 1))
+;; Emacs 30+: use-package :vc installs from GitHub declaratively.
+;; Emacs 29:  pre-installed above via package-vc-install; :vc keyword unavailable.
+(if (>= emacs-major-version 30)
+    (use-package md-roam
+      :after org-roam
+      :vc (:url "https://github.com/nobiot/md-roam" :rev :newest)
+      :custom (md-roam-file-extension "md")
+      :config
+      (setq org-roam-file-extensions '("org" "md"))
+      (md-roam-mode 1)
+      (org-roam-db-autosync-mode 1))
+  (use-package md-roam
+    :after org-roam
+    :if (locate-library "md-roam")
+    :custom (md-roam-file-extension "md")
+    :config
+    (setq org-roam-file-extensions '("org" "md"))
+    (md-roam-mode 1)
+    (org-roam-db-autosync-mode 1)))
 
 ;; ---- Full-text search in org-roam directory ----
 (defun my/org-roam-rg-search ()

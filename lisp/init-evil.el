@@ -125,7 +125,9 @@
   :commands magit-status)
 
 ;; ---- which-key: key hint popup ----
+;; Built-in since Emacs 30; fall back to MELPA on 29.
 (use-package which-key
+  :ensure (< emacs-major-version 30)
   :demand t
   :init (which-key-mode)
   :config (setq which-key-idle-delay 0.3))
