@@ -85,9 +85,9 @@ org-seq/
 ## Development Workflow
 
 ### Testing Config Changes
-1. Byte-compile check: `emacs --batch -f batch-byte-compile <file>.el`
-2. Load test: `emacs -Q -l early-init.el -l init.el`
-3. Startup time: `emacs --eval="(message \"%s\" (emacs-init-time))"`
+1. Byte-compile check: `emacs --batch -Q -L . -L lisp -f batch-byte-compile <file>.el`
+2. Load test (from repo root): `emacs -Q --eval "(setq user-emacs-directory default-directory)" -l early-init.el -l init.el`
+3. Startup time (deployed): `emacs --eval "(message \"%s\" (emacs-init-time))"`
 
 ### Adding a New Package
 1. Add `use-package` declaration in the appropriate `lisp/init-*.el` module

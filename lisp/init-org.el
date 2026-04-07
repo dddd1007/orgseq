@@ -160,11 +160,13 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
 ;; ═══════════════════════════════════════════════════════════════════════════
 
 (defun my/gtd--collect-active-children ()
-  "Collect markers of active tasks in current subtree (bottom-up order)."
+  "Collect markers of active child tasks in current subtree.
+Excludes the current heading itself."
   (let ((markers '())
         (subtree-end (save-excursion (org-end-of-subtree t) (point))))
     (save-excursion
       (org-back-to-heading t)
+      (forward-line 1)
       (while (re-search-forward org-heading-regexp subtree-end t)
         (when (member (org-get-todo-state) my/gtd-active-states)
           (push (point-marker) markers))))
@@ -549,10 +551,11 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
                            (when cs (cl-incf child-total))
                            (when (member cs my/gtd-active-states) (cl-incf child-active))
                            (when (equal cs "NEXT") (cl-incf child-next)))))
-                     (unless (gethash htext proj-data)
-                       (push htext proj-names)
-                       (puthash htext (vector child-active child-total (point-marker) child-next)
-                                proj-data))))))
+                     (let ((proj-key (concat (or buffer-file-name "") "\0" htext)))
+                       (unless (gethash proj-key proj-data)
+                         (push (cons proj-key htext) proj-names)
+                         (puthash proj-key (vector child-active child-total (point-marker) child-next)
+                                  proj-data)))))))
              nil 'file)))))
     ;; Render dashboard
     (let ((buf (get-buffer-create "*GTD*")))
@@ -581,8 +584,10 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
           (when proj-names
             (insert "\n")
             (my/gtd--dash-section "Projects")
-            (dolist (name (nreverse proj-names))
-              (let* ((v (gethash name proj-data))
+            (dolist (entry (nreverse proj-names))
+              (let* ((proj-key (car entry))
+                     (name (cdr entry))
+                     (v (gethash proj-key proj-data))
                      (child-active (aref v 0))
                      (child-total (aref v 1))
                      (mark (aref v 2))
@@ -635,7 +640,8 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
         (switch-to-buffer buf)
         (let ((right (split-window-right (floor (* 0.3 (frame-width))))))
           (set-window-buffer right (or (get-buffer "*dashboard*")
-                                       (current-buffer))))))))
+                                       (get-buffer "*scratch*")
+                                       (get-buffer-create "*scratch*"))))))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 11: Auto-refresh
