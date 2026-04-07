@@ -9,9 +9,9 @@ Primary target: **Windows** (with Linux/macOS compatibility).
 - **Emacs 29+** (required for built-in SQLite and use-package)
   - Windows: MSYS2 build recommended for native-comp support
   - Verify: `M-: (sqlite-available-p)` must return `t`
-- **ripgrep** (`rg`): `winget install BurntSushi.ripgrep.MSVC`
-- **fd**: `winget install sharkdp.fd`
-- **git**: for magit integration
+- **ripgrep** (`rg`): recommended for consult-ripgrep
+- **fd**: recommended for consult-find
+- **git**: required for magit
 - **Fonts** (optional but recommended):
   - [Cascadia Code](https://github.com/microsoft/cascadia-code) (Latin)
   - [LXGW WenKai Mono](https://github.com/lxgw/LxgwWenKai) (CJK)
@@ -36,8 +36,7 @@ Primary target: **Windows** (with Linux/macOS compatibility).
    ./deploy.sh
    ```
 
-   PowerShell options: `-Force`, `-SkipChecks`, `-Target DIR`
-   Bash options: `--force`, `--skip-checks`, `--target DIR`
+   Options: `-Force` / `--force`, `-SkipChecks` / `--skip-checks`, `-Target DIR` / `--target DIR`
 
 3. Launch Emacs — packages will auto-install on first run (needs internet).
 
@@ -49,64 +48,151 @@ Primary target: **Windows** (with Linux/macOS compatibility).
 
 ## Key Bindings
 
-Leader keys use `SPC` in normal/visual mode. In insert mode, use `M-SPC`.
+Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` and wait for the which-key popup to see all available keys.
+
+### Top-level
 
 | Key | Action |
 |-----|--------|
 | `SPC SPC` | M-x |
-| `SPC a n` | GTD task dashboard |
-| `SPC a p` | GTD project dashboard |
-| `SPC a w` | GTD weekly review |
-| `SPC a c` | Org capture |
-| `SPC a d` | GTD Dashboard (live counts) |
+| `SPC .` | Find file |
+| `SPC ,` | Switch buffer |
+| `SPC /` | Project-wide search (ripgrep) |
+| `SPC TAB` | Last buffer |
+| `SPC RET` | Jump to bookmark |
+| `SPC '` | Toggle terminal |
+
+### SPC a — Agenda / GTD
+
+| Key | Action |
+|-----|--------|
+| `SPC a d` | GTD Dashboard (live counts + projects) |
+| `SPC a n` | GTD overview (composite view) |
+| `SPC a p` | Project dashboard |
+| `SPC a w` | Weekly review |
 | `SPC a u` | Upcoming tasks (grouped by day) |
-| `SPC n f` | Find note (org-roam) |
-| `SPC n c` | New note (org-roam capture) |
-| `SPC n i` | Insert link (org-roam) |
+| `SPC a c` | Org capture |
+| `SPC a e` | State picker (single-keypress) |
+| `SPC a 0` | Inbox |
+| `SPC a 1` | Today |
+| `SPC a 3` | Anytime (NEXT, no schedule) |
+| `SPC a 4` | Waiting |
+| `SPC a 5` | Someday |
+| `SPC a 6` | Logbook (completed) |
+| `SPC a 7` | Context view |
+
+### SPC n — Notes / org-roam
+
+| Key | Action |
+|-----|--------|
+| `SPC n f` | Find note |
+| `SPC n c` | New note (capture) |
+| `SPC n i` | Insert link |
 | `SPC n b` | Toggle backlinks |
 | `SPC n s` | Search notes (ripgrep) |
 | `SPC n g` | Graph view |
+| `SPC n a` | Add alias |
+| `SPC n r` | Add ref |
 | `SPC n d d` | Daily note (capture today) |
 | `SPC n d t` | Daily note (goto today) |
-| `SPC i i` | Send to AI (gptel) |
+| `SPC n d y` | Yesterday |
+| `SPC n d f` | Find date |
+| `SPC n t a` | Transclusion add |
+| `SPC n q s` | org-ql search |
+
+### SPC i — AI
+
+| Key | Action |
+|-----|--------|
+| `SPC i i` | Send to LLM |
 | `SPC i m` | AI menu (models/params) |
-| `SPC i c` | AI chat buffer |
-| `SPC i r` | AI rewrite region |
-| `SPC i s` | AI summarize note |
-| `SPC i l` | AI translate |
-| `SPC c c` | Casual menu (contextual Transient) |
-| `SPC /` | Project-wide search (ripgrep) |
-| `SPC ,` | Switch buffer |
-| `SPC g g` | Magit status |
-| `SPC l l` | Open 3-column workspace |
-| `, r` | Org refile (org buffers) |
-| `, x` | Org export (org buffers) |
-| `, k i` | Clock in (org buffers) |
-| `, v` | Toggle preview (markdown buffers) |
-| `, e` | Export (markdown buffers) |
+| `SPC i c` | Chat buffer |
+| `SPC i r` | Rewrite region |
+| `SPC i s` | Summarize note |
+| `SPC i t` | Suggest tags |
+| `SPC i l` | Translate |
+| `SPC i k` | Find connections |
+| `SPC i p` | Improve writing |
 
-Press `SPC` and wait for the which-key popup to see all available keys.
+### Other groups
 
-Task flow (GTD style): `TODO -> NEXT -> IN-PROGRESS -> DONE`, plus `WAITING` and `SOMEDAY`.
+| Key | Action |
+|-----|--------|
+| `SPC b` | Buffer (switch/kill/save/revert/ibuffer) |
+| `SPC c c` | Casual menu (Transient for current mode) |
+| `SPC e` | Eval (last-sexp/buffer/region/defun) |
+| `SPC f` | File (open/recent/save/rename/delete/copy-path) |
+| `SPC g` | Git (status/blame/log/diff) |
+| `SPC h` | Help (function/variable/key/mode/info) |
+| `SPC l` | Layout (workspace/treemacs/outline/terminal/dashboard) |
+| `SPC o` | Open (terminal/dashboard/agenda/treemacs/config) |
+| `SPC p` | Project (switch/find-file/search/buffer) |
+| `SPC s` | Search (line/ripgrep/imenu/outline/bookmark/replace) |
+| `SPC t` | Toggle (theme/line-numbers/wrap/olivetti/fullscreen) |
+| `SPC w` | Window (split/close/maximize/navigate/resize) |
+| `SPC q q` | Quit Emacs |
+
+### `, ` Local leader (mode-specific)
+
+**In Org buffers:**
+
+| Key | Action |
+|-----|--------|
+| `, r` | Refile |
+| `, a` | Archive |
+| `, t` | Set tags |
+| `, s` | Schedule |
+| `, d` | Deadline |
+| `, x` | Export |
+| `, l` | Insert link |
+| `, q` | State picker |
+| `, h` | Hide/show done |
+| `, n` | Narrow to subtree |
+| `, w` | Widen |
+| `, k i/o/g` | Clock in/out/goto |
+| `, b e/b/t` | Babel execute/buffer/tangle |
+
+**In Markdown buffers:**
+
+| Key | Action |
+|-----|--------|
+| `, v` | Toggle live preview |
+| `, p` | Preview |
+| `, e` | Export |
+| `, t` | Insert TOC |
+| `, r` | Refresh TOC |
+| `, l` | Insert link |
+
+## GTD System
+
+TODO keywords: `PROJECT` → `TODO` → `NEXT` → `IN-PROGRESS` → `WAITING` / `SOMEDAY` → `DONE` / `CANCELLED`
+
+The GTD Dashboard (`SPC a d`) shows live counts and is the central hub:
+- **Inbox / Today / Upcoming / Anytime / Waiting / Someday / Logbook** with task counts
+- **Projects** with status indicators (● stuck, ~ no NEXT, blank = healthy)
+- **Context tags** (@work, @home, etc.) with NEXT task counts
+- Click any row to open the corresponding view in the right pane
 
 ## Module Structure
 
-| Module | Purpose |
-|--------|---------|
-| `init-ui.el` | Fonts (CJK mixed), modus-themes (default), doom-modeline, olivetti |
-| `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
-| `init-markdown.el` | Markdown mode + TOC + preview/export |
-| `init-org.el` | Org-mode config + org-modern + evil-org + GTD agenda |
-| `init-roam.el` | org-roam + md-roam (org/md mixed graph) + dailies + graph UI |
-| `init-pkm.el` | org-transclusion + org-ql |
-| `init-ai.el` | gptel (LLM client, OpenRouter) + ob-gptel (org-babel AI) |
-| `init-dashboard.el` | Startup dashboard with recent files and quick actions |
-| `init-workspace.el` | Three-column layout: treemacs + outline + terminal |
-| `init-evil.el` | Evil mode + general.el leader keys + magit |
+| # | Module | Purpose |
+|---|--------|---------|
+| 1 | `init-ui.el` | Fonts (CJK mixed), modus-themes, doom-modeline, olivetti |
+| 2 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
+| 3 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
+| 4 | `init-org.el` | Org-mode + GTD dashboard + 7 agenda views + state picker |
+| 5 | `init-roam.el` | org-roam + md-roam (org/md mixed graph) + dailies + graph UI |
+| 6 | `init-pkm.el` | org-transclusion + org-ql |
+| 7 | `init-ai.el` | gptel (OpenRouter) + ob-gptel (org-babel AI blocks) |
+| 8 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
+| 9 | `init-workspace.el` | Workspace: treemacs + outline + eshell terminal |
+| 10 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
 
-Notes live under `~/NoteHQ/`. org-roam uses `~/NoteHQ/Roam/`; other subdirectories are for non-roam notes. Tasks from all subdirectories appear in the GTD dashboard.
+## Notes Directory
 
-Obsidian workflow: point Obsidian at `~/NoteHQ/` as vault, use Emacs as the editing/workbench, Obsidian as a fast reading/search client.
+Notes live under `~/NoteHQ/`. org-roam uses `~/NoteHQ/Roam/` with subdirectories (`daily/`, `lit/`, `concepts/`). Other NoteHQ subdirectories can hold non-roam notes. GTD agenda scans the entire NoteHQ tree.
+
+**Obsidian workflow**: point Obsidian at `~/NoteHQ/` as vault. Use Emacs for editing/GTD, Obsidian as a fast reading/search client.
 
 ## Reference
 

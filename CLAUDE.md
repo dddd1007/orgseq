@@ -4,16 +4,17 @@ A modular Emacs configuration for building a personal knowledge management (PKM)
 
 ## Project Overview
 
-This project produces a deployable `~/.emacs.d/` configuration. The output is Emacs Lisp — not a standalone application. The config targets **Emacs 29+** (required for built-in SQLite and use-package).
+This project produces a deployable `~/.emacs.d/` configuration. The output is Emacs Lisp — not a standalone application. The config targets **Emacs 29+** (required for built-in SQLite and use-package). Org-mode is installed from GNU ELPA (not the built-in version) for latest features.
 
 ### Core Stack
 - **Editing**: Evil mode (Vim keybindings) + general.el (SPC leader keys)
+- **Org**: org-mode (from GNU ELPA) + org-modern + evil-org + GTD dashboard
 - **Markdown**: markdown-mode + markdown-toc (preview/export/TOC workflow)
 - **Completion**: Vertico + Orderless + Consult + Marginalia + Embark
 - **PKM Engine**: org-roam + md-roam (Org/Markdown mixed graph) + org-transclusion + org-ql
 - **AI**: gptel (LLM client, OpenRouter) + ob-gptel (org-babel AI blocks)
 - **Menus**: casual (Transient keyboard-driven menus for built-in modes)
-- **UI**: modus-themes (default) + doom-modeline + org-modern + nerd-icons + olivetti
+- **UI**: modus-themes (default) + doom-modeline + nerd-icons + olivetti
 - **Fonts**: CJK mixed typesetting (set-fontset-font + face-font-rescale-alist)
 
 ### Directory Layout
@@ -23,23 +24,24 @@ org-seq/
 ├── org-seq-build.md       # Research & reference guide (read-only)
 ├── early-init.el          # Pre-GUI: GC suppression, UI blocking, native-comp
 ├── init.el                # Bootstrap: package.el, use-package, module loading
+├── .gitattributes         # Line ending rules (LF for .el, CRLF for .ps1)
 ├── lisp/
 │   ├── init-ui.el         # Fonts, themes, modeline, olivetti (loaded 1st)
 │   ├── init-completion.el # Vertico stack (loaded 2nd)
 │   ├── init-markdown.el   # Markdown mode + TOC + preview/export (loaded 3rd)
-│   ├── init-org.el        # Org-mode base + org-modern + evil-org (loaded 4th)
+│   ├── init-org.el        # Org-mode + GTD dashboard + agenda views (loaded 4th)
 │   ├── init-roam.el       # org-roam + md-roam + capture + dailies (loaded 5th)
 │   ├── init-pkm.el        # org-transclusion + org-ql (loaded 6th)
 │   ├── init-ai.el         # gptel + ob-gptel + PKM AI commands (loaded 7th)
-│   ├── init-dashboard.el  # Startup dashboard with recent files (loaded 8th)
-│   ├── init-workspace.el  # Three-column layout: treemacs + outline + terminal (loaded 9th)
-│   ├── init-evil.el       # Evil + evil-collection + general.el + which-key + magit (loaded last)
+│   ├── init-dashboard.el  # Startup dashboard with vertical centering (loaded 8th)
+│   ├── init-workspace.el  # Workspace layout: treemacs + outline + terminal (loaded 9th)
+│   ├── init-evil.el       # Evil + general.el + which-key + magit + casual (loaded last)
 │   └── banner-compact.txt # ASCII art banner for dashboard
 ├── .claude/
-│   ├── settings.local.json # Permissions for Claude Code
+│   ├── settings.local.json # Permissions for Claude Code (not committed)
 │   └── skills/
 │       ├── elisp-lint.md      # /elisp-lint — batch byte-compile all .el files
-��       ├── add-package.md     # /add-package — add new package following conventions
+│       ├── add-package.md     # /add-package — add new package following conventions
 │       ├── deploy-config.md   # /deploy-config — deploy to ~/.emacs.d/
 │       └── check-windows-deps.md # /check-windows-deps — verify external deps
 ├── deploy.ps1             # Windows deployment script (PowerShell)
@@ -62,12 +64,13 @@ org-seq/
 
 ### Windows Compatibility (Critical)
 - **Paths**: Always use forward slashes `/` in elisp. Use `file-truename` for org-roam directories.
-- **Encoding**: Enforce `utf-8-unix` everywhere to avoid CRLF issues.
+- **Encoding**: Enforce `utf-8-unix` on Windows to avoid CRLF issues (cross-platform via `.gitattributes`).
 - **External tools**: consult-ripgrep needs `rg.exe`, consult-find needs `fd.exe`. Check with `executable-find`.
-- **Process performance**: Set `read-process-output-max` to 1MB, `w32-pipe-read-delay` to 0.
+- **Process performance**: Set `read-process-output-max` to 1MB, `w32-pipe-read-delay` to 0, `w32-pipe-buffer-size` to 64KB.
 - **find.exe conflict**: Windows `find.exe` != Unix find. Configure consult to use fd.
 - **Font installation**: nerd-icons fonts must be manually installed on Windows (right-click .ttf).
 - **Server mode**: Use `server-use-tcp t` on Windows (no Unix domain sockets).
+- **Package upgrades**: `package-install-upgrade-built-in` is set to `t` to allow upgrading Org and Transient from ELPA.
 
 ### Cross-Platform Pattern
 ```elisp
@@ -98,7 +101,7 @@ org-seq/
 
 ### Adding a New Module
 1. Create `lisp/init-<name>.el` with proper header and `(provide 'init-<name>)`
-2. Add `(require 'init-<name>)` in `init.el` — **load order matters**: UI/completion -> markdown/content -> org stack -> evil (last, needs org for evil-org)
+2. Add `(require 'init-<name>)` in `init.el` — **load order matters**
 3. Update the directory layout section in this file
 
 ### Module Load Order (init.el)
@@ -110,7 +113,6 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm
 - `init-ai` after `init-pkm` because it uses gptel with org-roam context; before `init-dashboard`
 - `init-dashboard` after `init-roam` because it needs org-roam and nerd-icons to be ready
 - `init-workspace` after `init-dashboard` because startup layout displays the dashboard buffer
-- `init-pkm` before `init-evil` because leader keys reference transclusion/org-ql commands
 
 ### Claude Code Skills
 - `/elisp-lint` — Byte-compile check all `.el` files, report errors
@@ -121,10 +123,12 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm
 ## Key Design Decisions
 
 - **package.el over straight.el**: Emacs 29+ has `package-vc-install` for git sources. Simpler for our config size.
+- **Org from ELPA**: `package-install-upgrade-built-in` enables installing latest Org from GNU ELPA independently of Emacs version.
 - **NoteHQ directory layout**: All notes live under `~/NoteHQ/`. org-roam uses `~/NoteHQ/Roam/` (with `daily/`, `lit/`, `concepts/` subdirs). Other subdirectories under NoteHQ can hold non-roam notes; GTD agenda scans the entire NoteHQ tree.
 - **No GCMH**: Direct `gc-cons-threshold` (16MB) is safer than gcmh's timer-based approach.
 - **org-modern over org-superstar**: org-modern uses text properties (more efficient), actively maintained by Daniel Mendler.
-- **org-supertag is experimental**: Included but behind awareness — frequent API changes, not on MELPA.
+- **org-supertag**: Commented out as an example in init-pkm.el — frequent API changes, not on MELPA. Not loaded by default.
+- **Workspace layout**: Default startup opens treemacs + dashboard (lightweight). Full 3-column layout (treemacs + outline + terminal) is on-demand via `SPC l l`.
 
 ## Troubleshooting Quick Reference
 
@@ -133,5 +137,6 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm
 | org-roam won't start | `M-: (sqlite-available-p)` must return `t` |
 | No native-comp | `M-: (native-comp-available-p)`, need MSYS2 build |
 | Chinese fonts broken | `M-: (font-family-list)` to verify font names |
-| ripgrep not found | `M-: (executable-find "rg")`, install via winget/scoop |
+| ripgrep not found | `M-: (executable-find "rg")`, install via package manager |
 | Slow startup | `M-x esup` or `M-x benchmark-init/show-durations-tabulated` |
+| Transient version too old | Verify `package-install-upgrade-built-in` is `t` |

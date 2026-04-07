@@ -13,12 +13,16 @@ Add a new Emacs package to the org-seq configuration following project conventio
 
 1. Research the package: check its source (GNU ELPA, MELPA, or GitHub), dependencies, and any known Windows issues
 2. Determine which module file (`lisp/init-*.el`) it belongs in based on its purpose:
-   - `init-evil.el` - keybinding and modal editing related
-   - `init-completion.el` - completion and search related
-   - `init-org.el` - org-mode base features
-   - `init-roam.el` - org-roam and PKM note-taking
-   - `init-pkm.el` - extended PKM tools (transclusion, query, tags)
    - `init-ui.el` - visual: fonts, themes, modeline, icons
+   - `init-completion.el` - completion and search related
+   - `init-markdown.el` - markdown editing, preview, TOC
+   - `init-org.el` - org-mode, GTD dashboard, agenda views
+   - `init-roam.el` - org-roam graph, capture, dailies
+   - `init-pkm.el` - extended PKM tools (transclusion, org-ql)
+   - `init-ai.el` - AI/LLM integration (gptel, ob-gptel)
+   - `init-dashboard.el` - startup dashboard
+   - `init-workspace.el` - workspace layout (treemacs, outline, terminal)
+   - `init-evil.el` - keybinding, modal editing, casual menus
 3. Write a `use-package` declaration following these conventions:
    - Use `:after` for dependencies
    - Use `:hook` for mode activation
