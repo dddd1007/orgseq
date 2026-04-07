@@ -35,9 +35,8 @@
         dashboard-set-heading-icons t
         dashboard-set-file-icons t
         dashboard-icon-type 'nerd-icons
-        dashboard-path-style 'truncate-middle
-        dashboard-path-max-length 60
-        dashboard-path-shorten-string "...")
+        dashboard-recentf-show-base t
+        dashboard-recentf-item-format "%s")
 
   ;; Fixed overhead: banner(8) + nav(1) + info(1) + section-header(2) + footer(3) + spacing(3) = 18
   (defvar my/dashboard-fixed-lines 18)

@@ -20,20 +20,6 @@
     (push '(left . 0.5) default-frame-alist)
     (push '(top  . 0.5) default-frame-alist)))
 
-;; ---- MSYS2 shell detection (deferred until terminal is actually needed) ----
-(defvar my/workspace-shell nil
-  "Shell for workspace terminal. Detected lazily on first use.")
-
-(defun my/workspace-detect-shell ()
-  "Detect available shell, cached after first call."
-  (or my/workspace-shell
-      (setq my/workspace-shell
-            (cond
-             ((executable-find "bash") (executable-find "bash"))
-             ((executable-find "powershell") (executable-find "powershell"))
-             ((getenv "SHELL"))
-             (t "cmd.exe")))))
-
 ;; ---- treemacs: file tree rooted at NoteHQ ----
 (use-package treemacs
   :demand t
@@ -81,7 +67,10 @@
       (unless (cl-find (file-name-as-directory note-dir)
                        (treemacs-workspace->projects ws)
                        :test (lambda (a b)
-                               (string= a (file-name-as-directory b)))
+                               (let ((b-norm (file-name-as-directory b)))
+                                 (if (eq system-type 'windows-nt)
+                                     (string= (downcase a) (downcase b-norm))
+                                   (string= a b-norm))))
                        :key #'treemacs-project->path)
         (treemacs-do-add-project-to-workspace note-dir "NoteHQ")))))
 

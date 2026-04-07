@@ -36,7 +36,8 @@ Primary target: **Windows** (with Linux/macOS compatibility).
    ./deploy.sh
    ```
 
-   Options: `--force` (skip prompts), `--skip-checks` (skip prerequisite check), `--target DIR` (custom directory).
+   PowerShell options: `-Force`, `-SkipChecks`, `-Target DIR`
+   Bash options: `--force`, `--skip-checks`, `--target DIR`
 
 3. Launch Emacs — packages will auto-install on first run (needs internet).
 
@@ -60,12 +61,16 @@ Leader keys use `SPC` in normal/visual mode. In insert mode, use `M-SPC`.
 | `SPC n r` | Weekly review |
 | `SPC n t` | All tasks list |
 | `SPC n d` | Daily note |
+| `SPC n i` | Insert link (org-roam) |
+| `SPC n s` | Search notes (ripgrep) |
 | `SPC n b` | Toggle backlinks |
 | `SPC n g` | Graph view |
 | `, p` | Markdown preview (markdown buffers only) |
 | `, e` | Markdown export (markdown buffers only) |
 | `, t` | Markdown TOC insert (markdown buffers only) |
 | `, r` | Markdown TOC refresh (markdown buffers only) |
+| `, o` | Toggle markup hiding (markdown buffers only) |
+| `, l` | Insert link (markdown buffers only) |
 | `SPC l l` | Open 3-column workspace |
 | `SPC l t` | Toggle treemacs sidebar |
 | `SPC l o` | Toggle outline sidebar |
@@ -87,9 +92,9 @@ Task flow (GTD style): `TODO -> NEXT -> IN-PROGRESS -> DONE`, plus `WAITING` and
 | `init-markdown.el` | Markdown mode + TOC + preview/export |
 | `init-org.el` | Org-mode config + org-modern + evil-org + GTD agenda |
 | `init-roam.el` | org-roam + md-roam (org/md mixed graph) + dailies + graph UI |
+| `init-pkm.el` | org-transclusion + org-ql |
 | `init-dashboard.el` | Startup dashboard with recent files and quick actions |
 | `init-workspace.el` | Three-column layout: treemacs + outline + terminal |
-| `init-pkm.el` | org-transclusion + org-ql |
 | `init-evil.el` | Evil mode + general.el leader keys + magit |
 
 Notes live under `~/NoteHQ/`. org-roam uses `~/NoteHQ/Roam/`; other subdirectories are for non-roam notes. Tasks from all subdirectories appear in the GTD dashboard.

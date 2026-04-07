@@ -41,7 +41,7 @@ check_prerequisites() {
         local ver
         ver="$(emacs --version | head -1)"
         local major
-        major="$(echo "$ver" | grep -oP '\d+' | head -1)"
+        major="$(echo "$ver" | grep -oE '[0-9]+' | head -1)"
         if [[ "$major" -ge 29 ]]; then
             pass "Emacs $major ($ver)"
         else

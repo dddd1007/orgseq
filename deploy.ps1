@@ -166,10 +166,10 @@ function Test-Deployment {
     }
 
     $lispDir = Join-Path $Target "lisp"
-    $args = @("--batch", "-Q", "-L", $Target, "-L", $lispDir, "-f", "batch-byte-compile") + $allFiles
+    $emacsArgs = @("--batch", "-Q", "-L", $Target, "-L", $lispDir, "-f", "batch-byte-compile") + $allFiles
 
     try {
-        $output = & emacs @args 2>&1
+        $output = & emacs @emacsArgs 2>&1
         $errors = $output | Where-Object { $_ -match "Error|error" }
         if ($errors) {
             Write-Warn "Byte-compile warnings:"
