@@ -11,7 +11,7 @@ This project produces a deployable `~/.emacs.d/` configuration. The output is Em
 - **Org**: org-mode (from GNU ELPA) + org-modern + evil-org + GTD dashboard
 - **Markdown**: markdown-mode + markdown-toc (preview/export/TOC workflow)
 - **Completion**: Vertico + Orderless + Consult + Marginalia + Embark
-- **PKM Engine**: org-roam + md-roam (Org/Markdown mixed graph) + org-transclusion + org-ql
+- **PKM Engine**: org-supertag (data layer) + org-roam (graph layer) + org-node/org-mem (performance layer) + org-transclusion + org-ql
 - **AI**: gptel (LLM client, OpenRouter) + ob-gptel (org-babel AI blocks)
 - **Menus**: casual (Transient keyboard-driven menus for built-in modes)
 - **UI**: modus-themes (default) + doom-modeline + nerd-icons + olivetti
@@ -22,6 +22,7 @@ This project produces a deployable `~/.emacs.d/` configuration. The output is Em
 org-seq/
 ├── CLAUDE.md              # This file
 ├── org-seq-build.md       # Research & reference guide (read-only)
+├── WORKFLOW.md            # Day-to-day GTD / roam habits (user-oriented)
 ├── early-init.el          # Pre-GUI: GC suppression, UI blocking, native-comp
 ├── init.el                # Bootstrap: package.el, use-package, module loading
 ├── .gitattributes         # Line ending rules (LF for .el, CRLF for .ps1)
@@ -29,12 +30,13 @@ org-seq/
 │   ├── init-ui.el         # Fonts, themes, modeline, olivetti (loaded 1st)
 │   ├── init-completion.el # Vertico stack (loaded 2nd)
 │   ├── init-markdown.el   # Markdown mode + TOC + preview/export (loaded 3rd)
-│   ├── init-org.el        # Org-mode + GTD dashboard + agenda views (loaded 4th)
-│   ├── init-roam.el       # org-roam + md-roam + capture + dailies (loaded 5th)
-│   ├── init-pkm.el        # org-transclusion + org-ql (loaded 6th)
-│   ├── init-ai.el         # gptel + ob-gptel + PKM AI commands (loaded 7th)
-│   ├── init-dashboard.el  # Startup dashboard with vertical centering (loaded 8th)
-│   ├── init-workspace.el  # Workspace layout: treemacs + outline + terminal (loaded 9th)
+│   ├── init-org.el        # Org-mode base config + org-modern + evil-org (loaded 4th)
+│   ├── init-roam.el       # org-roam + org-node acceleration + capture + dailies (loaded 5th)
+│   ├── init-gtd.el        # GTD system: dashboard, agenda views, state machine (loaded 6th)
+│   ├── init-pkm.el        # org-supertag (core) + org-transclusion + org-ql (loaded 7th)
+│   ├── init-ai.el         # gptel + ob-gptel + PKM AI commands (loaded 8th)
+│   ├── init-dashboard.el  # Startup dashboard with vertical centering (loaded 9th)
+│   ├── init-workspace.el  # Workspace layout: treemacs + outline + terminal (loaded 10th)
 │   ├── init-evil.el       # Evil + general.el + which-key + magit + casual (loaded last)
 │   └── banner-compact.txt # ASCII art banner for dashboard
 ├── .claude/
@@ -106,28 +108,48 @@ org-seq/
 
 ### Module Load Order (init.el)
 ```
-init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm -> init-ai -> init-dashboard -> init-workspace -> init-evil
+init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd -> init-pkm -> init-ai -> init-dashboard -> init-workspace -> init-evil
 ```
 - `init-evil` loads last because `evil-org` (in init-org) uses `:after (org evil)`
-- `init-org` before `init-roam` because org-roam depends on org
-- `init-ai` after `init-pkm` because it uses gptel with org-roam context; before `init-dashboard`
+- `init-org` before `init-roam` because org-roam depends on org; defines `my/note-home` used by later modules
+- `init-roam` before `init-gtd` because GTD agenda cache can use org-mem's async file list
+- `init-gtd` before `init-pkm` because GTD functions must exist before supertag bindings reference them
+- `init-pkm` after `init-gtd` because org-supertag uses org-id set up by org-roam, and org-ql is used by GTD dashboard
+- `init-ai` after `init-pkm` because org-supertag's AI bridge uses gptel
 - `init-dashboard` after `init-roam` because it needs org-roam and nerd-icons to be ready
 - `init-workspace` after `init-dashboard` because startup layout displays the dashboard buffer
 
-### Claude Code Skills
-- `/elisp-lint` — Byte-compile check all `.el` files, report errors
-- `/add-package` — Add a new Emacs package following project conventions
-- `/deploy-config` — Copy config to `~/.emacs.d/` with safety checks
-- `/check-windows-deps` — Verify Emacs version, SQLite, rg, fd, etc.
+### Scope: Agenda vs PKM Directories
+- `my/note-home` (`~/NoteHQ/`): Broad scope for GTD agenda scanning (all org files including non-roam)
+- `org-roam-directory` / `org-mem-watch-dirs` / `org-supertag-sync-directories` (`~/NoteHQ/Roam/`): Scoped to structured PKM notes with org-id
+- When org-mem is active, the agenda cache uses org-mem's file list (Roam/ only) for speed; falls back to full NoteHQ scan otherwise
+- GTD task files should live under `~/NoteHQ/Roam/` to be indexed by all three PKM layers
+
+### Claude Code Skills (`.claude/skills/`)
+Slash commands are defined there for Claude Code; use them when the task matches.
+
+| Skill | Purpose |
+|-------|---------|
+| `/elisp-lint` | Batch byte-compile all `early-init.el`, `init.el`, `lisp/*.el`; report errors |
+| `/add-package` | Add a `use-package` block in the correct `init-*.el`, keys in `init-evil` if needed |
+| `/deploy-config` | Deploy to `~/.emacs.d/` with backup/safety; do not overwrite without confirmation |
+| `/check-windows-deps` | Emacs 29+, SQLite, native-comp, rg, fd, git, HOME |
+
+After changing elisp, run `/elisp-lint` before considering work done.
 
 ## Key Design Decisions
 
 - **package.el over straight.el**: Emacs 29+ has `package-vc-install` for git sources. Simpler for our config size.
 - **Org from ELPA**: `package-install-upgrade-built-in` enables installing latest Org from GNU ELPA independently of Emacs version.
 - **NoteHQ directory layout**: All notes live under `~/NoteHQ/`. org-roam uses `~/NoteHQ/Roam/` (with `daily/`, `lit/`, `concepts/` subdirs). Other subdirectories under NoteHQ can hold non-roam notes; GTD agenda scans the entire NoteHQ tree.
+- **Three-layer PKM architecture**: Designed for Tana-style database workflows at scale.
+  - **org-supertag** (data layer): Core structured data engine. Turns `#tags` into database tables with typed fields. Provides queries, table views, kanban boards, and automation. Migrated from Tana's supertag concept. Not on MELPA; installed from GitHub.
+  - **org-roam** (graph layer): Zettelkasten graph — nodes, links, backlinks, capture templates, dailies. Provides the node identity system (org-id) shared by all layers.
+  - **org-node + org-mem** (performance layer): Async hash-table indexing (~2s for 3000 nodes vs org-roam's 2m48s). Accelerates backlinks, search, and DB sync. `org-mem-roamy-db-mode` feeds org-roam's SQLite DB so org-roam-ui works.
+- **No md-roam**: Markdown support removed in favor of pure Org. md-roam conflicts with org-node's indexing. All notes are Org-only; Obsidian compatibility is no longer a goal.
 - **No GCMH**: Direct `gc-cons-threshold` (16MB) is safer than gcmh's timer-based approach.
 - **org-modern over org-superstar**: org-modern uses text properties (more efficient), actively maintained by Daniel Mendler.
-- **org-supertag**: Commented out as an example in init-pkm.el — frequent API changes, not on MELPA. Not loaded by default.
+- **org-supertag as core**: v5.8+ is stable (336 stars, pure Elisp, ~16K LOC). Demand-loaded in init-pkm.el. Sync directory matches org-roam's `~/NoteHQ/Roam/`. AI bridge enabled via gptel. First-time setup requires `M-x supertag-sync-full-initialize`.
 - **Workspace layout**: Default startup opens treemacs + dashboard (lightweight). Full 3-column layout (treemacs + outline + terminal) is on-demand via `SPC l l`.
 
 ## Troubleshooting Quick Reference
@@ -139,4 +161,9 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-pkm
 | Chinese fonts broken | `M-: (font-family-list)` to verify font names |
 | ripgrep not found | `M-: (executable-find "rg")`, install via package manager |
 | Slow startup | `M-x esup` or `M-x benchmark-init/show-durations-tabulated` |
+| org-node cache stale | `M-x org-mem-reset` to force full rescan |
+| org-roam-ui graph incomplete | Check `org-mem-roamy-do-overwrite-real-db` is `t` |
+| supertag data missing | `M-x supertag-sync-full-initialize` (one-time rebuild) |
+| supertag fields not syncing | `M-x supertag-sync-check-now` or check `supertag-sync-status` |
+| supertag install failed | Run `(package-vc-install "https://github.com/yibie/org-supertag")` manually |
 | Transient version too old | Verify `package-install-upgrade-built-in` is `t` |

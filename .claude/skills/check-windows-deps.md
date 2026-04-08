@@ -18,7 +18,9 @@ Run these checks and report status for each:
 4. **ripgrep**: `rg --version` - recommended for consult-ripgrep (warned if missing)
 5. **fd**: `fd --version` - recommended for consult-find (warned if missing)
 6. **git**: `git --version` - required by magit
-7. **HOME env var**: `echo $HOME` - should be set explicitly
+7. **HOME env var**: should be set explicitly so `~` matches Unix expectations
+   - PowerShell: `[Environment]::GetEnvironmentVariable('HOME','User')` or `$env:HOME`
+   - Bash/Git Bash: `echo $HOME`
 8. **MSYS2** (optional): check if `C:/msys64/mingw64/bin` exists
 
 ## Report format

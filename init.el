@@ -68,12 +68,13 @@
                  (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
-;; Order: UI -> completion -> markdown -> org -> roam -> pkm -> ai -> dashboard -> workspace -> evil (last)
+;; Order: UI -> completion -> markdown -> org -> roam -> gtd -> pkm -> ai -> dashboard -> workspace -> evil (last)
 (require 'init-ui)
 (require 'init-completion)
 (require 'init-markdown)
 (require 'init-org)
 (require 'init-roam)
+(require 'init-gtd)
 (require 'init-pkm)
 (require 'init-ai)
 (require 'init-dashboard)

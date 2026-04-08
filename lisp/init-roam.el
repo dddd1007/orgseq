@@ -1,16 +1,11 @@
-;;; init-roam.el --- org-roam PKM engine -*- lexical-binding: t; -*-
+;;; init-roam.el --- org-roam PKM engine + org-node acceleration -*- lexical-binding: t; -*-
 
-;; md-roam is not on MELPA; bootstrap from GitHub.
-;; Emacs 30+ can use use-package :vc directly (see md-roam block below).
-;; For Emacs 29, install via package-vc-install before use-package loads it.
-(when (< emacs-major-version 30)
-  (unless (package-installed-p 'md-roam)
-    (if (fboundp 'package-vc-install)
-        (condition-case err
-            (package-vc-install "https://github.com/nobiot/md-roam")
-          (error
-           (message "⚠️ org-seq: failed to install md-roam: %s" err)))
-      (message "⚠️ org-seq: package-vc-install unavailable, skip md-roam bootstrap."))))
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Section 1: org-roam — core PKM graph database
+;; ═══════════════════════════════════════════════════════════════════════════
+;;
+;; org-roam provides the node/link/backlink data model and capture system.
+;; Its expensive SQLite sync is offloaded to org-mem (see Section 2).
 
 (use-package org-roam
   :demand t
@@ -21,6 +16,8 @@
   (org-roam-completion-everywhere t)
   (org-roam-node-display-template
    (concat "${title:*} " (propertize "${tags:10}" 'face 'org-tag)))
+  ;; Disable org-roam's per-save DB writes; org-mem handles this faster.
+  (org-roam-db-update-on-save nil)
 
   :bind (("C-c n l" . org-roam-buffer-toggle)
          ("C-c n f" . org-roam-node-find)
@@ -29,14 +26,12 @@
          ("C-c n j" . org-roam-dailies-capture-today))
 
   :config
-  ;; Ensure directory structure exists before database init
   (dolist (dir (list org-roam-directory
                      (expand-file-name "daily" org-roam-directory)
                      (expand-file-name "lit" org-roam-directory)
                      (expand-file-name "concepts" org-roam-directory)))
     (make-directory dir t))
 
-  ;; Backlinks buffer on the right side
   (add-to-list 'display-buffer-alist
                '("\\*org-roam\\*"
                  (display-buffer-in-direction)
@@ -44,12 +39,10 @@
                  (window-width . 0.33)
                  (window-height . fit-window-to-buffer)))
 
-  ;; Node inclusion: exclude ATTACH-tagged headings
   (setq org-roam-db-node-include-function
         (lambda ()
           (not (member "ATTACH" (org-get-tags)))))
 
-  ;; ID generation
   (setq org-id-method 'ts
         org-id-ts-format "%Y%m%dT%H%M%S")
 
@@ -91,40 +84,55 @@
                                   "#+title: %<%Y-%m-%d>\n"
                                   ("Journal")))))
 
-  ;; Autosync fallback: if md-roam is unavailable, start autosync here.
-  ;; When md-roam IS available, its use-package block below will call
-  ;; org-roam-db-autosync-mode after enabling md-roam-mode.
-  (unless (locate-library "md-roam")
-    (org-roam-db-autosync-mode)))
+  ;; autosync-mode still handles org-id hooks; DB writes are off (see above).
+  (org-roam-db-autosync-mode))
 
-;; ---- md-roam: mixed Org + Markdown graph for Obsidian compatibility ----
-;; Emacs 30+: use-package :vc installs from GitHub declaratively.
-;; Emacs 29:  pre-installed above via package-vc-install; :vc keyword unavailable.
-(if (>= emacs-major-version 30)
-    (use-package md-roam
-      :after org-roam
-      :vc (:url "https://github.com/nobiot/md-roam" :rev :newest)
-      :custom (md-roam-file-extension "md")
-      :config
-      (setq org-roam-file-extensions '("org" "md"))
-      (md-roam-mode 1)
-      (org-roam-db-autosync-mode 1))
-  (use-package md-roam
-    :after org-roam
-    :if (locate-library "md-roam")
-    :custom (md-roam-file-extension "md")
-    :config
-    (setq org-roam-file-extensions '("org" "md"))
-    (md-roam-mode 1)
-    (org-roam-db-autosync-mode 1)))
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Section 2: org-node + org-mem — high-performance indexing layer
+;; ═══════════════════════════════════════════════════════════════════════════
+;;
+;; org-mem: async file scanner, builds hash tables + SQLite in ~2s for 3000 nodes.
+;; org-node: builds on org-mem for node search, backlinks, and org-roam acceleration.
+;;
+;; Performance comparison (meedstrom's 3000-node benchmark):
+;;   org-roam DB sync:  2m 48s  →  org-mem:   2s
+;;   save (400 nodes):  5-10s   →  org-node:  instant
+;;   20 backlinks:      5-10s   →  org-node:  instant
+;;   minibuffer open:   1-3s    →  org-node:  instant
 
-;; ---- Full-text search in org-roam directory ----
+(use-package org-node
+  :after org-roam
+  :demand t
+  :custom
+  ;; Delegate node creation to org-roam's capture system
+  (org-node-creation-fn #'org-node-new-via-roam-capture)
+  ;; Match org-roam's default slug style
+  (org-node-slug-fn #'org-node-slugify-like-roam-default)
+  ;; Match existing filename timestamp prefix format
+  (org-node-file-timestamp-format "%Y%m%dT%H%M%S-")
+
+  :config
+  ;; Scope org-mem to the notes directory
+  (setq org-mem-watch-dirs (list (file-truename "~/NoteHQ/Roam/")))
+
+  ;; Write to org-roam's real DB so org-roam-ui and other extensions work
+  (setq org-mem-roamy-do-overwrite-real-db t)
+
+  (org-node-cache-mode 1)
+  (org-node-roam-accelerator-mode 1)
+  (org-mem-roamy-db-mode 1))
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Section 3: Utilities and visualization
+;; ═══════════════════════════════════════════════════════════════════════════
+
 (defun my/org-roam-rg-search ()
   "Search org-roam directory with consult-ripgrep."
   (interactive)
   (consult-ripgrep org-roam-directory))
 
-;; ---- org-roam-ui: browser-based graph visualization ----
+;; org-roam-ui: browser-based graph visualization.
+;; DB is maintained by org-mem-roamy-db-mode (Section 2).
 (use-package org-roam-ui
   :after org-roam
   :commands org-roam-ui-mode

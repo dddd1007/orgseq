@@ -25,10 +25,13 @@ Copy the org-seq configuration to the user's Emacs directory for use.
 
 ## Files NOT deployed (stay in repo only)
 - `org-seq-build.md` — reference documentation
+- `WORKFLOW.md` — user workflow (optional to read in repo)
 - `CLAUDE.md` — development guidelines
 - `README.md`, `LICENSE` — repo metadata
 - `.claude/` — Claude Code config (not needed in ~/.emacs.d/)
 - `.gitignore`, `.git/` — version control
+
+Deployed users should still read `README.md` in the repo clone for prerequisites; post-install **org-supertag** first-time: `M-x supertag-sync-full-initialize` (or `SPC n s R` after packages load).
 
 ## Safety
 

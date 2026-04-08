@@ -89,7 +89,7 @@ Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` a
 | `SPC n c` | New note (capture) |
 | `SPC n i` | Insert link |
 | `SPC n b` | Toggle backlinks |
-| `SPC n s` | Search notes (ripgrep) |
+| `SPC n /` | Search notes in Roam dir (ripgrep) |
 | `SPC n g` | Graph view |
 | `SPC n a` | Add alias |
 | `SPC n r` | Add ref |
@@ -99,6 +99,23 @@ Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` a
 | `SPC n d f` | Find date |
 | `SPC n t a` | Transclusion add |
 | `SPC n q s` | org-ql search |
+| `SPC n q v` | org-ql view |
+
+### SPC n s — org-supertag (data layer)
+
+| Key | Action |
+|-----|--------|
+| `SPC n s a` | Add supertag |
+| `SPC n s v` | View node (supertag) |
+| `SPC n s s` | Search supertag DB |
+| `SPC n s k` | Kanban view |
+| `SPC n s c` | Supertag capture |
+| `SPC n s n` | Create node |
+| `SPC n s p` | Set parent tag |
+| `SPC n s m` | Migrate properties → fields |
+| `SPC n s S` | Sync status |
+| `SPC n s r` | Sync now |
+| `SPC n s R` | Full rebuild (`supertag-sync-full-initialize`) |
 
 ### SPC i — AI
 
@@ -134,23 +151,32 @@ Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` a
 
 ### `, ` Local leader (mode-specific)
 
-**In Org buffers:**
+**In Org buffers** (local leader `,`):
 
 | Key | Action |
 |-----|--------|
 | `, r` | Refile |
-| `, a` | Archive |
+| `, a` | Archive subtree |
 | `, t` | Set tags |
+| `, p` | Set property |
+| `, e` | Set effort |
+| `, x` | Export |
+| `, l` / `, L` | Insert link / Store link |
 | `, s` | Schedule |
 | `, d` | Deadline |
-| `, x` | Export |
-| `, l` | Insert link |
-| `, q` | State picker |
+| `, i` / `, I` | Active / inactive timestamp |
+| `, q` | GTD state picker |
 | `, h` | Hide/show done |
 | `, n` | Narrow to subtree |
 | `, w` | Widen |
-| `, k i/o/g` | Clock in/out/goto |
-| `, b e/b/t` | Babel execute/buffer/tangle |
+| `, c` | Toggle checkbox |
+| `, # a` | Supertag: add tag |
+| `, # v` | Supertag: view node |
+| `, # s` | Supertag: search |
+| `, # k` | Supertag: kanban |
+| `, # c` | Supertag: capture |
+| `, k i/o/g/r/c` | Clock in/out/goto/report/cancel |
+| `, b e/b/t` | Babel execute block/buffer/tangle |
 
 **In Markdown buffers:**
 
@@ -175,28 +201,33 @@ The GTD Dashboard (`SPC a d`) shows live counts and is the central hub:
 
 ## Module Structure
 
+Load order is fixed in `init.el` (see [CLAUDE.md](CLAUDE.md)).
+
 | # | Module | Purpose |
 |---|--------|---------|
 | 1 | `init-ui.el` | Fonts (CJK mixed), modus-themes, doom-modeline, olivetti |
 | 2 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
 | 3 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
-| 4 | `init-org.el` | Org-mode + GTD dashboard + 7 agenda views + state picker |
-| 5 | `init-roam.el` | org-roam + md-roam (org/md mixed graph) + dailies + graph UI |
-| 6 | `init-pkm.el` | org-transclusion + org-ql |
-| 7 | `init-ai.el` | gptel (OpenRouter) + ob-gptel (org-babel AI blocks) |
-| 8 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
-| 9 | `init-workspace.el` | Workspace: treemacs + outline + eshell terminal |
-| 10 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
+| 4 | `init-org.el` | Org base: org-modern, evil-org, org-babel, local leader (incl. supertag `, #`) |
+| 5 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), dailies, org-roam-ui |
+| 6 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
+| 7 | `init-pkm.el` | org-supertag (lazy sync), org-transclusion, org-ql extras |
+| 8 | `init-ai.el` | gptel (OpenRouter) + ob-gptel (org-babel AI blocks) |
+| 9 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
+| 10 | `init-workspace.el` | Workspace: treemacs + outline + eshell terminal |
+| 11 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
 
 ## Notes Directory
 
-Notes live under `~/NoteHQ/`. org-roam uses `~/NoteHQ/Roam/` with subdirectories (`daily/`, `lit/`, `concepts/`). Other NoteHQ subdirectories can hold non-roam notes. GTD agenda scans the entire NoteHQ tree.
+Notes live under `~/NoteHQ/`. org-roam, org-mem, and org-supertag sync use `~/NoteHQ/Roam/` (with `daily/`, `lit/`, `concepts/`). Other `NoteHQ/` subtrees can hold non-roam Org files. GTD uses `my/note-home` (entire `NoteHQ/` by default); when org-mem is active, some caches prefer the Roam file list for speed—see [CLAUDE.md](CLAUDE.md) scope notes.
 
-**Obsidian workflow**: point Obsidian at `~/NoteHQ/` as vault. Use Emacs for editing/GTD, Obsidian as a fast reading/search client.
+The graph is **Org-only** (no md-roam). First-time supertag index: `M-x supertag-sync-full-initialize`.
+
+You can still point another tool at `~/NoteHQ/` for browsing; Roam-linked notes should stay `.org` for full PKM stack support.
 
 ## Reference
 
-See [org-seq-build.md](org-seq-build.md) for the full research guide covering Windows-specific issues, package rationale, and troubleshooting.
+See [org-seq-build.md](org-seq-build.md) for the research guide (Windows, packages, troubleshooting) and [WORKFLOW.md](WORKFLOW.md) for day-to-day GTD/roam habits.
 
 ## License
 
