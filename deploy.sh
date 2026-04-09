@@ -182,15 +182,19 @@ print_summary() {
     section "Deployment complete"
     echo ""
     echo "  Next steps:"
-    echo "    1. Launch Emacs — packages auto-install on first run (needs internet)"
-    echo "    2. Run:  M-x nerd-icons-install-fonts"
+    echo "    1. Run:  ./scripts/bootstrap-notes.sh  (creates ~/NoteHQ/ directory structure)"
+    echo "    2. Launch Emacs — packages auto-install on first run (needs internet)"
+    echo "    3. Run:  M-x nerd-icons-install-fonts"
     if [[ "$(uname -s)" == *"MINGW"* || "$(uname -s)" == *"MSYS"* ]]; then
         echo "       Then right-click downloaded .ttf files → Install (Windows)"
     fi
-    echo "    3. Notes root at ~/NoteHQ/, org-roam at ~/NoteHQ/Roam/ (auto-created)"
-    echo "    4. Point Obsidian at ~/NoteHQ/ to use it as reading client"
+    echo "    4. Run:  M-x supertag-sync-full-initialize  (first-time supertag index)"
+    echo "    5. Optional: Point Obsidian at ~/NoteHQ/ as reading client"
     echo ""
-    echo "  Key bindings:  SPC → leader menu  |  SPC a n → task dashboard"
+    echo "  Key bindings:"
+    echo "    SPC         → leader menu         SPC a d  → GTD dashboard"
+    echo "    SPC n c     → new note            SPC n m  → extend (templates/schema)"
+    echo "    SPC P o/p/l → PARA navigation     SPC n v  → dashboards"
     echo ""
 }
 

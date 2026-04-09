@@ -200,13 +200,17 @@ function Write-PostInstall {
     Write-Section "Deployment complete"
     Write-Host ""
     Write-Host "  Next steps:" -ForegroundColor White
-    Write-Host "    1. Launch Emacs — packages auto-install on first run (needs internet)"
-    Write-Host "    2. Run:  M-x nerd-icons-install-fonts"
+    Write-Host "    1. Run:  .\scripts\bootstrap-notes.ps1  (creates ~/NoteHQ/ directory structure)"
+    Write-Host "    2. Launch Emacs — packages auto-install on first run (needs internet)"
+    Write-Host "    3. Run:  M-x nerd-icons-install-fonts"
     Write-Host "       Then right-click downloaded .ttf files → Install (Windows)"
-    Write-Host "    3. Notes root at ~/NoteHQ/, org-roam at ~/NoteHQ/Roam/ (auto-created)"
-    Write-Host "    4. Point Obsidian at ~/NoteHQ/ to use it as reading client"
+    Write-Host "    4. Run:  M-x supertag-sync-full-initialize  (first-time supertag index)"
+    Write-Host "    5. Optional: Point Obsidian at ~/NoteHQ/ as reading client"
     Write-Host ""
-    Write-Host "  Key bindings:  SPC → leader menu  |  SPC a n → task dashboard" -ForegroundColor DarkGray
+    Write-Host "  Key bindings:" -ForegroundColor DarkGray
+    Write-Host "    SPC         → leader menu         SPC a d  → GTD dashboard" -ForegroundColor DarkGray
+    Write-Host "    SPC n c     → new note            SPC n m  → extend (templates/schema)" -ForegroundColor DarkGray
+    Write-Host "    SPC P o/p/l → PARA navigation     SPC n v  → dashboards" -ForegroundColor DarkGray
     Write-Host ""
 }
 
