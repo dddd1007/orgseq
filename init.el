@@ -29,7 +29,15 @@
   (setq-default buffer-file-coding-system 'utf-8-unix)
 
   ;; Server: Windows has no Unix domain sockets
-  (setq server-use-tcp t))
+  (setq server-use-tcp t)
+
+  ;; Ensure WinGet/Scoop tool paths are visible to Emacs
+  ;; (GUI Emacs inherits system PATH, not user shell PATH)
+  (dolist (dir (list (expand-file-name "AppData/Local/Microsoft/WinGet/Links" "~")
+                     (expand-file-name "scoop/shims" "~")))
+    (when (file-directory-p dir)
+      (add-to-list 'exec-path dir)
+      (setenv "PATH" (concat dir ";" (getenv "PATH"))))))
 
 ;; ---- Package management ----
 (require 'package)
