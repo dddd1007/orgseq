@@ -9,7 +9,7 @@ This project produces a deployable `~/.emacs.d/` configuration. The output is Em
 ### Core Stack
 - **Editing**: Evil mode (Vim keybindings) + general.el (SPC leader keys)
 - **Org**: org-mode (from GNU ELPA) + org-modern + evil-org + GTD dashboard
-- **Markdown**: markdown-mode + markdown-toc (preview/export/TOC workflow)
+- **Markdown**: markdown-mode (read-only oriented: centered layout, syntax highlighting, preview)
 - **Completion**: Vertico + Orderless + Consult + Marginalia + Embark
 - **PKM Engine**: org-supertag (data layer) + org-roam (graph layer) + org-node/org-mem (performance layer) + org-transclusion + org-ql
 - **AI**: gptel (LLM client, OpenRouter) + ob-gptel (org-babel AI blocks) + purpose/schema context injection + KB overview generation
@@ -29,7 +29,7 @@ org-seq/
 ├── lisp/
 │   ├── init-ui.el         # Fonts, themes, modeline, olivetti (loaded 1st)
 │   ├── init-completion.el # Vertico stack (loaded 2nd)
-│   ├── init-markdown.el   # Markdown mode + TOC + preview/export (loaded 3rd)
+│   ├── init-markdown.el   # Markdown reading experience: centered layout + preview (loaded 3rd)
 │   ├── init-org.el        # Org-mode base config + org-modern + evil-org (loaded 4th)
 │   ├── init-roam.el       # org-roam + org-node acceleration + capture + dailies (loaded 5th)
 │   ├── init-gtd.el        # GTD system: dashboard, agenda views, state machine (loaded 6th)
