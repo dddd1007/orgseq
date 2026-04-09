@@ -1,10 +1,11 @@
-;;; init-markdown.el --- Markdown reading experience -*- lexical-binding: t; -*-
+;;; init-markdown.el --- Markdown editing with Obsidian interop -*- lexical-binding: t; -*-
 
 ;; Requires: init-ui (my/centered-compute-width, my/centered-apply-face-remaps)
 ;;
-;; Read-only oriented: provides comfortable viewing of .md files from other
-;; tools (Obsidian, Typora, GitHub, etc.).  Not intended for Markdown authoring
-;; — all note creation happens in Org-mode via org-roam.
+;; Full Markdown editing experience with Obsidian-compatible features
+;; (wiki links, GFM).  Markdown files are NOT indexed by org-roam —
+;; PKM graph and backlinks are Org-only.  This module is for editing
+;; .md files that may be shared with Obsidian or other Markdown tools.
 
 (defcustom my/markdown-body-width-min 84
   "Minimum visual body width for Markdown buffers."
@@ -38,8 +39,52 @@
   (dolist (window (window-list frame 'no-minibuffer))
     (my/markdown-refresh-window window)))
 
+(defun my/markdown-preview-buffer-p ()
+  "Return non-nil when current buffer is a Markdown live preview buffer."
+  (and (bound-and-true-p markdown-live-preview-source-buffer)
+       (buffer-live-p markdown-live-preview-source-buffer)))
+
+(defun my/markdown-switch-to-live-preview ()
+  "Show Markdown live preview in the current window."
+  (interactive)
+  (unless (derived-mode-p 'markdown-mode)
+    (user-error "Current buffer is not a Markdown buffer"))
+  (unless buffer-file-name
+    (user-error "Markdown live preview requires a file-backed buffer"))
+  (let ((source-window (selected-window))
+        preview-buffer)
+    (unless (and markdown-live-preview-mode
+                 (buffer-live-p markdown-live-preview-buffer))
+      (markdown-live-preview-mode 1))
+    (setq preview-buffer markdown-live-preview-buffer)
+    (unless (buffer-live-p preview-buffer)
+      (user-error "Failed to create Markdown preview buffer"))
+    (dolist (window (get-buffer-window-list preview-buffer nil t))
+      (unless (eq window source-window)
+        (delete-window window)))
+    (set-window-buffer source-window preview-buffer)
+    (select-window source-window)))
+
+(defun my/markdown-switch-to-source ()
+  "Return from a Markdown live preview buffer to its source."
+  (interactive)
+  (unless (my/markdown-preview-buffer-p)
+    (user-error "Current buffer is not a Markdown preview buffer"))
+  (switch-to-buffer markdown-live-preview-source-buffer))
+
+(defun my/markdown-toggle-live-preview ()
+  "Toggle between Markdown source and live preview in the current window."
+  (interactive)
+  (cond
+   ((my/markdown-preview-buffer-p)
+    (my/markdown-switch-to-source))
+   ((derived-mode-p 'markdown-mode)
+    (my/markdown-switch-to-live-preview))
+   (t
+    (user-error "Current buffer is not Markdown source or preview"))))
+
 (defun my/markdown-setup ()
-  "Apply reading-friendly defaults for Markdown buffers."
+  "Apply centered layout and visual defaults for Markdown buffers."
   (visual-line-mode 1)
   (adaptive-wrap-prefix-mode 1)
   (visual-fill-column-mode 1)
@@ -65,15 +110,22 @@
   :init
   (setq markdown-fontify-code-blocks-natively t
         markdown-enable-math t
+        markdown-enable-wiki-links t          ; Obsidian [[wiki links]]
         markdown-asymmetric-header t
         markdown-header-scaling t
-        markdown-hide-urls t)
+        markdown-hide-urls t
+        markdown-gfm-use-electric-backquote t)
   :config
   (when (executable-find "pandoc")
     (setq markdown-command "pandoc")))
 
+(use-package markdown-toc
+  :after markdown-mode
+  :commands (markdown-toc-generate-toc markdown-toc-refresh-toc)
+  :init
+  (setq markdown-toc-header-toc-title "## Table of Contents"))
+
 ;; ---- Local leader keys for Markdown buffers ----
-;; Minimal set: preview and markup toggle only (read-oriented).
 (with-eval-after-load 'general
   (general-define-key
    :states '(normal visual emacs)
@@ -81,8 +133,20 @@
    :prefix ","
    :global-prefix "M-,"
    "" '(nil :wk "markdown")
+   "v" '(my/markdown-toggle-live-preview :wk "Toggle live preview")
    "p" '(markdown-preview :wk "Preview in browser")
-   "o" '(markdown-toggle-markup-hiding :wk "Toggle markup")))
+   "e" '(markdown-export :wk "Export")
+   "t" '(markdown-toc-generate-toc :wk "Insert TOC")
+   "r" '(markdown-toc-refresh-toc :wk "Refresh TOC")
+   "o" '(markdown-toggle-markup-hiding :wk "Toggle markup")
+   "l" '(markdown-insert-link :wk "Insert link"))
+  (with-eval-after-load 'eww
+    (general-define-key
+     :states '(normal emacs)
+     :keymaps 'eww-mode-map
+     :prefix ","
+     :global-prefix "M-,"
+     "v" '(my/markdown-toggle-live-preview :wk "Back to source"))))
 
 (provide 'init-markdown)
 ;;; init-markdown.el ends here
