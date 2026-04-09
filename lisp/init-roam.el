@@ -116,7 +116,20 @@
 
   (org-node-cache-mode 1)
   (org-node-roam-accelerator-mode 1)
-  (org-mem-roamy-db-mode 1))
+  (org-mem-roamy-db-mode 1)
+
+  ;; Auto-compile org-mem/org-node if not yet compiled (suppresses
+  ;; "will be very slow unless compiled" warnings on next startup)
+  (run-with-idle-timer 3 nil
+    (lambda ()
+      (dolist (pkg '(org-mem org-node))
+        (when (and (package-installed-p pkg)
+                   (not (file-exists-p
+                         (expand-file-name
+                          (concat (symbol-name pkg) ".elc")
+                          (package-desc-dir (cadr (assq pkg package-alist)))))))
+          (message "org-seq: compiling %s (one-time)..." pkg)
+          (package-recompile pkg))))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 3: Utilities and visualization
