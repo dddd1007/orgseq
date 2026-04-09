@@ -522,6 +522,9 @@ and discover unexpected connections.")
   :defer t
   :commands (eat-make))
 
+;; inheritenv: required by claude-code, must be installed before it
+(use-package inheritenv :defer t)
+
 (when (< emacs-major-version 30)
   (unless (package-installed-p 'claude-code)
     (when (fboundp 'package-vc-install)
