@@ -109,7 +109,7 @@
                  (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
-;; Order: UI -> completion -> markdown -> org -> roam -> gtd -> pkm -> ai -> dashboard -> workspace -> evil (last)
+;; Order: UI -> completion -> markdown -> org -> roam -> gtd -> pkm -> supertag -> ai -> dashboard -> workspace -> evil (last)
 (require 'init-ui)
 (require 'init-completion)
 (require 'init-markdown)
@@ -117,6 +117,7 @@
 (require 'init-roam)
 (require 'init-gtd)
 (require 'init-pkm)
+(require 'init-supertag)
 (require 'init-ai)
 (require 'init-dashboard)
 (require 'init-workspace)

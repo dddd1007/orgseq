@@ -6,12 +6,14 @@
 ;;
 ;; Core PKM engine: turns #tags into database tables with typed fields.
 ;; Provides structured queries, table views, kanban boards, and automation.
-;; Uses org-id for node identity (compatible with org-roam graph).
 ;;
 ;; Three-layer PKM architecture:
 ;;   org-roam      = graph layer      (nodes, links, backlinks, capture)
 ;;   org-node      = performance layer (fast indexing, async DB sync)
 ;;   org-supertag  = data layer       (structured tags, fields, queries, views)
+;;
+;; Higher-level supertag functions (schema, dashboards, PARA navigation)
+;; live in init-supertag.el which loads after this module.
 
 ;; ht: hash-table library required by org-supertag
 (use-package ht :ensure t)
@@ -26,13 +28,14 @@
            (message "⚠️ org-seq: failed to install org-supertag: %s" err)))
       (message "⚠️ org-seq: package-vc-install unavailable, skip org-supertag."))))
 
-;; Lazy-load org-supertag: commands are available immediately via autoload,
-;; sync service starts after 2s idle (safe auto-start with retry).
 (if (>= emacs-major-version 30)
     (use-package org-supertag
       :after org
       :vc (:url "https://github.com/yibie/org-supertag" :rev :newest)
-      :commands (supertag-add-tag supertag-view-node supertag-search
+      :commands (org-supertag-tag-add-tag org-supertag-tag-remove
+                 org-supertag-node-edit-field org-supertag-node-follow-ref
+                 org-supertag-node-list-fields org-supertag-node-get-tags
+                 supertag-add-tag supertag-view-node supertag-search
                  supertag-view-kanban supertag-capture supertag-create-node
                  supertag-set-tag-parent supertag-sync-full-initialize
                  supertag-sync-check-now supertag-sync-status
@@ -45,7 +48,10 @@
   (use-package org-supertag
     :after org
     :if (locate-library "org-supertag")
-    :commands (supertag-add-tag supertag-view-node supertag-search
+    :commands (org-supertag-tag-add-tag org-supertag-tag-remove
+               org-supertag-node-edit-field org-supertag-node-follow-ref
+               org-supertag-node-list-fields org-supertag-node-get-tags
+               supertag-add-tag supertag-view-node supertag-search
                supertag-view-kanban supertag-capture supertag-create-node
                supertag-set-tag-parent supertag-sync-full-initialize
                supertag-sync-check-now supertag-sync-status
@@ -56,10 +62,6 @@
           (list (file-truename "~/NoteHQ/Roam/")))
     (setq org-supertag-bridge-enable-ai t)))
 
-;; Note: org-supertag registers its own `emacs-startup-hook' (supertag-init)
-;; which handles initialization.  A redundant `require' here would trigger a
-;; recursive-load between org-supertag.el and supertag-ui-search.el (upstream
-;; bug).  We only warn if the library is entirely absent.
 (unless (locate-library "org-supertag")
   (run-with-idle-timer 2 nil
     (lambda ()
@@ -68,9 +70,6 @@
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Capture bridge — org-roam → org-supertag
 ;; ═══════════════════════════════════════════════════════════════════════════
-;;
-;; After org-roam capture finalize, trigger org-supertag sync so the new
-;; node is immediately available in supertag queries.
 
 (with-eval-after-load 'org-roam
   (add-hook 'org-roam-capture-after-finalize-hook

@@ -189,19 +189,30 @@
     "nB"  '(consult-org-roam-backlinks :wk "Backlinks (consult)")
     "n?"  '(consult-org-roam-search :wk "Search (consult)")
 
-    ;; SPC n s — SuperTag (structured data engine)
-    "ns"  '(:ignore t :wk "supertag")
-    "nsa" '(supertag-add-tag :wk "Add tag")
-    "nsv" '(supertag-view-node :wk "View node")
-    "nss" '(supertag-search :wk "Search DB")
-    "nsk" '(supertag-view-kanban :wk "Kanban")
-    "nsc" '(supertag-capture :wk "Capture")
-    "nsn" '(supertag-create-node :wk "New node")
-    "nsp" '(supertag-set-tag-parent :wk "Set parent tag")
-    "nsm" '(supertag-convert-properties-to-field :wk "Migrate properties")
-    "nsS" '(supertag-sync-status :wk "Sync status")
-    "nsr" '(supertag-sync-check-now :wk "Sync now")
-    "nsR" '(supertag-sync-full-initialize :wk "Full rebuild")
+    ;; SPC n p — SuperTag (structured data operations)
+    "np"  '(:ignore t :wk "supertag")
+    "npp" '(my/supertag-quick-action :wk "Quick action")
+    "npa" '(org-supertag-tag-add-tag :wk "Add tag")
+    "npe" '(org-supertag-node-edit-field :wk "Edit field")
+    "npx" '(org-supertag-tag-remove :wk "Remove tag")
+    "npl" '(org-supertag-node-list-fields :wk "List fields")
+    "npj" '(org-supertag-node-follow-ref :wk "Jump linked")
+    "npk" '(supertag-view-kanban :wk "Kanban")
+    "nps" '(supertag-search :wk "Search DB")
+    "npS" '(supertag-sync-status :wk "Sync status")
+    "npr" '(supertag-sync-check-now :wk "Sync now")
+    "npR" '(supertag-sync-full-initialize :wk "Full rebuild")
+
+    ;; SPC n v — Views / dashboards (read-only query windows)
+    "nv"  '(:ignore t :wk "views")
+    "nvv" '(my/dash-index :wk "Dashboard index")
+    "nvw" '(my/dash-review :wk "Weekly review")
+    "nvr" '(my/dash-reading :wk "Reading queue")
+
+    ;; SPC n m — Meta / schema maintenance
+    "nm"  '(:ignore t :wk "meta/schema")
+    "nmt" '(my/edit-supertag-schema :wk "Edit tag schema")
+    "nmr" '(my/reload-supertag-schema :wk "Reload schema")
 
     ;; SPC n d — Dailies
     "nd"  '(:ignore t :wk "dailies")
@@ -233,6 +244,13 @@
     "oa"  '(org-agenda :wk "Agenda")
     "of"  '(treemacs :wk "File tree")
     "oe"  '((lambda () (interactive) (find-file user-emacs-directory)) :wk "Config dir")
+
+    ;; ── SPC P — PARA layer navigation ──
+    "P"   '(:ignore t :wk "PARA")
+    "Po"  '(my/find-in-outputs :wk "Outputs")
+    "Pp"  '(my/find-in-practice :wk "Practice")
+    "Pl"  '(my/find-in-library :wk "Library")
+    "Pg"  '(my/ripgrep-notehq :wk "Ripgrep all NoteHQ")
 
     ;; ── SPC p — Project ──
     "p"   '(:ignore t :wk "project")

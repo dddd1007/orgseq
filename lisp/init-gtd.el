@@ -21,7 +21,8 @@
   :type 'integer :group 'org-seq)
 
 (defun my/org-roam-agenda-files (&optional force)
-  "Return .org files under NoteHQ, using org-mem when available.
+  "Return .org files under Roam/ + Outputs/ + Practice/, using org-mem when available.
+Library/ and Archives/ are excluded (no actionable tasks).
 With non-nil FORCE (or prefix arg interactively), bypass the cache."
   (interactive "P")
   (let ((now (float-time)))
@@ -30,16 +31,20 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
               (> (- now my/agenda-cache-timestamp) my/agenda-cache-ttl))
       (setq my/agenda-cache
             (cond
-             ;; Fast path: org-mem's async-built file list (available after init)
+             ;; Fast path: org-mem's async-built file list (Roam/ only)
              ((and (fboundp 'org-mem-all-files)
                    (bound-and-true-p org-node-cache-mode))
               (cl-remove-if-not
                (lambda (f) (string-suffix-p ".org" f))
                (org-mem-all-files)))
-             ;; Slow path: synchronous directory scan
-             ((file-directory-p my/note-home)
-              (directory-files-recursively my/note-home "\\.org\\'"))
-             (t nil))
+             ;; Slow path: scan Roam + Outputs + Practice
+             (t (let ((dirs (list (expand-file-name "Roam/"     my/note-home)
+                                  (expand-file-name "Outputs/"  my/note-home)
+                                  (expand-file-name "Practice/" my/note-home))))
+                  (cl-mapcan (lambda (d)
+                               (when (file-directory-p d)
+                                 (directory-files-recursively d "\\.org\\'")))
+                             dirs))))
             my/agenda-cache-timestamp now)
       (message "org-seq: agenda cache refreshed (%d files)" (length my/agenda-cache))))
   my/agenda-cache)

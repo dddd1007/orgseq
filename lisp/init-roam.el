@@ -32,11 +32,8 @@
          ("C-c n j" . org-roam-dailies-capture-today))
 
   :config
-  (dolist (dir (list org-roam-directory
-                     (expand-file-name "daily" org-roam-directory)
-                     (expand-file-name "lit" org-roam-directory)
-                     (expand-file-name "concepts" org-roam-directory)))
-    (make-directory dir t))
+  ;; Directory creation handled by my/ensure-notehq-structure (init-supertag)
+  (make-directory org-roam-directory t)
 
   (add-to-list 'display-buffer-alist
                '("\\*org-roam\\*"
@@ -58,26 +55,20 @@
         org-id-ts-format "%Y%m%dT%H%M%S")
 
   ;; ---- Capture templates ----
+  ;; All captures land in Roam/capture/ (flat, timestamp-prefixed).
+  ;; Classification is handled by supertags, not directories.
+  ;; Start with minimal templates; add more as your tag schema grows.
   (setq org-roam-capture-templates
         '(("d" "Default" plain "%?"
-           :target (file+head "%<%Y%m%dT%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n#+date: %U\n#+filetags: \n")
+           :target (file+head "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
+                              "#+title: ${title}\n")
            :unnarrowed t)
 
-          ("l" "Literature note" plain "%?"
-           :target (file+head "lit/%<%Y%m%dT%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n#+date: %U\n#+filetags: :literature:\n\n* Core Ideas\n\n* Methodology\n\n* Relevance\n\n* Notes\n")
-           :unnarrowed t)
-
-          ("c" "Concept" plain "%?"
-           :target (file+head "concepts/%<%Y%m%dT%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n#+date: %U\n#+filetags: :concept:\n\n* Definition\n\n* Related Concepts\n\n* Notes\n")
-           :unnarrowed t)
-
-          ("f" "Fleeting" plain "%?"
-           :target (file+head "%<%Y%m%dT%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n#+date: %U\n#+filetags: :fleeting:\n")
-           :immediate-finish t :unnarrowed t)))
+          ("r" "Reading" plain
+           "* TL;DR\n%?\n* Key points\n* My commentary\n"
+           :target (file+head "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
+                              "#+title: ${title}\n#+filetags: :reading:\n")
+           :unnarrowed t)))
 
   ;; ---- Dailies ----
   (setq org-roam-dailies-directory "daily/")

@@ -33,10 +33,11 @@ org-seq/
 │   ├── init-org.el        # Org-mode base config + org-modern + evil-org (loaded 4th)
 │   ├── init-roam.el       # org-roam + org-node acceleration + capture + dailies (loaded 5th)
 │   ├── init-gtd.el        # GTD system: dashboard, agenda views, state machine (loaded 6th)
-│   ├── init-pkm.el        # org-supertag (core) + org-transclusion + org-ql (loaded 7th)
-│   ├── init-ai.el         # gptel + ob-gptel + .orgseq AI config + PKM AI commands + KB overview (loaded 8th)
-│   ├── init-dashboard.el  # Startup dashboard with vertical centering (loaded 9th)
-│   ├── init-workspace.el  # Workspace layout: treemacs + outline + terminal (loaded 10th)
+│   ├── init-pkm.el        # org-supertag (install) + org-transclusion + org-ql (loaded 7th)
+│   ├── init-supertag.el   # Supertag schema/dashboard/PARA nav + NoteHQ bootstrap (loaded 8th)
+│   ├── init-ai.el         # gptel + ob-gptel + .orgseq AI config + PKM AI commands + KB overview (loaded 9th)
+│   ├── init-dashboard.el  # Startup dashboard with vertical centering (loaded 10th)
+│   ├── init-workspace.el  # Workspace layout: treemacs + outline + terminal (loaded 11th)
 │   ├── init-evil.el       # Evil + general.el + which-key + magit + casual (loaded last)
 │   └── banner-compact.txt # ASCII art banner for dashboard
 ├── .claude/
@@ -50,12 +51,24 @@ org-seq/
 ├── deploy.sh              # Linux/macOS deployment script (Bash)
 ├── README.md              # Quick start and usage guide
 ├── LICENSE                # MIT license
+├── scripts/
+│   ├── bootstrap-notes.sh   # Init ~/NoteHQ/ structure (Linux/macOS)
+│   └── bootstrap-notes.ps1  # Init ~/NoteHQ/ structure (Windows)
 ├── snippets/              # YASnippet templates (future)
 └── templates/             # org-roam capture template files (future)
 
-~/NoteHQ/
-└── .orgseq/               # Per-library personalized config (like .vscode/)
-    └── ai-config.org      # AI backends, models, defaults (API keys stay in ~/.authinfo.gpg)
+~/NoteHQ/                    # Created by bootstrap script or init-supertag
+├── Roam/                    # Atomic layer (org-roam-directory)
+│   ├── daily/               # Daily notes
+│   ├── capture/             # All captured notes (flat, timestamp-prefixed)
+│   ├── dashboards/          # Query-only dashboard files
+│   └── supertag-schema.el   # Tag definitions
+├── Outputs/                 # PARA: deliverable projects
+├── Practice/                # PARA: long-term responsibility domains
+├── Library/                 # PARA: reference materials
+├── Archives/                # Completed/paused work
+└── .orgseq/                 # Per-library personalized config (like .vscode/)
+    └── ai-config.org        # AI backends, models, defaults
 ```
 
 ## Code Conventions
@@ -112,22 +125,37 @@ org-seq/
 
 ### Module Load Order (init.el)
 ```
-init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd -> init-pkm -> init-ai -> init-dashboard -> init-workspace -> init-evil
+init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd -> init-pkm -> init-supertag -> init-ai -> init-dashboard -> init-workspace -> init-evil
 ```
-- `init-evil` loads last because `evil-org` (in init-org) uses `:after (org evil)`
 - `init-org` before `init-roam` because org-roam depends on org; defines `my/note-home` and `my/orgseq-dir` used by later modules
 - `init-roam` before `init-gtd` because GTD agenda cache can use org-mem's async file list
 - `init-gtd` before `init-pkm` because GTD functions must exist before supertag bindings reference them
-- `init-pkm` after `init-gtd` because org-supertag uses org-id set up by org-roam, and org-ql is used by GTD dashboard
-- `init-ai` after `init-pkm` because org-supertag's AI bridge uses gptel
+- `init-pkm` before `init-supertag` because pkm installs org-supertag, supertag loads schema and provides higher-level functions
+- `init-supertag` before `init-ai` because supertag's AI bridge uses gptel; supertag also ensures NoteHQ directory structure
 - `init-dashboard` after `init-roam` because it needs org-roam and nerd-icons to be ready
 - `init-workspace` after `init-dashboard` because startup layout displays the dashboard buffer
+- `init-evil` loads last because general.el leader keys reference all other modules
 
-### Scope: Agenda vs PKM Directories
-- `my/note-home` (`~/NoteHQ/`): Broad scope for GTD agenda scanning (all org files including non-roam)
-- `org-roam-directory` / `org-mem-watch-dirs` / `org-supertag-sync-directories` (`~/NoteHQ/Roam/`): Scoped to structured PKM notes with org-id
-- When org-mem is active, the agenda cache uses org-mem's file list (Roam/ only) for speed; falls back to full NoteHQ scan otherwise
-- GTD task files should live under `~/NoteHQ/Roam/` to be indexed by all three PKM layers
+### NoteHQ Architecture: Roam + PARA
+```
+~/NoteHQ/
+├── Roam/                  ← Atomic layer (org-roam-directory), flat except:
+│   ├── daily/             ← Daily notes
+│   ├── capture/           ← All captured notes (timestamp-prefixed)
+│   ├── dashboards/        ← Query-only dashboard files
+│   └── supertag-schema.el ← Tag definitions (version-controlled with notes)
+├── Outputs/               ← PARA: deliverable projects (bounded lifetime)
+├── Practice/              ← PARA: long-term responsibility domains
+├── Library/               ← PARA: reference materials (consumed, not maintained)
+├── Archives/              ← Completed/paused work
+└── .orgseq/               ← Per-library personalized config
+```
+
+### Scope: Agenda vs PKM vs PARA
+- `my/note-home` (`~/NoteHQ/`): Root directory for all layers
+- `org-roam-directory` / `org-mem-watch-dirs` / `org-supertag-sync-directories` (`~/NoteHQ/Roam/`): Atomic notes only
+- GTD agenda scans `Roam/` + `Outputs/` + `Practice/` (not Library/ or Archives/)
+- Classification is by supertag, not directory. Roam/capture/ is flat.
 
 ### Claude Code Skills (`.claude/skills/`)
 Slash commands are defined there for Claude Code; use them when the task matches.
