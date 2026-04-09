@@ -87,6 +87,18 @@ if [ -d "$SKELETON_DIR" ]; then
       echo "  [skip] .claude/skills/$base (already exists)"
     fi
   done
+
+  # .claude/rules/
+  mkdir -p "$NOTE_HOME/.claude/rules"
+  for rule in "$SKELETON_DIR/.claude/rules/"*.md; do
+    base="$(basename "$rule")"
+    if [ ! -f "$NOTE_HOME/.claude/rules/$base" ]; then
+      cp "$rule" "$NOTE_HOME/.claude/rules/$base"
+      echo "  [ok] .claude/rules/$base"
+    else
+      echo "  [skip] .claude/rules/$base (already exists)"
+    fi
+  done
 fi
 
 echo ""

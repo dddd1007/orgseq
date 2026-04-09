@@ -91,6 +91,22 @@ if (Test-Path $SkeletonDir) {
             }
         }
     }
+
+    # .claude/rules/
+    $rulesDst = Join-Path $NoteHome ".claude\rules"
+    New-Item -ItemType Directory -Force -Path $rulesDst | Out-Null
+    $rulesSrc = Join-Path $SkeletonDir ".claude\rules"
+    if (Test-Path $rulesSrc) {
+        Get-ChildItem -Path $rulesSrc -Filter "*.md" | ForEach-Object {
+            $dest = Join-Path $rulesDst $_.Name
+            if (-not (Test-Path $dest)) {
+                Copy-Item $_.FullName $dest
+                Write-Host "  [ok] .claude/rules/$($_.Name)"
+            } else {
+                Write-Host "  [skip] .claude/rules/$($_.Name) (already exists)"
+            }
+        }
+    }
 }
 
 Write-Host ""
