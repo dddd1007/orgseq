@@ -126,6 +126,7 @@
 ;; ---- Emacs server ----
 ;; Start server so emacsclient can connect instantly.
 ;; Windows: server-use-tcp is set above; clients use emacsclient -c -a ""
+(require 'server)
 (unless (or (daemonp) (server-running-p))
   (server-start))
 
