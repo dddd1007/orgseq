@@ -25,8 +25,8 @@
         (condition-case err
             (package-vc-install "https://github.com/yibie/org-supertag")
           (error
-           (message "⚠️ org-seq: failed to install org-supertag: %s" err)))
-      (message "⚠️ org-seq: package-vc-install unavailable, skip org-supertag."))))
+           (message "WARNING org-seq: failed to install org-supertag: %s" err)))
+      (message "WARNING org-seq: package-vc-install unavailable, skip org-supertag."))))
 
 (if (>= emacs-major-version 30)
     (use-package org-supertag
@@ -65,7 +65,7 @@
 (unless (locate-library "org-supertag")
   (run-with-idle-timer 2 nil
     (lambda ()
-      (message "⚠️ org-seq: org-supertag not found. Run M-x package-vc-install to install it."))))
+      (message "WARNING org-seq: org-supertag not found. Run M-x package-vc-install to install it."))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Capture bridge — org-roam → org-supertag

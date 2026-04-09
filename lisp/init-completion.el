@@ -35,7 +35,7 @@
          ("M-s r" . consult-ripgrep)
          ("M-s o" . consult-outline))
   :config
-  ;; ⚠️ Windows: path separator must be / and find.exe conflicts with Unix find
+  ;; Windows: path separator must be / and find.exe conflicts with Unix find
   (when (eq system-type 'windows-nt)
     (setq consult-ripgrep-args
           "rg --null --line-buffered --color=never --max-columns=1000 --path-separator / --smart-case --no-heading --with-filename --line-number --search-zip")

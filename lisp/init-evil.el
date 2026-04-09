@@ -304,7 +304,7 @@
     "qq"  '(save-buffers-kill-emacs :wk "Quit Emacs")))
 
 ;; ---- magit: Git interface ----
-;; ⚠️ Windows: may be slow on large repos, set magit-git-executable to full path if needed
+;; Windows: may be slow on large repos, set magit-git-executable to full path if needed
 (use-package magit
   :commands (magit-status magit-blame-addition magit-log-current
              magit-diff-dwim magit-file-dispatch))

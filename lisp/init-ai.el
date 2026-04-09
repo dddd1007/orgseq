@@ -496,7 +496,7 @@ and discover unexpected connections.")
       (condition-case err
           (package-vc-install "https://github.com/jwiegley/ob-gptel")
         (error
-         (message "⚠️ org-seq: failed to install ob-gptel: %s" err))))))
+         (message "WARNING org-seq: failed to install ob-gptel: %s" err))))))
 
 (if (>= emacs-major-version 30)
     (use-package ob-gptel
@@ -528,7 +528,7 @@ and discover unexpected connections.")
       (condition-case err
           (package-vc-install "https://github.com/stevemolitor/claude-code.el")
         (error
-         (message "⚠️ org-seq: failed to install claude-code: %s" err))))))
+         (message "WARNING org-seq: failed to install claude-code: %s" err))))))
 
 (if (>= emacs-major-version 30)
     (use-package claude-code
