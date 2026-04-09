@@ -483,7 +483,7 @@ and discover unexpected connections.")
                          (format-time-string "[%Y-%m-%d %a]")))
                 (insert response)
                 (save-buffer)
-                (message "Overview updated: %s" overview-file))
+                (message "Overview updated: %s" overview-file)))
           (message "AI request failed: %s" (plist-get info :status)))))))
 
 ;; ---- ob-gptel: org-babel integration ----
