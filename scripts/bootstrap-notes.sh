@@ -61,11 +61,39 @@ for sub in "${legacy_dirs[@]}"; do
   fi
 done
 
+# --- Copy Claude Code support files (CLAUDE.md + skills) ---
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKELETON_DIR="$SCRIPT_DIR/../notehq"
+
+if [ -d "$SKELETON_DIR" ]; then
+  echo "  Installing Claude Code support files..."
+
+  # CLAUDE.md
+  if [ ! -f "$NOTE_HOME/CLAUDE.md" ]; then
+    cp "$SKELETON_DIR/CLAUDE.md" "$NOTE_HOME/CLAUDE.md"
+    echo "  [ok] CLAUDE.md"
+  else
+    echo "  [skip] CLAUDE.md (already exists)"
+  fi
+
+  # .claude/skills/
+  mkdir -p "$NOTE_HOME/.claude/skills"
+  for skill in "$SKELETON_DIR/.claude/skills/"*.md; do
+    base="$(basename "$skill")"
+    if [ ! -f "$NOTE_HOME/.claude/skills/$base" ]; then
+      cp "$skill" "$NOTE_HOME/.claude/skills/$base"
+      echo "  [ok] .claude/skills/$base"
+    else
+      echo "  [skip] .claude/skills/$base (already exists)"
+    fi
+  done
+fi
+
 echo ""
 echo "=== Next Steps ==="
 echo "  1. Deploy config:  cd org-seq && bash deploy.sh   (or deploy.ps1 on Windows)"
 echo "  2. Start Emacs and run:  M-x org-roam-db-sync"
-echo "  3. If using org-supertag:  M-x supertag-sync-full-initialize"
-echo "  4. Edit ~/NoteHQ/Roam/concepts/purpose.org and schema.org for AI context"
+echo "  3. Run:  M-x supertag-sync-full-initialize"
+echo "  4. Use Claude Code inside ~/NoteHQ/ — it now has CLAUDE.md and skills"
 echo ""
 echo "Done."
