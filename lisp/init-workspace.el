@@ -1,5 +1,8 @@
 ;;; init-workspace.el --- Three-column workspace layout -*- lexical-binding: t; -*-
 
+;; Requires: init-org (my/note-home)
+(defvar my/note-home)
+
 (require 'cl-lib)
 (require 'subr-x)
 

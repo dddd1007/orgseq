@@ -30,9 +30,10 @@
 ;;     - model-1         — plain list items = available models
 ;;     - model-2
 
-(defvar my/orgseq-ai-config
+(defcustom my/orgseq-ai-config
   (expand-file-name "ai-config.org" my/orgseq-dir)
-  "Path to .orgseq AI service configuration file.")
+  "Path to .orgseq AI service configuration file."
+  :type 'file :group 'org-seq)
 
 (defconst my/orgseq--ai-config-template
   "#+TITLE: AI Services Configuration
@@ -186,21 +187,19 @@ returns nil so the caller can fall back to hardcoded defaults."
 ;; Both are auto-injected into gptel's system prompt so every AI interaction
 ;; understands your PKM context without manual repetition.
 
-(defvar my/ai-purpose-file
-  (expand-file-name "concepts/purpose.org" (file-truename "~/NoteHQ/Roam/"))
+(defcustom my/ai-purpose-file
+  (expand-file-name "purpose.org" (file-truename "~/NoteHQ/Roam/"))
   "Path to the purpose.org file defining knowledge base goals and scope.
+Auto-injected into gptel system prompts.  Edit to define your research
+interests, key questions, and knowledge domains."
+  :type 'file :group 'org-seq)
 
-This file is auto-injected into gptel system prompts.  Edit it to
-define your research interests, key questions, and knowledge domains.
-Created automatically if missing.")
-
-(defvar my/ai-schema-file
-  (expand-file-name "concepts/schema.org" (file-truename "~/NoteHQ/Roam/"))
+(defcustom my/ai-schema-file
+  (expand-file-name "schema.org" (file-truename "~/NoteHQ/Roam/"))
   "Path to the schema.org file defining note structure rules.
-
-This file is auto-injected into gptel system prompts.  Edit it to
-define your note types, tag conventions, and linking rules.
-Created automatically if missing.")
+Auto-injected into gptel system prompts.  Edit to define your note
+types, tag conventions, and linking rules."
+  :type 'file :group 'org-seq)
 
 (defun my/ai--read-context-file (filepath &optional max-chars)
   "Read FILEPATH and return its content as a string, or empty string if absent.
@@ -473,7 +472,7 @@ and discover unexpected connections.")
       (lambda (response info)
         (if response
             (let ((overview-file (expand-file-name
-                                   "concepts/overview.org"
+                                   "overview.org"
                                    (file-truename "~/NoteHQ/Roam/"))))
               (with-current-buffer (find-file overview-file)
                 (erase-buffer)

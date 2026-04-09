@@ -1,5 +1,7 @@
 ;;; init-dashboard.el --- Startup dashboard -*- lexical-binding: t; -*-
 
+;; Requires: init-roam (org-roam-dailies-capture-today, org-roam-node-find)
+
 (require 'cl-lib)
 
 ;; ---- recentf: track recently opened files ----
