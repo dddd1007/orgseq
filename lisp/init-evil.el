@@ -205,14 +205,17 @@
 
     ;; SPC n v — Views / dashboards (read-only query windows)
     "nv"  '(:ignore t :wk "views")
-    "nvv" '(my/dash-index :wk "Dashboard index")
+    "nvv" '(my/dashboard-find :wk "Open dashboard")
     "nvw" '(my/dash-review :wk "Weekly review")
-    "nvr" '(my/dash-reading :wk "Reading queue")
+    "nvi" '(my/dash-index :wk "Dashboard index")
 
-    ;; SPC n m — Meta / schema maintenance
-    "nm"  '(:ignore t :wk "meta/schema")
+    ;; SPC n m — Meta: schema, templates, dashboards (extensibility hub)
+    "nm"  '(:ignore t :wk "meta/extend")
     "nmt" '(my/edit-supertag-schema :wk "Edit tag schema")
-    "nmr" '(my/reload-supertag-schema :wk "Reload schema")
+    "nmT" '(my/reload-supertag-schema :wk "Reload tag schema")
+    "nmc" '(my/edit-capture-templates :wk "Edit capture templates")
+    "nmC" '(my/reload-capture-templates :wk "Reload capture templates")
+    "nmd" '(my/dashboard-create :wk "Create new dashboard")
 
     ;; SPC n d — Dailies
     "nd"  '(:ignore t :wk "dailies")

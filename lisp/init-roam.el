@@ -55,20 +55,14 @@
         org-id-ts-format "%Y%m%dT%H%M%S")
 
   ;; ---- Capture templates ----
-  ;; All captures land in Roam/capture/ (flat, timestamp-prefixed).
-  ;; Classification is handled by supertags, not directories.
-  ;; Start with minimal templates; add more as your tag schema grows.
-  (setq org-roam-capture-templates
+  ;; Built-in default only.  User templates are appended from
+  ;; ~/.orgseq/capture-templates.el by init-supertag.el (SPC n m c to edit).
+  (setq my/default-capture-templates
         '(("d" "Default" plain "%?"
            :target (file+head "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
                               "#+title: ${title}\n")
-           :unnarrowed t)
-
-          ("r" "Reading" plain
-           "* TL;DR\n%?\n* Key points\n* My commentary\n"
-           :target (file+head "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n#+filetags: :reading:\n")
            :unnarrowed t)))
+  (setq org-roam-capture-templates my/default-capture-templates)
 
   ;; ---- Dailies ----
   (setq org-roam-dailies-directory "daily/")
