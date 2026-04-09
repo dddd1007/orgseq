@@ -56,12 +56,14 @@
           (list (file-truename "~/NoteHQ/Roam/")))
     (setq org-supertag-bridge-enable-ai t)))
 
-;; Deferred init: ensure org-supertag loads and sync starts after startup.
-(run-with-idle-timer 2 nil
-  (lambda ()
-    (when (and (locate-library "org-supertag")
-               (not (featurep 'org-supertag)))
-      (require 'org-supertag nil t))))
+;; Note: org-supertag registers its own `emacs-startup-hook' (supertag-init)
+;; which handles initialization.  A redundant `require' here would trigger a
+;; recursive-load between org-supertag.el and supertag-ui-search.el (upstream
+;; bug).  We only warn if the library is entirely absent.
+(unless (locate-library "org-supertag")
+  (run-with-idle-timer 2 nil
+    (lambda ()
+      (message "⚠️ org-seq: org-supertag not found. Run M-x package-vc-install to install it."))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Capture bridge — org-roam → org-supertag
@@ -88,8 +90,9 @@
   :config
   (add-to-list 'org-transclusion-extensions 'org-transclusion-indent-mode)
   (require 'org-transclusion-indent-mode)
-  (setq org-roam-db-extra-links-exclude-keys
-        (remove "transclude" org-roam-db-extra-links-exclude-keys)))
+  (when (boundp 'org-roam-db-extra-links-exclude-keys)
+    (setq org-roam-db-extra-links-exclude-keys
+          (remove "transclude" org-roam-db-extra-links-exclude-keys))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 4: org-ql — SQL-like query language for org

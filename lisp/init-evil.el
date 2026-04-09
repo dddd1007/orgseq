@@ -21,7 +21,9 @@
   (interactive)
   (if-let ((buf (get-buffer "*dashboard*")))
       (switch-to-buffer buf)
-    (dashboard-open)))
+    (if (fboundp 'dashboard-open)
+        (dashboard-open)
+      (message "dashboard-open unavailable; try M-x dashboard-refresh-buffer"))))
 
 ;; ---- Evil core ----
 (use-package evil
@@ -180,6 +182,9 @@
     "n/"  '(my/org-roam-rg-search :wk "Search notes")
     "na"  '(org-roam-alias-add :wk "Add alias")
     "nr"  '(org-roam-ref-add :wk "Add ref")
+    "nl"  '(consult-org-roam-forward-links :wk "Forward links")
+    "nB"  '(consult-org-roam-backlinks :wk "Backlinks (consult)")
+    "n?"  '(consult-org-roam-search :wk "Search (consult)")
 
     ;; SPC n s — SuperTag (structured data engine)
     "ns"  '(:ignore t :wk "supertag")

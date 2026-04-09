@@ -182,7 +182,7 @@ Excludes the current heading itself."
   (unless (equal (org-get-todo-state) "DONE")
     (let* ((markers (my/gtd--collect-active-children))
            (count (length markers)))
-      (if (> count 1)
+      (if (> count 0)
           (when (y-or-n-p (format "Complete \"%s\" and %d child task%s? "
                                   (org-get-heading t t t t)
                                   count
@@ -201,7 +201,7 @@ Excludes the current heading itself."
   (unless (equal (org-get-todo-state) "CANCELLED")
     (let* ((markers (my/gtd--collect-active-children))
            (count (length markers)))
-      (if (> count 1)
+      (if (> count 0)
           (when (y-or-n-p (format "Cancel \"%s\" and %d child task%s? "
                                   (org-get-heading t t t t)
                                   count

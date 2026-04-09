@@ -14,8 +14,11 @@
   (org-roam-db-location
    (expand-file-name "org-roam.db" (file-truename "~/NoteHQ/Roam/")))
   (org-roam-completion-everywhere t)
-  (org-roam-node-display-template
-   (concat "${title:*} " (propertize "${tags:10}" 'face 'org-tag)))
+  (org-roam-node-display-template "${title:*} ${tags:10}")
+  ;; Suppress GC during DB-intensive operations (official recommendation)
+  (org-roam-db-gc-threshold most-positive-fixnum)
+  ;; Skip roam:-to-id: link replacement on save (we never use roam: links)
+  (org-roam-link-auto-replace nil)
   ;; Disable org-roam's per-save DB writes; org-mem handles this faster.
   (org-roam-db-update-on-save nil)
 
@@ -43,6 +46,11 @@
         (lambda ()
           (not (member "ATTACH" (org-get-tags)))))
 
+  ;; Backlink buffer: show backlinks + reflinks only (unlinked-refs is slow)
+  (setq org-roam-mode-sections
+        (list #'org-roam-backlinks-section
+              #'org-roam-reflinks-section))
+
   (setq org-id-method 'ts
         org-id-ts-format "%Y%m%dT%H%M%S")
 
@@ -50,22 +58,22 @@
   (setq org-roam-capture-templates
         '(("d" "Default" plain "%?"
            :target (file+head "%<%Y%m%dT%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n#+filetags: \n")
+                              "#+title: ${title}\n#+date: %U\n#+filetags: \n")
            :unnarrowed t)
 
           ("l" "Literature note" plain "%?"
            :target (file+head "lit/%<%Y%m%dT%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n#+filetags: :literature:\n\n* Core Ideas\n\n* Methodology\n\n* Relevance\n\n* Notes\n")
+                              "#+title: ${title}\n#+date: %U\n#+filetags: :literature:\n\n* Core Ideas\n\n* Methodology\n\n* Relevance\n\n* Notes\n")
            :unnarrowed t)
 
           ("c" "Concept" plain "%?"
            :target (file+head "concepts/%<%Y%m%dT%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n#+filetags: :concept:\n\n* Definition\n\n* Related Concepts\n\n* Notes\n")
+                              "#+title: ${title}\n#+date: %U\n#+filetags: :concept:\n\n* Definition\n\n* Related Concepts\n\n* Notes\n")
            :unnarrowed t)
 
           ("f" "Fleeting" plain "%?"
            :target (file+head "%<%Y%m%dT%H%M%S>-${slug}.org"
-                              "#+title: ${title}\n#+filetags: :fleeting:\n")
+                              "#+title: ${title}\n#+date: %U\n#+filetags: :fleeting:\n")
            :immediate-finish t :unnarrowed t)))
 
   ;; ---- Dailies ----
@@ -130,6 +138,20 @@
   "Search org-roam directory with consult-ripgrep."
   (interactive)
   (consult-ripgrep org-roam-directory))
+
+;; consult-org-roam: async completion + live preview for org-roam
+(use-package consult-org-roam
+  :after org-roam
+  :custom
+  (consult-org-roam-grep-func #'consult-ripgrep)
+  (consult-org-roam-buffer-narrow-key ?r)
+  (consult-org-roam-buffer-after-buffers t)
+  :config
+  ;; Defer preview to manual trigger — avoids opening files during fast scrolling
+  (consult-customize
+   consult-org-roam-forward-links :preview-key "M-."
+   consult-org-roam-backlinks     :preview-key "M-.")
+  (consult-org-roam-mode 1))
 
 ;; org-roam-ui: browser-based graph visualization.
 ;; DB is maintained by org-mem-roamy-db-mode (Section 2).

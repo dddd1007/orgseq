@@ -118,6 +118,13 @@
                       (face-remap-add-relative 'right-margin 'default)
                       (face-remap-add-relative 'fringe 'default)))))
 
+(defun my/olivetti-remove-face-remaps ()
+  "Remove face remaps added by `my/olivetti-apply-face-remaps'."
+  (when my/olivetti-face-remaps
+    (dolist (cookie my/olivetti-face-remaps)
+      (face-remap-remove-relative cookie))
+    (setq-local my/olivetti-face-remaps nil)))
+
 (defun my/olivetti-refresh-window (&optional window)
   "Refresh Olivetti layout in WINDOW."
   (let ((window (or window (selected-window))))
@@ -140,8 +147,15 @@
   (olivetti-mode 1)
   (my/olivetti-refresh-window))
 
+(defun my/olivetti-mode-hook-fn ()
+  "Handle Olivetti mode toggle: apply remaps on enable, clean up on disable."
+  (if olivetti-mode
+      (my/olivetti-refresh-window)
+    (my/olivetti-remove-face-remaps)))
+
 (use-package olivetti
-  :hook (org-mode . my/olivetti-setup)
+  :hook ((org-mode . my/olivetti-setup)
+         (olivetti-mode . my/olivetti-mode-hook-fn))
   :custom
   (olivetti-style nil)
   :config
