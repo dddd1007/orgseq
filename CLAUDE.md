@@ -173,12 +173,12 @@ After changing elisp, run `/elisp-lint` before considering work done.
 
 - **package.el over straight.el**: Emacs 29+ has `package-vc-install` for git sources. Simpler for our config size.
 - **Org from ELPA**: `package-install-upgrade-built-in` enables installing latest Org from GNU ELPA independently of Emacs version.
-- **NoteHQ directory layout**: All notes live under `~/NoteHQ/`. org-roam uses `~/NoteHQ/Roam/` (with `daily/`, `lit/`, `concepts/` subdirs). Other subdirectories under NoteHQ can hold non-roam notes; GTD agenda scans the entire NoteHQ tree.
+- **NoteHQ directory layout**: Roam/ (atomic notes, flat except `daily/`, `capture/`, `dashboards/`) + PARA layers (`Outputs/`, `Practice/`, `Library/`, `Archives/`). Classification by supertag, not directory. GTD agenda scans Roam/ + Outputs/ + Practice/. See `doc/NOTES_ARCHITECTURE.md` for full design.
 - **Three-layer PKM architecture**: Designed for Tana-style database workflows at scale.
   - **org-supertag** (data layer): Core structured data engine. Turns `#tags` into database tables with typed fields. Provides queries, table views, kanban boards, and automation. Migrated from Tana's supertag concept. Not on MELPA; installed from GitHub.
   - **org-roam** (graph layer): Zettelkasten graph — nodes, links, backlinks, capture templates, dailies. Provides the node identity system (org-id) shared by all layers.
   - **org-node + org-mem** (performance layer): Async hash-table indexing (~2s for 3000 nodes vs org-roam's 2m48s). Accelerates backlinks, search, and DB sync. `org-mem-roamy-db-mode` feeds org-roam's SQLite DB so org-roam-ui works.
-- **No md-roam**: Markdown support removed in favor of pure Org. md-roam conflicts with org-node's indexing. All notes are Org-only; Obsidian compatibility is no longer a goal.
+- **No md-roam**: Markdown is editable with Obsidian interop (wiki links, GFM) but NOT indexed by org-roam. PKM graph/backlinks are Org-only. md-roam removed because it conflicts with org-node indexing.
 - **No GCMH**: Direct `gc-cons-threshold` (16MB) is safer than gcmh's timer-based approach.
 - **org-modern over org-superstar**: org-modern uses text properties (more efficient), actively maintained by Daniel Mendler.
 - **org-supertag as core**: v5.8+ is stable (336 stars, pure Elisp, ~16K LOC). Demand-loaded in init-pkm.el. Sync directory matches org-roam's `~/NoteHQ/Roam/`. AI bridge enabled via gptel. First-time setup requires `M-x supertag-sync-full-initialize`.
