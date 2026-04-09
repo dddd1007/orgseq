@@ -7,6 +7,11 @@
 (defvar my/note-home (file-truename "~/NoteHQ/")
   "Root directory for all notes. org-roam lives under Roam/ subdirectory.")
 
+(defvar my/orgseq-dir (expand-file-name ".orgseq/" my/note-home)
+  "Directory for org-seq personalized configuration.
+Similar to .vscode or .cursor — stores non-sensitive settings
+that customize org-seq behavior per note library.")
+
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Org base configuration
 ;; ═══════════════════════════════════════════════════════════════════════════

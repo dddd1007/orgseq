@@ -89,50 +89,58 @@
 (use-package valign
   :hook (org-mode . valign-mode))
 
-;; ---- olivetti: centered writing with adaptive body width ----
-(defvar my/olivetti-body-width-min 88
-  "Minimum body width for `olivetti-mode'.")
+;; ---- Adaptive centered writing ----
+;; Shared infrastructure for Olivetti (org) and visual-fill-column (markdown).
+;; Both use the same pattern: compute width from window, apply face remaps,
+;; refresh on window resize.
 
-(defvar my/olivetti-body-width-max 140
-  "Maximum body width for `olivetti-mode'.")
+(defcustom my/olivetti-body-width-min 88
+  "Minimum body width for `olivetti-mode'."
+  :type 'integer :group 'org-seq)
 
-(defvar my/olivetti-body-width-scale 0.62
-  "Body width as a fraction of the current window width.")
+(defcustom my/olivetti-body-width-max 140
+  "Maximum body width for `olivetti-mode'."
+  :type 'integer :group 'org-seq)
 
-(defvar-local my/olivetti-face-remaps nil
-  "Face remaps used to flatten Olivetti side areas.")
+(defcustom my/olivetti-body-width-scale 0.62
+  "Body width as a fraction of the current window width."
+  :type 'float :group 'org-seq)
 
-(defun my/olivetti-compute-width (&optional window)
-  "Compute adaptive `olivetti-body-width' for WINDOW."
+(defvar-local my/centered-face-remaps nil
+  "Face remap cookies for flattening side areas.  Shared by olivetti and markdown.")
+
+(defun my/centered-compute-width (min-w max-w scale &optional window)
+  "Compute adaptive body width for WINDOW given MIN-W, MAX-W, and SCALE."
   (let* ((window (or window (selected-window)))
-         (window-width (window-total-width window))
-         (target-width (floor (* window-width my/olivetti-body-width-scale))))
-    (max my/olivetti-body-width-min
-         (min my/olivetti-body-width-max target-width))))
+         (ww (window-total-width window)))
+    (max min-w (min max-w (floor (* ww scale))))))
 
-(defun my/olivetti-apply-face-remaps ()
-  "Flatten Olivetti side-area faces to match the main text background."
-  (unless my/olivetti-face-remaps
-    (setq-local my/olivetti-face-remaps
+(defun my/centered-apply-face-remaps ()
+  "Flatten side-area faces to match the main text background."
+  (unless my/centered-face-remaps
+    (setq-local my/centered-face-remaps
                 (list (face-remap-add-relative 'left-margin 'default)
                       (face-remap-add-relative 'right-margin 'default)
                       (face-remap-add-relative 'fringe 'default)))))
 
-(defun my/olivetti-remove-face-remaps ()
-  "Remove face remaps added by `my/olivetti-apply-face-remaps'."
-  (when my/olivetti-face-remaps
-    (dolist (cookie my/olivetti-face-remaps)
+(defun my/centered-remove-face-remaps ()
+  "Remove face remaps added by `my/centered-apply-face-remaps'."
+  (when my/centered-face-remaps
+    (dolist (cookie my/centered-face-remaps)
       (face-remap-remove-relative cookie))
-    (setq-local my/olivetti-face-remaps nil)))
+    (setq-local my/centered-face-remaps nil)))
 
 (defun my/olivetti-refresh-window (&optional window)
   "Refresh Olivetti layout in WINDOW."
   (let ((window (or window (selected-window))))
     (with-current-buffer (window-buffer window)
       (when (bound-and-true-p olivetti-mode)
-        (my/olivetti-apply-face-remaps)
-        (setq-local olivetti-body-width (my/olivetti-compute-width window))
-        ;; Remove extra fringes in writing buffers so the centered area feels cleaner.
+        (my/centered-apply-face-remaps)
+        (setq-local olivetti-body-width
+                    (my/centered-compute-width
+                     my/olivetti-body-width-min
+                     my/olivetti-body-width-max
+                     my/olivetti-body-width-scale window))
         (setq-local fringes-outside-margins nil)
         (set-window-fringes window 0 0)
         (olivetti-set-width olivetti-body-width)))))
@@ -151,7 +159,7 @@
   "Handle Olivetti mode toggle: apply remaps on enable, clean up on disable."
   (if olivetti-mode
       (my/olivetti-refresh-window)
-    (my/olivetti-remove-face-remaps)))
+    (my/centered-remove-face-remaps)))
 
 (use-package olivetti
   :hook ((org-mode . my/olivetti-setup)

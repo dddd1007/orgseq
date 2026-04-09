@@ -1,5 +1,8 @@
 ;;; init-roam.el --- org-roam PKM engine + org-node acceleration -*- lexical-binding: t; -*-
 
+;; Requires: init-org (my/note-home)
+(defvar my/note-home)  ; forward-declare from init-org
+
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: org-roam — core PKM graph database
 ;; ═══════════════════════════════════════════════════════════════════════════

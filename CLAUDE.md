@@ -12,7 +12,7 @@ This project produces a deployable `~/.emacs.d/` configuration. The output is Em
 - **Markdown**: markdown-mode + markdown-toc (preview/export/TOC workflow)
 - **Completion**: Vertico + Orderless + Consult + Marginalia + Embark
 - **PKM Engine**: org-supertag (data layer) + org-roam (graph layer) + org-node/org-mem (performance layer) + org-transclusion + org-ql
-- **AI**: gptel (LLM client, OpenRouter) + ob-gptel (org-babel AI blocks)
+- **AI**: gptel (LLM client, OpenRouter) + ob-gptel (org-babel AI blocks) + purpose/schema context injection + KB overview generation
 - **Menus**: casual (Transient keyboard-driven menus for built-in modes)
 - **UI**: modus-themes (default) + doom-modeline + nerd-icons + olivetti
 - **Fonts**: CJK mixed typesetting (set-fontset-font + face-font-rescale-alist)
@@ -34,7 +34,7 @@ org-seq/
 │   ├── init-roam.el       # org-roam + org-node acceleration + capture + dailies (loaded 5th)
 │   ├── init-gtd.el        # GTD system: dashboard, agenda views, state machine (loaded 6th)
 │   ├── init-pkm.el        # org-supertag (core) + org-transclusion + org-ql (loaded 7th)
-│   ├── init-ai.el         # gptel + ob-gptel + PKM AI commands (loaded 8th)
+│   ├── init-ai.el         # gptel + ob-gptel + .orgseq AI config + PKM AI commands + KB overview (loaded 8th)
 │   ├── init-dashboard.el  # Startup dashboard with vertical centering (loaded 9th)
 │   ├── init-workspace.el  # Workspace layout: treemacs + outline + terminal (loaded 10th)
 │   ├── init-evil.el       # Evil + general.el + which-key + magit + casual (loaded last)
@@ -52,6 +52,10 @@ org-seq/
 ├── LICENSE                # MIT license
 ├── snippets/              # YASnippet templates (future)
 └── templates/             # org-roam capture template files (future)
+
+~/NoteHQ/
+└── .orgseq/               # Per-library personalized config (like .vscode/)
+    └── ai-config.org      # AI backends, models, defaults (API keys stay in ~/.authinfo.gpg)
 ```
 
 ## Code Conventions
@@ -111,7 +115,7 @@ org-seq/
 init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd -> init-pkm -> init-ai -> init-dashboard -> init-workspace -> init-evil
 ```
 - `init-evil` loads last because `evil-org` (in init-org) uses `:after (org evil)`
-- `init-org` before `init-roam` because org-roam depends on org; defines `my/note-home` used by later modules
+- `init-org` before `init-roam` because org-roam depends on org; defines `my/note-home` and `my/orgseq-dir` used by later modules
 - `init-roam` before `init-gtd` because GTD agenda cache can use org-mem's async file list
 - `init-gtd` before `init-pkm` because GTD functions must exist before supertag bindings reference them
 - `init-pkm` after `init-gtd` because org-supertag uses org-id set up by org-roam, and org-ql is used by GTD dashboard
@@ -150,7 +154,10 @@ After changing elisp, run `/elisp-lint` before considering work done.
 - **No GCMH**: Direct `gc-cons-threshold` (16MB) is safer than gcmh's timer-based approach.
 - **org-modern over org-superstar**: org-modern uses text properties (more efficient), actively maintained by Daniel Mendler.
 - **org-supertag as core**: v5.8+ is stable (336 stars, pure Elisp, ~16K LOC). Demand-loaded in init-pkm.el. Sync directory matches org-roam's `~/NoteHQ/Roam/`. AI bridge enabled via gptel. First-time setup requires `M-x supertag-sync-full-initialize`.
+- **AI purpose/schema context** (inspired by llm_wiki): Two persistent org files — `~/NoteHQ/Roam/concepts/purpose.org` (knowledge base goals, key questions) and `~/NoteHQ/Roam/concepts/schema.org` (note types, tag conventions, linking rules) — are auto-injected into every gptel system prompt via `my/ai--build-system-prompt`. This gives the LLM persistent context about the user's PKM without manual repetition. Files are created with templates on first load (`SPC i g` or `my/ai--ensure-context-files`). Edit them to customize AI behavior.
+- **KB overview generation**: `my/ai-overview` (`SPC i o`) collects org-roam statistics (total nodes, tag distribution, recent notes) and asks the LLM to generate a structured overview report (themes, gaps, connections, suggestions). Result is saved to `~/NoteHQ/Roam/concepts/overview.org` with timestamp. Inspired by llm_wiki's auto-updated overview.md.
 - **Workspace layout**: Default startup opens treemacs + dashboard (lightweight). Full 3-column layout (treemacs + outline + terminal) is on-demand via `SPC l l`.
+- **.orgseq personalized config**: `~/NoteHQ/.orgseq/` stores non-sensitive per-library settings (like `.vscode/`). First use case: `ai-config.org` — AI backend definitions, model lists, and defaults in an editable org file. API keys remain in `~/.authinfo.gpg` (auth-source). Init is incremental: files are created with templates only if missing, never overwritten. Parsed at gptel load time with hardcoded fallback on failure.
 
 ## Troubleshooting Quick Reference
 
@@ -167,3 +174,5 @@ After changing elisp, run `/elisp-lint` before considering work done.
 | supertag fields not syncing | `M-x supertag-sync-check-now` or check `supertag-sync-status` |
 | supertag install failed | Run `(package-vc-install "https://github.com/yibie/org-supertag")` manually |
 | Transient version too old | Verify `package-install-upgrade-built-in` is `t` |
+| claude-code won't start | Ensure `claude` CLI is on PATH: `M-: (executable-find "claude")` |
+| claude-code garbled display | Try switching backend: `(setq claude-code-terminal-backend 'vterm)` (needs libvterm) |

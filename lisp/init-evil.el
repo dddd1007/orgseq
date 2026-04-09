@@ -60,9 +60,9 @@
     :prefix "SPC"
     :global-prefix "M-SPC")
 
-  ;; ================================================================
+  ;; ═══════════════════════════════════════════════════════════════
   ;; SPC leader key system
-  ;; ================================================================
+  ;; ═══════════════════════════════════════════════════════════════
 
   (my/leader-keys
     ;; ── Top-level shortcuts ──
@@ -163,6 +163,9 @@
     "il"  '(my/ai-translate :wk "Translate")
     "ik"  '(my/ai-connections :wk "Find connections")
     "ip"  '(my/ai-improve :wk "Improve writing")
+    "io"  '(my/ai-overview :wk "KB overview")
+    "ig"  '(my/ai--ensure-context-files :wk "Init AI context")
+    "iC"  '(claude-code-transient :wk "Claude Code")
 
     ;; ── SPC l — Layout / workspace ──
     "l"   '(:ignore t :wk "layout")

@@ -1,32 +1,18 @@
 ;;; init-markdown.el --- Markdown editing experience -*- lexical-binding: t; -*-
 
-(defvar my/markdown-body-width-min 84
-  "Minimum visual body width for Markdown buffers.")
+;; Requires: init-ui (my/centered-compute-width, my/centered-apply-face-remaps)
 
-(defvar my/markdown-body-width-max 120
-  "Maximum visual body width for Markdown buffers.")
+(defcustom my/markdown-body-width-min 84
+  "Minimum visual body width for Markdown buffers."
+  :type 'integer :group 'org-seq)
 
-(defvar my/markdown-body-width-scale 0.72
-  "Markdown body width as a fraction of the current window width.")
+(defcustom my/markdown-body-width-max 120
+  "Maximum visual body width for Markdown buffers."
+  :type 'integer :group 'org-seq)
 
-(defvar-local my/markdown-face-remaps nil
-  "Face remaps used to flatten Markdown side areas.")
-
-(defun my/markdown-compute-width (&optional window)
-  "Compute adaptive visual width for Markdown WINDOW."
-  (let* ((window (or window (selected-window)))
-         (window-width (window-total-width window))
-         (target-width (floor (* window-width my/markdown-body-width-scale))))
-    (max my/markdown-body-width-min
-         (min my/markdown-body-width-max target-width))))
-
-(defun my/markdown-apply-face-remaps ()
-  "Flatten Markdown side-area faces to match the main text background."
-  (unless my/markdown-face-remaps
-    (setq-local my/markdown-face-remaps
-                (list (face-remap-add-relative 'left-margin 'default)
-                      (face-remap-add-relative 'right-margin 'default)
-                      (face-remap-add-relative 'fringe 'default)))))
+(defcustom my/markdown-body-width-scale 0.72
+  "Markdown body width as a fraction of the current window width."
+  :type 'float :group 'org-seq)
 
 (defun my/markdown-refresh-window (&optional window)
   "Refresh visual fill layout in Markdown WINDOW."
@@ -34,9 +20,12 @@
     (with-current-buffer (window-buffer window)
       (when (and (derived-mode-p 'markdown-mode)
                  (bound-and-true-p visual-fill-column-mode))
-        (my/markdown-apply-face-remaps)
+        (my/centered-apply-face-remaps)
         (setq-local visual-fill-column-width
-                    (my/markdown-compute-width window))
+                    (my/centered-compute-width
+                     my/markdown-body-width-min
+                     my/markdown-body-width-max
+                     my/markdown-body-width-scale window))
         (set-window-fringes window 0 0)
         (visual-fill-column-adjust)))))
 

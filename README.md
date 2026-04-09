@@ -130,6 +130,10 @@ Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` a
 | `SPC i l` | Translate |
 | `SPC i k` | Find connections |
 | `SPC i p` | Improve writing |
+| `SPC i o` | Generate KB overview |
+| `SPC i g` | Init AI context files |
+
+All AI commands are enriched with your **purpose.org** and **schema.org** context files (stored in `~/NoteHQ/Roam/concepts/`). Edit these files to customize how the LLM understands your knowledge base — no manual repetition needed.
 
 ### Other groups
 

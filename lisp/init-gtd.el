@@ -1,7 +1,10 @@
 ;;; init-gtd.el --- GTD task management system -*- lexical-binding: t; -*-
 
+;; Requires: init-org (my/note-home)
+
 (require 'cl-lib)
 (require 'subr-x)
+(defvar my/note-home)  ; forward-declare from init-org
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: Agenda file cache
@@ -13,8 +16,9 @@
 (defvar my/agenda-cache-timestamp 0
   "Time (float seconds) when `my/agenda-cache' was last populated.")
 
-(defvar my/agenda-cache-ttl 300
-  "Seconds before the agenda file cache expires.  Default 5 minutes.")
+(defcustom my/agenda-cache-ttl 300
+  "Seconds before the agenda file cache expires."
+  :type 'integer :group 'org-seq)
 
 (defun my/org-roam-agenda-files (&optional force)
   "Return .org files under NoteHQ, using org-mem when available.
@@ -56,8 +60,9 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
 (defconst my/gtd-closed-states '("DONE" "CANCELLED"))
 (defconst my/gtd-active-states '("NEXT" "IN-PROGRESS" "WAITING" "SOMEDAY"))
 
-(defvar my/gtd-context-tags '("@work" "@home" "@computer" "@errands" "@phone")
-  "GTD context tags. Customize to match your workflow.")
+(defcustom my/gtd-context-tags '("@work" "@home" "@computer" "@errands" "@phone")
+  "GTD context tags.  Customize to match your workflow."
+  :type '(repeat string) :group 'org-seq)
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 3: Project detection helpers
