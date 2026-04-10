@@ -12,6 +12,38 @@
 (defvar my/archives-dir)   ; forward-declare from init-supertag
 
 ;; ═══════════════════════════════════════════════════════════════════════════
+;; Section 0: Global auto-revert — reflect external file changes live
+;; ═══════════════════════════════════════════════════════════════════════════
+;;
+;; When a file changes on disk (because an external editor saved it,
+;; git switched branches, a script wrote new content, or Obsidian
+;; updated a .md file on the other side of NoteHQ), Emacs by default
+;; holds on to its stale in-memory copy and warns you at save time.
+;; `global-auto-revert-mode' fixes this: any unmodified buffer whose
+;; underlying file changes is automatically re-read, silently.
+;;
+;; For dired this is especially valuable -- file listings refresh
+;; automatically when you (or any other tool) creates / renames /
+;; deletes files, so the sidebar stays in sync with reality without
+;; a manual `g' press.  `global-auto-revert-non-file-buffers t' is
+;; what enables the dired side of this; without it dired buffers
+;; would be skipped because they aren't visiting a regular file.
+;;
+;; Lives in init-dired.el (not init.el) because its primary motivation
+;; here is dired integration, even though the effect is global.
+
+(use-package autorevert
+  :ensure nil
+  :demand t
+  :custom
+  ;; Include dired (and other non-file-backed buffers) in the refresh
+  (global-auto-revert-non-file-buffers t)
+  ;; Don't spam the echo area with "Reverted buffer X" messages
+  (auto-revert-verbose nil)
+  :config
+  (global-auto-revert-mode 1))
+
+;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: Built-in dired — base configuration
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
@@ -162,6 +194,40 @@
   ;; through to a default action and open a new buffer instead of
   ;; expanding the clicked directory in place.
   (require 'dirvish-subtree)
+
+  ;; ---- dirvish-emerge: group files by type with section headers ----
+  ;;
+  ;; When enabled in a dirvish buffer, files are grouped by matching
+  ;; rules, with a header line between each group.  Empty groups are
+  ;; automatically hidden, so in a single-type directory (e.g., a
+  ;; folder of only .org files) the grouping is invisible.  In a
+  ;; mixed directory (e.g., 30_Library/bibliography with .pdf, .bib,
+  ;; notes.org) the grouping dramatically improves at-a-glance
+  ;; orientation.
+  ;;
+  ;; Groups below are tuned for a PKM workflow: org notes at the top,
+  ;; then markdown, bibliography, PDFs, images, code, data, archives.
+  ;; Everything not matching any rule falls into an implicit tail
+  ;; group.  `M-e' inside a dirvish buffer opens the emerge menu
+  ;; where you can edit the grouping interactively.
+  (require 'dirvish-emerge)
+  (setq dirvish-emerge-groups
+        '(("Directories" (predicate . (lambda (f) (file-directory-p f))))
+          ("Org notes"    (extensions "org"))
+          ("Markdown"     (extensions "md" "markdown"))
+          ("Bibliography" (extensions "bib" "ris"))
+          ("PDFs & books" (extensions "pdf" "epub" "mobi" "djvu"))
+          ("Images"       (extensions "png" "jpg" "jpeg" "gif" "svg" "webp"))
+          ("Code"         (extensions "el" "py" "js" "ts" "sh" "ps1"
+                                      "rb" "rs" "go" "lua" "c" "cpp"
+                                      "h" "hpp" "java" "kt" "swift"))
+          ("Data"         (extensions "csv" "tsv" "json" "yaml" "yml"
+                                      "xml" "toml"))
+          ("Archives"     (extensions "zip" "tar" "gz" "bz2" "xz" "7z" "rar"))))
+  ;; Turn it on automatically in every dirvish / dired buffer.  The
+  ;; mode is cheap when groups don't match -- headers only appear
+  ;; for non-empty groups.
+  (add-hook 'dired-mode-hook #'dirvish-emerge-mode)
 
   ;; `dirvish-side-follow-mode' (when enabled) auto-reveals the
   ;; current file's directory in the sidebar every time you switch
