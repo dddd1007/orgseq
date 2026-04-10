@@ -1,5 +1,5 @@
 ---
-globs: ["Roam/supertag-schema.el"]
+globs: ["00_Roam/supertag-schema.el"]
 ---
 
 # Supertag Schema Rules
@@ -39,5 +39,5 @@ globs: ["Roam/supertag-schema.el"]
 
 ## After editing
 - Reload in Emacs: `SPC n m T` (`my/reload-supertag-schema`)
-- Commit: `git add Roam/supertag-schema.el && git commit -m "schema: ..."`
+- Commit: `git add 00_Roam/supertag-schema.el && git commit -m "schema: ..."`
 - The schema file is version-controlled with the notes — every change should be a git commit so the schema's evolution mirrors the notes' evolution

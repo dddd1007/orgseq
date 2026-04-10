@@ -28,11 +28,16 @@ per note library.  Distinct from API keys, which stay in `auth-source'."
   :type 'directory
   :group 'org-seq)
 
-(defcustom my/roam-dir (expand-file-name "Roam/" my/note-home)
+(defcustom my/roam-dir (expand-file-name "00_Roam/" my/note-home)
   "Atomic-notes layer (org-roam-directory equivalent).
 Used by `org-roam-directory', `org-mem-watch-dirs',
 `org-supertag-sync-directories', and the AI context files
-\(purpose.org, schema.org, overview.org)."
+\(purpose.org, schema.org, overview.org).
+
+The \"00_\" numeric prefix exists so that the NoteHQ directory
+layers sort in workflow priority order (00_Roam first, then
+10_Outputs / 20_Practice / 30_Library / 40_Archives) when the
+dirvish sidebar displays them alphabetically."
   :type 'directory
   :group 'org-seq)
 

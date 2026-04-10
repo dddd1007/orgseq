@@ -75,16 +75,18 @@ org-seq/
     ├── bootstrap-notes.sh   # Init ~/NoteHQ/ structure + copy notehq/ scaffold (Linux/macOS)
     └── bootstrap-notes.ps1  # Init ~/NoteHQ/ structure + copy notehq/ scaffold (Windows)
 
-~/NoteHQ/                    # Created by bootstrap script or init-supertag
-├── Roam/                    # Atomic layer (org-roam-directory)
+~/NoteHQ/                    # Created by bootstrap script or init-supertag.
+                             # Layers carry numeric prefixes so dirvish-side
+                             # sorts them in workflow priority order.
+├── 00_Roam/                 # Atomic layer (org-roam-directory)
 │   ├── daily/               # Daily notes
 │   ├── capture/             # All captured notes (flat, timestamp-prefixed)
 │   ├── dashboards/          # Query-only dashboard files
 │   └── supertag-schema.el   # Tag definitions
-├── Outputs/                 # PARA: deliverable projects
-├── Practice/                # PARA: long-term responsibility domains
-├── Library/                 # PARA: reference materials
-├── Archives/                # Completed/paused work
+├── 10_Outputs/              # PARA: deliverable projects
+├── 20_Practice/             # PARA: long-term responsibility domains
+├── 30_Library/              # PARA: reference materials
+├── 40_Archives/             # Completed/paused work
 └── .orgseq/                 # Per-library personalized config (like .vscode/)
     └── ai-config.org        # AI backends, models, defaults
 ```
@@ -156,26 +158,28 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd
 - `init-workspace` after `init-dired` because the sidebar is provided by `dirvish-side` via helpers in `init-dired`
 - `init-evil` loads last because general.el leader keys reference all other modules
 
-### NoteHQ Architecture: Roam + PARA
+### NoteHQ Architecture: Roam + PARA (with numeric prefixes)
 ```
 ~/NoteHQ/
-├── Roam/                  ← Atomic layer (org-roam-directory), flat except:
+├── 00_Roam/               ← Atomic layer (org-roam-directory), flat except:
 │   ├── daily/             ← Daily notes
 │   ├── capture/           ← All captured notes (timestamp-prefixed)
 │   ├── dashboards/        ← Query-only dashboard files
 │   └── supertag-schema.el ← Tag definitions (version-controlled with notes)
-├── Outputs/               ← PARA: deliverable projects (bounded lifetime)
-├── Practice/              ← PARA: long-term responsibility domains
-├── Library/               ← PARA: reference materials (consumed, not maintained)
-├── Archives/              ← Completed/paused work
+├── 10_Outputs/            ← PARA: deliverable projects (bounded lifetime)
+├── 20_Practice/           ← PARA: long-term responsibility domains
+├── 30_Library/            ← PARA: reference materials (consumed, not maintained)
+├── 40_Archives/           ← Completed/paused work
 └── .orgseq/               ← Per-library personalized config
 ```
 
+The numeric prefixes exist so the dirvish sidebar's alphabetical sort matches the workflow priority order instead of putting rarely-touched `Archives` at the top. 10-step gaps (00 / 10 / 20 / 30 / 40) leave room to insert new layers later without renumbering.
+
 ### Scope: Agenda vs PKM vs PARA
 - `my/note-home` (`~/NoteHQ/`): Root directory for all layers
-- `org-roam-directory` / `org-mem-watch-dirs` / `org-supertag-sync-directories` (`~/NoteHQ/Roam/`): Atomic notes only
-- GTD agenda scans `Roam/` + `Outputs/` + `Practice/` (not Library/ or Archives/)
-- Classification is by supertag, not directory. Roam/capture/ is flat.
+- `org-roam-directory` / `org-mem-watch-dirs` / `org-supertag-sync-directories` (`~/NoteHQ/00_Roam/`): Atomic notes only
+- GTD agenda scans `00_Roam/` + `10_Outputs/` + `20_Practice/` (not Library/ or Archives/)
+- Classification is by supertag, not directory. `00_Roam/capture/` is flat.
 
 ### Claude Code Hooks (`.claude/settings.json`)
 Two automatic hooks run without user invocation:

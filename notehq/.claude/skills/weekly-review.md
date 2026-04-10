@@ -10,7 +10,7 @@ The user wants help with their weekly review — summarizing recent activity and
 
 1. Find recent daily notes:
    ```bash
-   ls -t Roam/daily/*.org | head -7
+   ls -t 00_Roam/daily/*.org | head -7
    ```
 
 2. Read each daily note from the past week. Extract:
@@ -21,10 +21,10 @@ The user wants help with their weekly review — summarizing recent activity and
 
 3. Find recently created Roam notes:
    ```bash
-   find Roam/capture/ -name "*.org" -newer Roam/daily/$(date -d '7 days ago' +%Y-%m-%d).org 2>/dev/null | head -20
+   find 00_Roam/capture/ -name "*.org" -newer 00_Roam/daily/$(date -d '7 days ago' +%Y-%m-%d).org 2>/dev/null | head -20
    ```
 
-4. Read `Roam/supertag-schema.el` to understand the tag system.
+4. Read `00_Roam/supertag-schema.el` to understand the tag system.
 
 5. Generate a review report with these sections:
 
@@ -50,7 +50,7 @@ The user wants help with their weekly review — summarizing recent activity and
 - [ ] Notes that might benefit from supertag fields
 - [ ] Notes that should be linked to each other
 - [ ] Thoughts worth extracting to standalone Roam nodes
-- [ ] Outputs/ projects that may need attention
+- [ ] 10_Outputs/ projects that may need attention
 - [ ] Tags that might be worth defining (if a pattern repeats 5+ times)
 ```
 
@@ -60,4 +60,4 @@ The user wants help with their weekly review — summarizing recent activity and
 - Be specific: cite actual note titles and content, not generic advice
 - Focus on **connections** the user might have missed
 - Respect the "5 times before structuring" rule — don't suggest tags prematurely
-- If a dashboard exists at `Roam/dashboards/weekly-review.org`, mention it as the Emacs-native alternative
+- If a dashboard exists at `00_Roam/dashboards/weekly-review.org`, mention it as the Emacs-native alternative

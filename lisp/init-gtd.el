@@ -93,10 +93,16 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
               (cl-remove-if-not
                (lambda (f) (string-suffix-p ".org" f))
                (org-mem-all-files)))
-             ;; Slow path: scan Roam + Outputs + Practice
-             (t (let ((dirs (list (expand-file-name "Roam/"     my/note-home)
-                                  (expand-file-name "Outputs/"  my/note-home)
-                                  (expand-file-name "Practice/" my/note-home))))
+             ;; Slow path: scan 00_Roam + 10_Outputs + 20_Practice.
+             ;; The numeric prefixes match the NoteHQ layer convention
+             ;; defined in init-org.el (`my/roam-dir') and init-supertag.el
+             ;; (`my/outputs-dir', `my/practice-dir').  We do not use
+             ;; those variables directly here because init-gtd loads
+             ;; before init-supertag; when the load order changes this
+             ;; can be simplified to reference the defined constants.
+             (t (let ((dirs (list (expand-file-name "00_Roam/"     my/note-home)
+                                  (expand-file-name "10_Outputs/"  my/note-home)
+                                  (expand-file-name "20_Practice/" my/note-home))))
                   (cl-mapcan (lambda (d)
                                (when (file-directory-p d)
                                  (directory-files-recursively d "\\.org\\'")))

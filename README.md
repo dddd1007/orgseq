@@ -252,19 +252,21 @@ Notes live under `~/NoteHQ/`, organized as a Roam + PARA hybrid:
 
 ```
 ~/NoteHQ/
-├── Roam/                ← Atomic notes (org-roam-directory) — flat, plus daily/, capture/, dashboards/
+├── 00_Roam/             ← Atomic notes (org-roam-directory) — flat, plus daily/, capture/, dashboards/
 │   ├── daily/           ← Daily journal entries
 │   ├── capture/         ← Captured notes (timestamp-prefixed)
 │   ├── dashboards/      ← Read-only supertag query views
 │   └── supertag-schema.el  ← Tag definitions (version-controlled with notes)
-├── Outputs/             ← PARA: deliverable projects (bounded lifetime)
-├── Practice/            ← PARA: long-term responsibility domains
-├── Library/             ← PARA: reference materials
-├── Archives/            ← Completed/paused work
+├── 10_Outputs/          ← PARA: deliverable projects (bounded lifetime)
+├── 20_Practice/         ← PARA: long-term responsibility domains
+├── 30_Library/          ← PARA: reference materials
+├── 40_Archives/         ← Completed/paused work
 └── .orgseq/             ← Per-library config (ai-config.org, etc.)
 ```
 
-Classification is by **supertag**, not directory — `Roam/` itself is flat. GTD agenda scans `Roam/` + `Outputs/` + `Practice/` (skips `Library/` and `Archives/`). org-roam, org-mem, and org-supertag all sync against `~/NoteHQ/Roam/`.
+The numeric prefixes (10-step gaps) exist so the dirvish sidebar sorts the layers in workflow priority order (Roam first, Archives last) instead of alphabetical-by-name order.
+
+Classification is by **supertag**, not directory — `00_Roam/` itself is flat. GTD agenda scans `00_Roam/` + `10_Outputs/` + `20_Practice/` (skips `30_Library/` and `40_Archives/`). org-roam, org-mem, and org-supertag all sync against `~/NoteHQ/00_Roam/`.
 
 The graph is **Org-only** (no md-roam). First-time supertag index: `M-x supertag-sync-full-initialize` (or `SPC n p R`).
 

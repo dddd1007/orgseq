@@ -10,28 +10,28 @@ What this means for you (Claude Code):
 
 - **Honor existing patterns**. If the user mentions a Tana supertag, an Obsidian dataview, or a Notion database, translate it faithfully — don't reinvent.
 - **Speed > interrogation**. Two questions max before generating something. The user already knows what they want; they just need the syntax translated.
-- **Markdown shadow library is intentional**. Files under `Practice/`, `Assets/`, and elsewhere may be `.md` rather than `.org`. These are **historical work from prior systems** — do **not** suggest converting them en masse. Treat them as archives that the user reads but doesn't actively maintain in the org-roam graph.
-- **Migration is gradual**. New atomic notes go into `Roam/capture/` as `.org`; legacy work stays where it is. Don't pressure the user to "complete the migration" — they decide the pace.
-- **Schema is empty by design (initially)**. `Roam/supertag-schema.el` may not exist yet. The user will add tags as they re-encounter patterns from their prior systems. The `/new-tag` skill is the primary entry point and supports `archetype:` and `from <system>:` modes for fast translation.
+- **Markdown shadow library is intentional**. Files under `20_Practice/`, `Assets/`, and elsewhere may be `.md` rather than `.org`. These are **historical work from prior systems** — do **not** suggest converting them en masse. Treat them as archives that the user reads but doesn't actively maintain in the org-roam graph.
+- **Migration is gradual**. New atomic notes go into `00_Roam/capture/` as `.org`; legacy work stays where it is. Don't pressure the user to "complete the migration" — they decide the pace.
+- **Schema is empty by design (initially)**. `00_Roam/supertag-schema.el` may not exist yet. The user will add tags as they re-encounter patterns from their prior systems. The `/new-tag` skill is the primary entry point and supports `archetype:` and `from <system>:` modes for fast translation.
 
 ## Directory Structure
 
 ```
 ~/NoteHQ/
-├── Roam/                    ← Atomic notes layer (org-roam indexed)
+├── 00_Roam/                    ← Atomic notes layer (org-roam indexed)
 │   ├── daily/               ← Daily notes: thought stream + task entry
 │   ├── capture/             ← All captured notes (flat, timestamp-prefixed)
 │   ├── dashboards/          ← Query-only dashboard files (read-only views)
 │   └── supertag-schema.el   ← Tag definitions (entity/event tags with typed fields)
-├── Outputs/                 ← Deliverable projects (bounded lifetime)
-├── Practice/                ← Long-term responsibility domains
-├── Library/                 ← Reference materials (PDFs, datasets, snippets)
+├── 10_Outputs/                 ← Deliverable projects (bounded lifetime)
+├── 20_Practice/                ← Long-term responsibility domains
+├── 30_Library/                 ← Reference materials (PDFs, datasets, snippets)
 │   ├── bibliography/
 │   ├── datasets/
 │   ├── snippets/
 │   ├── references/
 │   └── pdfs/
-├── Archives/                ← Completed or paused work
+├── 40_Archives/                ← Completed or paused work
 └── .orgseq/                 ← Configuration
     ├── ai-config.org        ← AI backend/model settings
     └── capture-templates.el ← User-defined capture templates
@@ -42,19 +42,19 @@ What this means for you (Claude Code):
 ### Org File Format
 - All structured notes use `.org` format (not Markdown)
 - Every Roam note has a unique `:ID:` property (timestamp format `YYYYMMDDTHHmmss`)
-- File naming: `YYYYMMDDTHHmmss-slug.org` in `Roam/capture/`
+- File naming: `YYYYMMDDTHHmmss-slug.org` in `00_Roam/capture/`
 - Links between notes use `[[id:...][title]]` format
 
 ### Classification: Tags, Not Directories
-- **Roam/ is flat** — no subdirectories for categories
+- **00_Roam/ is flat** — no subdirectories for categories
 - Classification is done via **supertag** (structured tags with typed fields)
-- Tag definitions live in `Roam/supertag-schema.el`
+- Tag definitions live in `00_Roam/supertag-schema.el`
 - Two tag patterns:
   - **Entity tags** (static objects): topic, client, student...
   - **Event tags** (flow entries, linked to entities via `:node` fields): reading, session, meeting...
 
 ### Daily Notes
-- Path: `Roam/daily/YYYY-MM-DD.org`
+- Path: `00_Roam/daily/YYYY-MM-DD.org`
 - Serve as **thought stream** (timestamped entries) AND **task entry point** (TODO/PROJECT items)
 - Tasks written in daily notes are automatically picked up by the GTD system
 - Valuable thoughts are extracted to standalone Roam nodes via `id:` links
@@ -62,13 +62,13 @@ What this means for you (Claude Code):
 ### PARA Layers
 | Layer | Purpose | Lifetime |
 |-------|---------|----------|
-| `Outputs/` | Deliverable projects (papers, courses, grants) | Weeks to months |
-| `Practice/` | Long-term roles and responsibilities | Years |
-| `Library/` | Consumed materials (not actively maintained) | Long-term |
-| `Archives/` | Completed or paused work | Permanent |
+| `10_Outputs/` | Deliverable projects (papers, courses, grants) | Weeks to months |
+| `20_Practice/` | Long-term roles and responsibilities | Years |
+| `30_Library/` | Consumed materials (not actively maintained) | Long-term |
+| `40_Archives/` | Completed or paused work | Permanent |
 
 ### Dashboards
-- Location: `Roam/dashboards/*.org`
+- Location: `00_Roam/dashboards/*.org`
 - **Read-only query windows** — never write data directly into dashboards
 - Use `#+BEGIN: supertag-query` dynamic blocks for live queries
 - Refresh with `C-c C-x C-u` (org-update-all-dblocks)
@@ -76,22 +76,22 @@ What this means for you (Claude Code):
 ## Important Rules
 
 ### DO
-- Keep Roam/ flat (daily/, capture/, dashboards/ only)
+- Keep 00_Roam/ flat (daily/, capture/, dashboards/ only)
 - Use `id:` links to connect notes across layers
 - Use supertag fields for structured data (not ad-hoc properties)
 - Write tasks in daily notes (they auto-appear in GTD views)
-- Archive completed Outputs projects to Archives/
+- Archive completed Outputs projects to 40_Archives/
 
 ### DO NOT
-- Create new subdirectories inside Roam/ (use tags instead)
+- Create new subdirectories inside 00_Roam/ (use tags instead)
 - Edit dashboard files to add data (they are query views only)
 - Remove or change `:ID:` properties (breaks all links)
-- Put binary files in Roam/ (use Library/ instead)
+- Put binary files in 00_Roam/ (use 30_Library/ instead)
 - Modify `.orgseq/` files without understanding the format
 
 ## Supertag Schema
 
-Tag definitions in `Roam/supertag-schema.el` use this pattern:
+Tag definitions in `00_Roam/supertag-schema.el` use this pattern:
 
 ```elisp
 (org-supertag-tag-create "tagname"
@@ -124,6 +124,6 @@ User-defined templates in `.orgseq/capture-templates.el` set the variable `my/us
 | `/new-dashboard` | Create a dashboard query file. Supports kanban / queue / by-status / by-date / MOC / weekly-pulse archetypes and Notion view translation. | `/new-dashboard reading-queue queue reading` or `/new-dashboard from notion: client board grouped by status` |
 | `/new-template` | Add an org-roam capture template to `.orgseq/capture-templates.el`. | `/new-template r reading` |
 | `/weekly-review` | Summarize recent daily notes and suggest review actions. | `/weekly-review` |
-| `/archive-project` | Move a completed `Outputs/` project to `Archives/YYYY-name/`. | `/archive-project grant-2026` |
+| `/archive-project` | Move a completed `10_Outputs/` project to `40_Archives/YYYY-name/`. | `/archive-project grant-2026` |
 
 **Tip for the migration phase**: when re-creating a tag, dashboard, or template that you used in a prior PKM system, tell the skill the source format directly (`/new-tag from tana: ...`). Faster than describing it from scratch.

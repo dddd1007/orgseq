@@ -31,7 +31,7 @@ SPC n d d  → 创建/打开今日 daily note（capture 模式）
 SPC n d t  → 直接跳转到今日 daily note（浏览模式）
 ```
 
-这些文件放在 `~/NoteHQ/Roam/daily/` 下，以日期命名。Daily 笔记是这套系统里最"多功能"的一类文件，它同时承担两个看起来不相关但实际上高度互补的职责。
+这些文件放在 `~/NoteHQ/00_Roam/daily/` 下，以日期命名。Daily 笔记是这套系统里最"多功能"的一类文件，它同时承担两个看起来不相关但实际上高度互补的职责。
 
 第一个职责是**思维流捕捉**：一边做事一边记录进展、观察、临时想法、未成形的疑问。这里的文字不需要严谨——可以是流水账、半截的句子、给自己的追问。重点是降低写作门槛，让想法在出现的瞬间就能被抓住。
 
@@ -145,7 +145,7 @@ Zettelkasten 的核心动作不是"建立分类体系"，而是**识别哪些想
 识别出来之后，从 daily 里把它"提升"成独立节点的完整动作是这样的：
 
 1. 按 `SPC n c` 打开 capture 模板选择菜单，大多数情况选 `d`（default）就够了——你不需要一开始就为每类笔记设计专门的模板。
-2. 新节点会落到 `~/NoteHQ/Roam/capture/` 下，文件名是时间戳前缀加 slug（比如 `20260410T143022-atomic-notes-as-conversation.org`）。这个命名方案保证了两点：节点之间不会因为重名冲突，以及将来你可以用文件名时间戳回溯"某一周我写了哪些新东西"。
+2. 新节点会落到 `~/NoteHQ/00_Roam/capture/` 下，文件名是时间戳前缀加 slug（比如 `20260410T143022-atomic-notes-as-conversation.org`）。这个命名方案保证了两点：节点之间不会因为重名冲突，以及将来你可以用文件名时间戳回溯"某一周我写了哪些新东西"。
 3. 屏幕下方会弹出一个窗口让你编辑新节点的正文——写几句话阐明这个想法就够了。不要在第一版就追求完美，原子笔记的价值来自数量积累而非单条完美。
 4. 写完后回到原来的 daily 位置（可以 `C-x b` 切回去，或用 `SPC ,`），按 `SPC n i` 插入一个 `[[id:...]]` 链接指向新节点。这样以后你在 daily 里看到这条"已经被提升"的想法时，可以一键跳过去查看它演化成了什么样子。
 5. 如果这条笔记属于某个已经定义好的 supertag 类别（比如你有 `concept` 或 `reading` tag），按 `SPC n p p` 给它加 tag 并填上相关字段。没有合适的 tag 就跳过这一步——tag 是后来长出来的，不是预先规划的。
@@ -153,7 +153,7 @@ Zettelkasten 的核心动作不是"建立分类体系"，而是**识别哪些想
 
 这个过程你会做得越来越快。第一周可能每条都要想 2-3 分钟，一个月后大约每条 30 秒就能完成提取。重点是养成"看到值得的想法就提升"的本能反应——漏掉几条没关系，僵化的仪式才是真正的敌人。
 
-**分类由 tag 承担，不由目录承担**。除了 `daily/`、`capture/`、`dashboards/` 三个特殊子目录，`Roam/` 完全扁平——没有什么 `literature/` / `concepts/` / `people/` 之类的层级。如果你发现自己在思考"这条笔记应该放在哪个目录"，那是旧的文件系统思维在捣乱——答案是"放在 capture/ 里，让 tag 告诉你它是什么"。
+**分类由 tag 承担，不由目录承担**。除了 `daily/`、`capture/`、`dashboards/` 三个特殊子目录，`00_Roam/` 完全扁平——没有什么 `literature/` / `concepts/` / `people/` 之类的层级。如果你发现自己在思考"这条笔记应该放在哪个目录"，那是旧的文件系统思维在捣乱——答案是"放在 capture/ 里，让 tag 告诉你它是什么"。
 
 ### Capture 模板
 
@@ -206,7 +206,7 @@ SPC n p j  → 跳转到关联节点
 ### Tag schema 维护
 
 ```
-SPC n m t  → 编辑 tag schema（~/NoteHQ/Roam/supertag-schema.el）
+SPC n m t  → 编辑 tag schema（~/NoteHQ/00_Roam/supertag-schema.el）
 SPC n m T  → 重载 tag schema（无需重启 Emacs）
 ```
 
@@ -251,7 +251,7 @@ SPC n v i  → Dashboard index
 SPC n m d  → 创建新 dashboard
 ```
 
-新 dashboard 保存在 `~/NoteHQ/Roam/dashboards/` 下。每个文件是独立的 org 文件，用 `#+BEGIN: supertag-query` 动态块定义查询。
+新 dashboard 保存在 `~/NoteHQ/00_Roam/dashboards/` 下。每个文件是独立的 org 文件，用 `#+BEGIN: supertag-query` 动态块定义查询。
 
 ### Review 操作
 
@@ -269,21 +269,21 @@ SPC n m d  → 创建新 dashboard
 
 ## 五、PARA 工作流
 
-NoteHQ 分为两大区域：**Roam/（原子层）** 和 **PARA 层（产出/实践/资源/归档）**。两层通过 `id:` 链接和 `org-transclusion` 通信。
+NoteHQ 分为两大区域：**00_Roam/（原子层）** 和 **PARA 层（产出/实践/资源/归档）**。两层通过 `id:` 链接和 `org-transclusion` 通信。
 
 ### 目录结构
 
 ```
 ~/NoteHQ/
-├── Roam/                   ← 原子层 (org-roam 索引范围)
+├── 00_Roam/                   ← 原子层 (org-roam 索引范围)
 │   ├── daily/              ← 每日笔记
 │   ├── dashboards/         ← 查询入口文件
 │   └── capture/            ← 所有 capture 落地（扁平，时间戳前缀）
 │
-├── Outputs/                ← 有明确交付时刻的产出物（论文、课件、申请书…）
-├── Practice/               ← 长期承担的角色与责任沉淀（教学、临床、研究方法…）
-├── Library/                ← 被取用而非被维护的素材（PDF、BibTeX、数据集…）
-└── Archives/               ← 已完成或停滞的内容（按年份归档）
+├── 10_Outputs/                ← 有明确交付时刻的产出物（论文、课件、申请书…）
+├── 20_Practice/               ← 长期承担的角色与责任沉淀（教学、临床、研究方法…）
+├── 30_Library/                ← 被取用而非被维护的素材（PDF、BibTeX、数据集…）
+└── 40_Archives/               ← 已完成或停滞的内容（按年份归档）
 ```
 
 ### PARA 导航
@@ -299,18 +299,18 @@ SPC P g    → 在整个 NoteHQ 中 ripgrep 全文搜索
 
 拿不准放哪一层时，依次回答 3 个问题：
 
-1. **它会"完成"吗？** 能想象明确的完成时刻 → **Outputs/**
-2. **你对它有外部义务吗？** 长期角色、有责任对象 → **Practice/**
-3. **你会主动审阅它，还是只是取用它？** 主动审阅 → **Practice/**；只是取用 → **Library/**
+1. **它会"完成"吗？** 能想象明确的完成时刻 → **10_Outputs/**
+2. **你对它有外部义务吗？** 长期角色、有责任对象 → **20_Practice/**
+3. **你会主动审阅它，还是只是取用它？** 主动审阅 → **20_Practice/**；只是取用 → **30_Library/**
 
-不确定时默认放 Outputs/。Outputs 有更高的可见度，会被频繁打开。
+不确定时默认放 10_Outputs/。Outputs 有更高的可见度，会被频繁打开。
 
 ### Roam 与 PARA 的交互
 
 - 在 Outputs 的 manuscript.org 里用 `SPC n i` 引用 Roam 节点（id: 链接）
 - 用 `org-transclusion` 把 Roam 节点的内容实时嵌入到 PARA 文档
-- 项目完成后归档：把 `Outputs/your-project/` 移到 `Archives/2026-your-project/`
-- 可复用的方法学和心得抽出来回流到 Practice/
+- 项目完成后归档：把 `10_Outputs/your-project/` 移到 `40_Archives/2026-your-project/`
+- 可复用的方法学和心得抽出来回流到 20_Practice/
 
 ---
 
@@ -501,7 +501,7 @@ Dashboard 按天展示彩色时间线（█ flow / ▓ normal / ░ unfocused）
 | 全屏 dirvish | `SPC o f` | 当前目录 |
 | 打开 NoteHQ | `SPC o N` | 全屏 dirvish 到 NoteHQ 根 |
 | 跳到当前文件目录 | `SPC f j` 或 `SPC o d` | dired-jump |
-| Quick-access 菜单 | 在 dirvish 内按 `a` | 一键跳 Roam/capture/daily/dashboards/Outputs/Practice/Library/... |
+| Quick-access 菜单 | 在 dirvish 内按 `a` | 一键跳 00_Roam/capture/daily/dashboards/10_Outputs/20_Practice/30_Library/... |
 | 子目录展开 | 在 dirvish 内按 `TAB` | 在当前行原位展开/折叠 |
 | Casual 菜单 | 在 dirvish 内按 `C-o` | Transient 菜单（所有 dired 操作） |
 

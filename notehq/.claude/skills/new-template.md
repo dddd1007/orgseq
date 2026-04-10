@@ -9,7 +9,7 @@ The user wants to add a new org-roam capture template for a specific type of not
 ## Steps
 
 1. Read `.orgseq/capture-templates.el` to see existing templates and their key bindings.
-2. Read `Roam/supertag-schema.el` to check if a corresponding supertag exists.
+2. Read `00_Roam/supertag-schema.el` to check if a corresponding supertag exists.
 3. Ask the user (if not specified):
    - Template key (single character, must not conflict with existing: check the file)
    - Description (e.g., "Session", "Student", "Hypothesis")

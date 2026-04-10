@@ -1,6 +1,6 @@
 ---
 name: new-dashboard
-description: Generate a supertag query dashboard in Roam/dashboards/. Supports named archetypes (kanban, queue, MOC, weekly-pulse) and Notion view translation.
+description: Generate a supertag query dashboard in 00_Roam/dashboards/. Supports named archetypes (kanban, queue, MOC, weekly-pulse) and Notion view translation.
 user_invocable: true
 args: dashspec - "name [archetype] [tag]" or "from notion: <view description>" or empty for guided mode
 ---
@@ -26,11 +26,11 @@ Map Notion view types to dashboard archetypes (table → simple query, board →
 
 ## Steps
 
-1. **Read** `Roam/supertag-schema.el` to know which tags and fields actually exist. **Never** invent fields that aren't in the schema.
-2. **Read** `Roam/dashboards/` directory to see existing dashboards and avoid duplicates / naming conflicts.
+1. **Read** `00_Roam/supertag-schema.el` to know which tags and fields actually exist. **Never** invent fields that aren't in the schema.
+2. **Read** `00_Roam/dashboards/` directory to see existing dashboards and avoid duplicates / naming conflicts.
 3. **Resolve the tag**: if user-specified, verify it exists in the schema. If not, prompt: "Tag X doesn't exist yet. Run /new-tag X first, or proceed with placeholder?"
 4. **Pick the archetype** (from args or by asking).
-5. **Render the dashboard file** at `Roam/dashboards/<name>.org` using the archetype template, substituting the actual fields from the schema.
+5. **Render the dashboard file** at `00_Roam/dashboards/<name>.org` using the archetype template, substituting the actual fields from the schema.
 6. **Update `dashboards/index.org`** — append a link to the new dashboard. Create `index.org` if it doesn't exist.
 7. **Report** the created file, the queries it contains, and how to refresh in Emacs.
 
@@ -225,7 +225,7 @@ or use ~SPC n q s~ (org-ql-search) interactively.
 
 * All notes mentioning <pattern>
 #+begin_src elisp :results output
-(org-ql-select '("Roam/")
+(org-ql-select '("00_Roam/")
   '(regexp "<pattern>")
   :action '(format "- [[id:%s][%s]]" (org-id-get) (org-get-heading t t t t)))
 #+end_src
@@ -260,7 +260,7 @@ When generating from an archetype, replace the placeholders by **reading the sch
 
 After creating any non-index dashboard:
 
-1. Check if `Roam/dashboards/index.org` exists.
+1. Check if `00_Roam/dashboards/index.org` exists.
 2. If yes, find the `* Dashboards` heading and append a new bullet: `  - [[file:<name>.org][<Title>]] — <description>`.
 3. If no, create `index.org` from the `index` archetype and add the new dashboard's bullet.
 
@@ -268,7 +268,7 @@ After creating any non-index dashboard:
 
 ```
 Created dashboard: <name>
-File:        Roam/dashboards/<name>.org
+File:        00_Roam/dashboards/<name>.org
 Archetype:   <archetype-name>
 Tag scope:   <tag>
 Queries:     <count> supertag-query block(s)
@@ -276,7 +276,7 @@ Index:       <updated|created>
 
 Open in Emacs:  SPC n v v  (then pick "<name>")
 Refresh:        C-c C-x C-u  (org-update-all-dblocks)
-Commit:         git add Roam/dashboards/<name>.org Roam/dashboards/index.org && git commit -m "dashboard: add <name>"
+Commit:         git add 00_Roam/dashboards/<name>.org 00_Roam/dashboards/index.org && git commit -m "dashboard: add <name>"
 
 If a query block returns nothing, check:
 - the tag actually has notes (try SPC n p s to search the supertag DB)

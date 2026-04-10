@@ -1,9 +1,15 @@
 ;;; init-dired.el --- Dired + dirvish modern file manager -*- lexical-binding: t; -*-
 
-;; Requires: init-org (my/note-home, my/roam-dir)
-;; Requires: init-ui  (nerd-icons for file-type icons)
-(defvar my/note-home)  ; forward-declare from init-org
-(defvar my/roam-dir)   ; forward-declare from init-org
+;; Requires: init-org       (my/note-home, my/roam-dir)
+;; Requires: init-supertag  (my/outputs-dir, my/practice-dir,
+;;                           my/library-dir, my/archives-dir)
+;; Requires: init-ui        (nerd-icons for file-type icons)
+(defvar my/note-home)      ; forward-declare from init-org
+(defvar my/roam-dir)       ; forward-declare from init-org
+(defvar my/outputs-dir)    ; forward-declare from init-supertag
+(defvar my/practice-dir)   ; forward-declare from init-supertag
+(defvar my/library-dir)    ; forward-declare from init-supertag
+(defvar my/archives-dir)   ; forward-declare from init-supertag
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: Built-in dired — base configuration
@@ -120,17 +126,17 @@
   ;; rooted at these paths.  Wire them to the NoteHQ layout so jumping
   ;; into captures/dailies is one keystroke.
   (setq dirvish-quick-access-entries
-        `(("h" "~/"                                     "Home")
-          ("n" ,my/note-home                             "NoteHQ")
-          ("r" ,my/roam-dir                              "Roam")
-          ("c" ,(expand-file-name "capture/" my/roam-dir) "Captures")
-          ("d" ,(expand-file-name "daily/"   my/roam-dir) "Daily")
+        `(("h" "~/"                                         "Home")
+          ("n" ,my/note-home                                 "NoteHQ")
+          ("r" ,my/roam-dir                                  "Roam")
+          ("c" ,(expand-file-name "capture/" my/roam-dir)    "Captures")
+          ("d" ,(expand-file-name "daily/"   my/roam-dir)    "Daily")
           ("b" ,(expand-file-name "dashboards/" my/roam-dir) "Dashboards")
-          ("o" ,(expand-file-name "Outputs/"  my/note-home) "Outputs")
-          ("p" ,(expand-file-name "Practice/" my/note-home) "Practice")
-          ("l" ,(expand-file-name "Library/"  my/note-home) "Library")
-          ("a" ,(expand-file-name "Archives/" my/note-home) "Archives")
-          ("e" ,user-emacs-directory                     "Emacs config")))
+          ("o" ,my/outputs-dir                               "Outputs")
+          ("p" ,my/practice-dir                              "Practice")
+          ("l" ,my/library-dir                               "Library")
+          ("a" ,my/archives-dir                              "Archives")
+          ("e" ,user-emacs-directory                         "Emacs config")))
 
   :bind (:map dirvish-mode-map
          ;; Dirvish's own menus (Transient-based)

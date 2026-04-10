@@ -1,6 +1,6 @@
 ---
 name: new-tag
-description: Generate a new org-supertag definition in Roam/supertag-schema.el. Supports named archetypes and Tana/Notion/Obsidian field migration.
+description: Generate a new org-supertag definition in 00_Roam/supertag-schema.el. Supports named archetypes and Tana/Notion/Obsidian field migration.
 user_invocable: true
 args: tagspec - "tagname [pattern]" or "from <system>: <description>" or empty for guided mode
 ---
@@ -27,7 +27,7 @@ User types `/new-tag` with no args. Read existing schema, show the named archety
 
 ## Steps
 
-1. **Read** `Roam/supertag-schema.el` first (it may not exist yet — that's fine, create it with the file header from "Schema file scaffold" below).
+1. **Read** `00_Roam/supertag-schema.el` first (it may not exist yet — that's fine, create it with the file header from "Schema file scaffold" below).
 2. **Check for collisions**: if the proposed tag name already exists in the file, warn and offer to extend rather than duplicate.
 3. **Resolve dependencies**: if generating an event tag with `:node :ref-tag "X"`, check that `X` already exists in the schema. If not, prompt: "X doesn't exist yet. Create it first as an entity tag, or use a placeholder?"
 4. **Generate the tag block** using the templates in "Patterns" or "Archetypes" below. Keep field count to 2-4 unless the user explicitly listed more.
@@ -105,7 +105,7 @@ These are battle-tested across the user's prior PKM platforms. Use them verbatim
             (:name "followup"  :type :options :options ("none" "task" "next-session"))))
 ```
 
-### `archetype:project` — bounded deliverable (lighter than Outputs/)
+### `archetype:project` — bounded deliverable (lighter than 10_Outputs/)
 ```elisp
 (org-supertag-tag-create "project"
   :fields '((:name "deadline" :type :date)
@@ -172,7 +172,7 @@ When the user says "from tana:" / "from notion:" / "from obsidian:", apply this 
 | Notion `created time` / `last edited` | omit | use file mtime / org-id timestamp |
 | Notion `person` | `:type :node :ref-tag "person"` | requires `person` tag |
 | Notion `URL` / `email` / `phone` | `:type :string` | no validation |
-| Notion `files & media` | omit | use Library/ + `[[file:...]]` link in note body |
+| Notion `files & media` | omit | use 30_Library/ + `[[file:...]]` link in note body |
 | Notion `rating` | `:type :options :options ("1" "2" "3" "4" "5")` | no native rating |
 | Obsidian `dataview field::` | `:type :string` (default) | promote to typed field if usage suggests |
 | Obsidian `tag` (`#xxx`) | becomes the supertag itself | not a field |
@@ -180,12 +180,12 @@ When the user says "from tana:" / "from notion:" / "from obsidian:", apply this 
 **Lossy conversions** to flag to the user:
 - Multi-select → string (no multi-value field type)
 - Formula → string (no computed fields)
-- Files → must be moved to Library/ separately
+- Files → must be moved to 30_Library/ separately
 - Created/edited timestamps → not stored as fields; use `org-id` and file metadata
 
 ## Schema file scaffold
 
-If `Roam/supertag-schema.el` does **not** exist when the skill runs, create it with this header before adding the first tag:
+If `00_Roam/supertag-schema.el` does **not** exist when the skill runs, create it with this header before adding the first tag:
 
 ```elisp
 ;;; supertag-schema.el --- Supertag definitions for NoteHQ -*- lexical-binding: t; -*-
@@ -197,7 +197,7 @@ If `Roam/supertag-schema.el` does **not** exist when the skill runs, create it w
 ;; Field types: :string :number :date :options :node
 ;;
 ;; Reload after editing:  SPC n m T  (my/reload-supertag-schema)
-;; Then commit:           git add Roam/supertag-schema.el && git commit
+;; Then commit:           git add 00_Roam/supertag-schema.el && git commit
 ;;
 ;; Principle: only add a tag after using the default capture template 5+ times
 ;; for the same kind of note and noticing a shared structure.
@@ -226,12 +226,12 @@ After writing, report to the user:
 
 ```
 Added tag: <tagname> (<entity|event>)
-File:      Roam/supertag-schema.el
+File:      00_Roam/supertag-schema.el
 Fields:    <comma-separated list>
 Links to:  <referenced tag, if event>
 
 Reload in Emacs:  SPC n m T
-Commit:           git add Roam/supertag-schema.el && git commit -m "schema: add <tagname>"
+Commit:           git add 00_Roam/supertag-schema.el && git commit -m "schema: add <tagname>"
 
 Suggested next steps:
 - /new-template <key> with filetag :<tagname>: (if you'll capture these often)
