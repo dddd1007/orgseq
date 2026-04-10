@@ -45,18 +45,22 @@
       '(("gnu"    . "https://elpa.gnu.org/packages/")
         ("nongnu" . "https://elpa.nongnu.org/nongnu/")
         ("melpa"  . "https://melpa.org/packages/")))
+;; Allow package.el to upgrade built-in packages (Transient, Org, etc.)
+;; Set BEFORE any potential package-install / use-package activation.
+(setq package-install-upgrade-built-in t)
 (package-initialize)
 (unless package-archive-contents
-  (package-refresh-contents))
+  (condition-case err
+      (package-refresh-contents)
+    (error
+     (message "WARNING org-seq: package archive refresh failed (%s).
+  Restart with network connectivity to install missing packages." err))))
 
 ;; ---- use-package (Emacs 29+ built-in) ----
 (require 'use-package)
 (setq use-package-always-ensure t
       use-package-expand-minimally t
       use-package-verbose nil)
-
-;; Allow package.el to upgrade built-in packages (Transient, Org, etc.)
-(setq package-install-upgrade-built-in t)
 
 ;; ---- Module load path ----
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
@@ -117,17 +121,19 @@
                  (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
-;; Order: UI -> completion -> markdown -> org -> roam -> gtd -> pkm -> supertag -> ai -> dashboard -> workspace -> evil (last)
+;; Order: UI -> completion -> markdown -> org -> roam -> gtd -> focus -> pkm -> supertag -> ai -> dashboard -> dired -> workspace -> evil (last)
 (require 'init-ui)
 (require 'init-completion)
 (require 'init-markdown)
 (require 'init-org)
 (require 'init-roam)
 (require 'init-gtd)
+(require 'init-focus)
 (require 'init-pkm)
 (require 'init-supertag)
 (require 'init-ai)
 (require 'init-dashboard)
+(require 'init-dired)
 (require 'init-workspace)
 (require 'init-evil)
 

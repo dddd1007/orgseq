@@ -143,6 +143,18 @@ function Deploy-Config {
     $moduleCount = (Get-ChildItem "$lispDst/*.el" | Measure-Object).Count
     Write-Pass "lisp/ ($moduleCount modules)"
 
+    # Bundled subprojects live under packages/ (currently just
+    # org-focus-timer).  Copy the whole tree so init-focus.el can find
+    # it via user-emacs-directory.
+    $pkgSrc = Join-Path $ScriptDir "packages"
+    $pkgDst = Join-Path $Target "packages"
+    if (Test-Path $pkgSrc) {
+        if (Test-Path $pkgDst) { Remove-Item -Recurse -Force $pkgDst }
+        Copy-Item -Recurse -Force $pkgSrc $pkgDst
+        $pkgCount = (Get-ChildItem "$pkgDst" -Recurse -Filter "*.el" | Measure-Object).Count
+        Write-Pass "packages/ ($pkgCount elisp files)"
+    }
+
     # Restore custom.el if it was in the target before
     $backups = Get-ChildItem "$Target.backup-*" -Directory -ErrorAction SilentlyContinue | Sort-Object -Descending | Select-Object -First 1
     if ($backups -and (Test-Path "$($backups.FullName)/custom.el") -and (-not (Test-Path "$Target/custom.el"))) {
@@ -157,7 +169,12 @@ function Test-Deployment {
     Write-Section "Verifying deployment"
 
     $elFiles = Get-ChildItem "$Target/lisp/*.el" | ForEach-Object { $_.FullName }
-    $allFiles = @("$Target/early-init.el", "$Target/init.el") + $elFiles
+    $pkgFiles = @()
+    if (Test-Path "$Target/packages") {
+        $pkgFiles = Get-ChildItem "$Target/packages" -Recurse -Filter "*.el" |
+                    ForEach-Object { $_.FullName }
+    }
+    $allFiles = @("$Target/early-init.el", "$Target/init.el") + $elFiles + $pkgFiles
 
     $emacs = Get-Command emacs -ErrorAction SilentlyContinue
     if (-not $emacs) {

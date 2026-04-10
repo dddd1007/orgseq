@@ -1,5 +1,8 @@
 ;;; init-pkm.el --- PKM extensions: org-supertag + org-transclusion + org-ql -*- lexical-binding: t; -*-
 
+;; Requires: init-org (my/roam-dir)
+(defvar my/roam-dir)  ; forward-declare from init-org
+
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: org-supertag — structured data engine (Tana-style)
 ;; ═══════════════════════════════════════════════════════════════════════════
@@ -18,54 +21,37 @@
 ;; ht: hash-table library required by org-supertag
 (use-package ht :ensure t)
 
-;; Bootstrap org-supertag from GitHub (not on MELPA).
-(when (< emacs-major-version 30)
-  (unless (package-installed-p 'org-supertag)
-    (if (fboundp 'package-vc-install)
-        (condition-case err
-            (package-vc-install "https://github.com/yibie/org-supertag")
-          (error
-           (message "WARNING org-seq: failed to install org-supertag: %s" err)))
-      (message "WARNING org-seq: package-vc-install unavailable, skip org-supertag."))))
+;; Bootstrap org-supertag from GitHub (not on MELPA).  Works on Emacs 29+
+;; via package-vc-install.  The condition-case prevents an offline first
+;; boot from killing init.el; the deferred warning below tells the user
+;; to retry once they have network.
+(unless (package-installed-p 'org-supertag)
+  (condition-case err
+      (package-vc-install "https://github.com/yibie/org-supertag")
+    (error
+     (message "WARNING org-seq: failed to install org-supertag: %s" err))))
 
-(if (>= emacs-major-version 30)
-    (use-package org-supertag
-      :after org
-      :vc (:url "https://github.com/yibie/org-supertag" :rev :newest)
-      :commands (org-supertag-tag-add-tag org-supertag-tag-remove
-                 org-supertag-node-edit-field org-supertag-node-follow-ref
-                 org-supertag-node-list-fields org-supertag-node-get-tags
-                 supertag-add-tag supertag-view-node supertag-search
-                 supertag-view-kanban supertag-capture supertag-create-node
-                 supertag-set-tag-parent supertag-sync-full-initialize
-                 supertag-sync-check-now supertag-sync-status
-                 supertag-convert-properties-to-field
-                 supertag-capture-enrich-node-at-point)
-      :config
-      (setq org-supertag-sync-directories
-            (list (file-truename "~/NoteHQ/Roam/")))
-      (setq org-supertag-bridge-enable-ai t))
-  (use-package org-supertag
-    :after org
-    :if (locate-library "org-supertag")
-    :commands (org-supertag-tag-add-tag org-supertag-tag-remove
-               org-supertag-node-edit-field org-supertag-node-follow-ref
-               org-supertag-node-list-fields org-supertag-node-get-tags
-               supertag-add-tag supertag-view-node supertag-search
-               supertag-view-kanban supertag-capture supertag-create-node
-               supertag-set-tag-parent supertag-sync-full-initialize
-               supertag-sync-check-now supertag-sync-status
-               supertag-convert-properties-to-field
-               supertag-capture-enrich-node-at-point)
-    :config
-    (setq org-supertag-sync-directories
-          (list (file-truename "~/NoteHQ/Roam/")))
-    (setq org-supertag-bridge-enable-ai t)))
+(use-package org-supertag
+  :if (locate-library "org-supertag")
+  :after org
+  :commands (org-supertag-tag-add-tag org-supertag-tag-remove
+             org-supertag-node-edit-field org-supertag-node-follow-ref
+             org-supertag-node-list-fields org-supertag-node-get-tags
+             supertag-add-tag supertag-view-node supertag-search
+             supertag-view-kanban supertag-capture supertag-create-node
+             supertag-set-tag-parent supertag-sync-full-initialize
+             supertag-sync-check-now supertag-sync-status
+             supertag-convert-properties-to-field
+             supertag-capture-enrich-node-at-point)
+  :config
+  (setq org-supertag-sync-directories (list my/roam-dir))
+  (setq org-supertag-bridge-enable-ai t))
 
 (unless (locate-library "org-supertag")
   (run-with-idle-timer 2 nil
     (lambda ()
-      (message "WARNING org-seq: org-supertag not found. Run M-x package-vc-install to install it."))))
+      (message "WARNING org-seq: org-supertag not found. \
+Run M-x package-vc-install to install it manually."))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Capture bridge — org-roam → org-supertag

@@ -8,6 +8,8 @@ user_invocable: true
 
 Run byte-compilation checks on all `.el` files in the org-seq project to catch errors.
 
+> **Synergy with hooks**: `.claude/settings.json` already auto-compiles each `.el` file on Write/Edit (PostToolUse) and rejects any `git commit` that breaks compilation (PreToolUse). This skill is for **full-repo verification mid-session** — e.g. after refactoring across multiple files, or before pushing without committing.
+
 ## Steps
 
 1. Find all `.el` files in the project root and `lisp/` directory

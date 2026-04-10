@@ -1,21 +1,24 @@
 ;;; init-supertag.el --- Tana-style structured tags + PARA navigation -*- lexical-binding: t; -*-
 
-;; Requires: init-org (my/note-home, my/orgseq-dir)
+;; Requires: init-org (my/note-home, my/orgseq-dir, my/roam-dir)
 ;; Requires: init-pkm (org-supertag base setup)
 ;; Requires: init-roam (my/default-capture-templates)
 (defvar my/note-home)
 (defvar my/orgseq-dir)
+(defvar my/roam-dir)
 (defvar my/default-capture-templates)
 
 ;; ═══════════════════════════════════════════════════════════════════════════
-;; Section 1: NoteHQ path constants
+;; Section 1: NoteHQ PARA path constants
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
 ;; Physical structure follows Roam (atomic) + PARA (output) separation.
 ;; Roam/ is flat except daily/, capture/, dashboards/.
 ;; Tag-based classification replaces directory-based classification.
+;;
+;; `my/roam-dir' is defined in init-org.el so init-roam/init-pkm/init-ai
+;; can reference it without depending on this module.
 
-(defconst my/roam-dir       (expand-file-name "Roam/"       my/note-home))
 (defconst my/outputs-dir    (expand-file-name "Outputs/"    my/note-home))
 (defconst my/practice-dir   (expand-file-name "Practice/"   my/note-home))
 (defconst my/library-dir    (expand-file-name "Library/"    my/note-home))

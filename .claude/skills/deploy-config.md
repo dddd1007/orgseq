@@ -24,14 +24,16 @@ Copy the org-seq configuration to the user's Emacs directory for use.
    - Install external tools: `rg` (ripgrep), `fd` (fd-find)
 
 ## Files NOT deployed (stay in repo only)
-- `org-seq-build.md` — reference documentation
-- `WORKFLOW.md` — user workflow (optional to read in repo)
-- `CLAUDE.md` — development guidelines
+- `doc/` — GUIDE.md, WORKFLOW.md, NOTES_ARCHITECTURE.md (read in repo clone)
+- `CLAUDE.md` — development guidelines (not relevant at runtime)
 - `README.md`, `LICENSE` — repo metadata
-- `.claude/` — Claude Code config (not needed in ~/.emacs.d/)
-- `.gitignore`, `.git/` — version control
+- `.claude/` — Claude Code dev config (hooks, rules, skills for repo work, not Emacs)
+- `notehq/` — scaffolding deployed by `scripts/bootstrap-notes.*` to `~/NoteHQ/`, not to `~/.emacs.d/`
+- `scripts/` — bootstrap scripts (run from repo, not copied)
+- `.gitignore`, `.gitattributes`, `.git/` — version control
+- `debug-*.el` — local debugging files (gitignored)
 
-Deployed users should still read `README.md` in the repo clone for prerequisites; post-install **org-supertag** first-time: `M-x supertag-sync-full-initialize` (or `SPC n s R` after packages load).
+Deployed users should still read `README.md` and `doc/GUIDE.md` in the repo clone for prerequisites; post-install **org-supertag** first-time: `M-x supertag-sync-full-initialize` (or `SPC n p R` after packages load).
 
 ## Safety
 

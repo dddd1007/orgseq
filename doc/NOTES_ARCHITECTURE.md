@@ -1,8 +1,25 @@
 # orgseq 笔记库架构
 
+## 文档状态
+
+> **这是一份设计规范文档，不是实现参考。**
+>
+> 本文档记录 `~/NoteHQ/` 笔记库的**物理结构、tag 体系思路、capture 模板、dashboard 设计原则**与**生长原则**。这些内容是长期稳定的设计决策。
+>
+> **实现层面的事实**（函数名、加载顺序、键位、安装方式）请以下列源文件为准，因为它们随项目迭代而变化：
+> - `lisp/init-org.el` — 路径常量 `my/note-home` / `my/roam-dir` / `my/orgseq-dir`（defcustom，属于 `org-seq` customize group）
+> - `lisp/init-roam.el` — org-roam + org-node/org-mem + capture templates
+> - `lisp/init-supertag.el` — supertag schema/capture templates/dashboard/PARA 导航（函数前缀统一为 `my/`）
+> - `lisp/init-dired.el` — dired + dirvish（文件管理与侧边栏）
+> - `lisp/init-evil.el` — 所有 `SPC` leader key 绑定的唯一真相源
+> - `scripts/bootstrap-notes.{sh,ps1}` — 笔记目录初始化与 Claude Code 脚手架部署脚本（支持 `--update` 增量刷新）
+> - `CLAUDE.md` — 项目开发指南（模块加载顺序、设计决策、troubleshooting）
+>
+> 本文档中出现的代码片段仅作为**设计意图**说明。凡与源文件不一致之处，以源文件为准。
+
 ## 文档目的
 
-本文档定义 `~/NoteHQ/` 笔记库的物理结构、tag 体系思路、capture 模板、dashboard 设计与初始化规范，作为 orgseq 配置开发与数据初始化的依据。
+本文档定义 `~/NoteHQ/` 笔记库的物理结构、tag 体系思路、capture 模板、dashboard 设计与生长原则，作为 org-seq 配置开发与数据初始化的依据。
 
 这段设计文档基于一个核心承诺：**笔记系统应该跟随使用情况自然生长，而不是预先规划完整 schema**。本文档只提供最小起点 —— 2 个示例 tag、2 个示例 dashboard、几条占位符笔记 —— 用户在真实使用中按需扩展。任何看起来"详尽完备"的初始配置都应该被视为反模式。
 
@@ -10,21 +27,21 @@
 
 ## 一、设计原则
 
-笔记库由两条原则支撑：
+整个笔记库的物理结构和数据流向都可以从两条原则推导出来。
 
-**碎片层与产出层物理分离**。原子笔记进入 `Roam/` 扁平目录，由 `org-roam` 负责索引和反向链接；正式产出物进入 类 PARA 层级目录，文件结构反映可交付物的内在组织。两层通过 `id:` 链接和 `org-transclusion` 通信，但不互相污染。这避免了"长文档拖慢笔记数据库"和"碎片想法淹没在项目目录里"两个常见问题。
+第一条：**把碎片想法和正式产出物物理分开存放**。原子笔记（一个想法一条）进入 `Roam/` 这个扁平目录，由 org-roam 负责索引和反向链接；正式产出物（论文、课件、申请书这类有明确交付时刻的东西）进入类 PARA 层级目录，文件结构反映可交付物自身的内在组织。两层之间通过 `[[id:...]]` 链接和 `org-transclusion` 通信，但不互相混杂。这条原则同时解决了两个常见痛点：一是当你的笔记库里混入 30 页的论文草稿，org-roam 的索引会开始变慢，搜索结果里也会出现大段无关的噪音；二是当你的项目目录里塞满未成形的想法碎片，你再也找不到"这个项目真正的可交付文件是哪几个"。分开存放让两类文件各得其所，也让两种工作模式（捕捉 vs. 打磨）保持清晰的边界。
 
-**tag 承担分类职责，目录不承担分类职责**。除了 `daily/` 和 `dashboards/` 两个特殊子目录，以及AI生成的思考层（如 concept 等），`Roam/` 完全扁平。每条笔记落在 Roam 的 capture 子目录，文件名只是时间戳前缀的 slug。分类、检索、聚合全部由 supertag 完成。这解决了"每写一条新笔记都要决定放哪个文件夹"的认知摩擦。
+第二条：**分类靠 tag，不靠目录**。除了 `daily/`、`capture/` 和 `dashboards/` 这三个功能性子目录之外，`Roam/` 内部是完全扁平的——不存在 `literature/`、`concepts/`、`people/` 这样的层级。每一条原子笔记都落在 `Roam/capture/` 下，文件名只是时间戳前缀加 slug。一条笔记是什么类型、属于哪个主题、处于哪个状态，全部靠 supertag 承载。这条原则听起来有点激进，但它解决的是一个具体的认知摩擦：每次你写新笔记时不必决定"这应该放在哪个文件夹"。那个决定本身就足以让你打断思路、甚至因为犹豫而放弃记录。扁平目录把这个决策成本降到零——你只管写，分类的事情以后由 tag 和查询完成，而且 tag 可以多维度叠加（一条笔记可以同时是 `reading`、`topic:cognition`、`source:academic`），目录做不到这一点。
 
 ---
 
 ## 二、日常工作流
 
-整个架构服务于以下 4 阶段工作流。文档其余部分的所有具体决策都应该回到这个工作流验证。
+整个架构的存在理由只有一个：服务下面这个四阶段日常工作流。如果某个设计决策回答不了"它在这个工作流里起什么作用"，那它就不应该进入配置。读完这一节再回头看其他章节的具体决策——你会发现每一条都能回溯到这四个阶段中的某一个。
 
 ### 阶段 1：启动 — GTD 主导今日工作
 
-打开 Emacs 后，第一个动作是 `SPC a d` 进入 GTD Dashboard，确认今天要推进的项目和具体任务。GTD 系统决定**"今天做什么"**，笔记系统不参与这个决策。
+打开 Emacs 的第一个动作不是打开笔记，也不是写东西——而是按 `SPC a d` 进入 GTD Dashboard，确认今天要推进的项目和具体任务。这个先后顺序很重要：**GTD 系统决定"今天做什么"，笔记系统不参与这个决策**。把"计划今天"和"写想法"分成两个独立动作，可以避免一个常见的陷阱——你本来打算 10 分钟计划一下今天，结果在笔记里东翻西找两个小时还没开始干活。
 
 ### 阶段 2：执行与记录 — Daily 笔记作为思维流与任务录入入口
 
@@ -124,18 +141,30 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 ### 关键 elisp 配置
 
-```elisp
-(setq org-roam-directory (expand-file-name "Roam/" "~/NoteHQ/"))
-;; 严格只把 Roam/ 作为 org-roam 索引范围
-;; PARA 三层不被 org-roam 数据库扫描
+所有 NoteHQ 相关的路径都是 `lisp/init-org.el` 中 defcustom 形式的变量，通过 `M-x customize-group RET org-seq` 可见：
 
-(setq org-agenda-files
-      (list (expand-file-name "Roam/" "~/NoteHQ/")
-            (expand-file-name "Outputs/" "~/NoteHQ/")
-            (expand-file-name "Practice/" "~/NoteHQ/")))
-;; agenda 跨 Roam 和 PARA,但不扫 Library 和 Archives
-;; daily 笔记里的 TODO/PROJECT 通过这个设置进入 GTD 视图
+```elisp
+;; init-org.el —— 所有路径的唯一真相源
+(defcustom my/note-home   (file-truename "~/NoteHQ/")             ...)  ; 总根
+(defcustom my/roam-dir    (expand-file-name "Roam/"   my/note-home) ...) ; 原子层
+(defcustom my/orgseq-dir  (expand-file-name ".orgseq/" my/note-home) ...); 个性化配置
+
+;; init-roam.el —— org-roam 锁在 Roam/
+(use-package org-roam
+  :custom
+  (org-roam-directory my/roam-dir)
+  (org-roam-db-location (expand-file-name "org-roam.db" my/roam-dir))
+  ...)
+
+;; init-gtd.el —— agenda 跨 Roam + Outputs + Practice
+;; daily 笔记里的 TODO/PROJECT 通过这个范围进入 GTD 视图
+(my/org-roam-agenda-files)  ; returns Roam/ + Outputs/ + Practice/ (not Library/ or Archives/)
+
+;; init-pkm.el / init-supertag.el —— org-supertag 同样锁在 Roam/
+(setq org-supertag-sync-directories (list my/roam-dir))
 ```
+
+**重要**：org-seq 内部**没有任何模块**应该硬编码 `~/NoteHQ/Roam/` 字符串——全部通过 `my/roam-dir` 或 `my/note-home` 派生。如果你在新写的模块里看到硬编码路径，请统一替换成变量。
 
 ### PARA 三层的判定测试
 
@@ -164,7 +193,7 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 ;;;
 ;;; 当前只有 2 个示范 tag。增加新 tag 的时机:
 ;;; 某类事情你已经用 default 模板记过 5 次以上,且发现它们有共同结构。
-;;; 编辑后用 SPC n m r 重载,无需重启 Emacs。
+;;; 编辑后用 SPC n m T 重载,无需重启 Emacs。
 
 (require 'org-supertag)
 
@@ -198,7 +227,7 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 2. 在合适的位置加新的 `org-supertag-tag-create` 块
 3. 决定它是实体 tag 还是事件 tag。事件 tag 通常需要至少一个 `:node` 字段挂到某个实体
 4. 字段宁少勿多，每个字段都该回答一个**你已经反复需要查询但当前 schema 答不出来**的问题
-5. `SPC n m r` 重载
+5. `SPC n m T` 重载
 
 可能的扩展方向：临床工作的 client/session、教学的 course/lesson_prep/reflection、学生指导的 student/meeting、研究工作的 hypothesis/experiment/concept、健康追踪的 health_log。**但具体怎么定义字段、定义多少字段，请等到你真的写过 5 次再决定**。
 
@@ -206,195 +235,71 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 ## 五、Capture 模板
 
-修改 `lisp/init-roam.el` 中的 `org-roam-capture-templates` 为下面的最小集合：
+Capture 模板分两层：
+
+1. **内置默认模板** — 定义在 `lisp/init-roam.el` 里，只有一个 `default`：落到 `Roam/capture/%<%Y%m%dT%H%M%S>-${slug}.org`，不带 filetag。这是 org-seq 开箱即用的最低起点，**不建议**修改仓库内这个默认模板，因为它是部署时会被覆盖的部分。
+
+2. **用户自定义模板** — 放在 `~/NoteHQ/.orgseq/capture-templates.el`，通过 `setq my/user-capture-templates` 定义。`init-supertag.el` 首次启动时会创建这个文件的模板骨架（含注释好的示例 `reading` 模板）。用户模板与内置默认模板通过 `my/reload-capture-templates` 合并到 `org-roam-capture-templates`。
 
 ```elisp
-(setq org-roam-capture-templates
-      '(;; 默认:无 tag 的纯笔记。覆盖 80% 场景。
-        ("d" "default" plain "%?"
-         :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
-                            "#+title: ${title}\n")
-         :unnarrowed t)
-
-        ;; 示例:带 tag 的笔记。其他 tag 类型按这个模式增加。
+;; ~/NoteHQ/.orgseq/capture-templates.el
+(setq my/user-capture-templates
+      '(;; 示例:带 tag 的笔记。其他 tag 类型按这个模式增加。
         ("r" "reading" plain
          "* TL;DR\n%?\n* Key points\n* My commentary\n"
-         :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+         :target (file+head "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
                             "#+title: ${title}\n#+filetags: :reading:\n")
-         :unnarrowed t)))
+         :unnarrowed t)
+
+        ;; 继续添加你常用的类型:session / client / lesson / experiment...
+        ))
 ```
 
-**起步只需要 default 模板就够**。当你决定为某类笔记建立独立的 supertag（例如 `lesson_prep`、`session`、`hypothesis`），同时在这里加一个对应的 capture 模板，模板正文用 org 标题骨架引导你思考关键问题。
+### 常用操作
 
-模板正文的设计原则：标题骨架而非字段。字段交给 supertag 处理，模板只负责让你看到笔记应该展开的几个方向。
+- `SPC n m c`（`my/edit-capture-templates`）— 打开 `~/NoteHQ/.orgseq/capture-templates.el`
+- `SPC n m C`（`my/reload-capture-templates`）— 重载用户模板（无需重启 Emacs）
+- Claude Code `/new-template` skill — 在 NoteHQ 目录里让 Claude 帮你快速生成新模板
+
+### 起步建议
+
+**只需要 default 模板就够**。当你决定为某类笔记建立独立的 supertag（例如 `lesson_prep`、`session`、`hypothesis`），**同时**在 `.orgseq/capture-templates.el` 加一个对应的 capture 模板，模板正文用 org 标题骨架引导你思考关键问题。
+
+模板正文的设计原则：**标题骨架而非字段**。字段交给 supertag 处理（通过 `SPC n p a` 在节点上添加 tag 并弹出字段表单），模板只负责让你看到笔记应该展开的几个思考方向。
 
 ---
 
-## 六、`lisp/init-supertag.el` 模块
+## 六、`lisp/init-supertag.el` 模块职责
 
-```elisp
-;;; init-supertag.el --- Tana-style structured tags via org-supertag -*- lexical-binding: t; -*-
+> **实现参考**：真实代码在 `lisp/init-supertag.el`，请以源文件为准。本节只说明模块的**设计职责**。
 
-;;; Commentary:
-;; org-supertag 提供 Tana 式 tag + 字段 + dashboard 视图。
-;; 与 init-roam.el 协作:capture 模板定义在 init-roam.el,
-;; tag schema 定义在 ~/NoteHQ/Roam/supertag-schema.el。
+`init-supertag.el` 是 supertag 相关基础设施的上层胶水层，提供以下五类职责：
 
-;;; Code:
+1. **PARA 路径常量**：`my/outputs-dir` / `my/practice-dir` / `my/library-dir` / `my/archives-dir` / `my/dashboards-dir` / `my/schema-file`。这些常量从 `my/note-home`（`init-org.el` 中的 defcustom）派生。注意：`my/roam-dir` 本身定义在 `init-org.el`，因为 `init-roam.el` / `init-pkm.el` / `init-ai.el` 都要先于 `init-supertag.el` 加载并引用它。
 
-(use-package org-supertag
-  :vc (:url "https://github.com/yibie/org-supertag" :rev :newest)
-  :after org-roam
-  :init
-  (setq org-supertag-data-directory
-        (expand-file-name "supertag-data/" user-emacs-directory))
-  :config
-  (let ((schema-file (expand-file-name "supertag-schema.el" "~/NoteHQ/Roam/")))
-    (when (file-exists-p schema-file)
-      (load schema-file :noerror :nomessage)))
-  (org-supertag-setup))
+2. **Schema 编辑与重载**：`my/edit-supertag-schema`（打开 `supertag-schema.el`）和 `my/reload-supertag-schema`（`load` 文件，无需重启）。对应 leader key：`SPC n m t` / `SPC n m T`。
 
-;; ================================================================
-;; 路径常量
-;; ================================================================
+3. **Capture 模板管理**：`my/edit-capture-templates` 和 `my/reload-capture-templates`。用户模板存在 `~/NoteHQ/.orgseq/capture-templates.el`，首次使用时由 `my/ensure-capture-templates-file` 创建带示例的文件。`init-roam.el` 中的默认模板和用户模板通过 `my/reload-capture-templates` 合并到 `org-roam-capture-templates`。对应 leader key：`SPC n m c` / `SPC n m C`。
 
-(defconst orgseq/notehq-dir     (expand-file-name "~/NoteHQ/"))
-(defconst orgseq/roam-dir       (expand-file-name "Roam/"     orgseq/notehq-dir))
-(defconst orgseq/outputs-dir    (expand-file-name "Outputs/"  orgseq/notehq-dir))
-(defconst orgseq/practice-dir   (expand-file-name "Practice/" orgseq/notehq-dir))
-(defconst orgseq/library-dir    (expand-file-name "Library/"  orgseq/notehq-dir))
-(defconst orgseq/archives-dir   (expand-file-name "Archives/" orgseq/notehq-dir))
-(defconst orgseq/dashboards-dir (expand-file-name "dashboards/" orgseq/roam-dir))
-(defconst orgseq/schema-file    (expand-file-name "supertag-schema.el" orgseq/roam-dir))
+4. **Supertag 快速操作**：`my/supertag-quick-action` 是上下文感知的弹出菜单——当前 heading 无 tag 时直接加 tag，有 tag 时列出 "加另一个 / 删除 / 编辑字段 / 跳转到关联节点" 四类动作。对应 leader key：`SPC n p p`（全局）和 `, # #`（org buffer 内）。
 
-;; ================================================================
-;; Schema 编辑与重载
-;; ================================================================
+5. **Dashboard 导航与创建**：
+   - `my/dashboard-find`：从 `Roam/dashboards/` 选择一个 dashboard 打开并刷新所有 dynamic blocks。对应 `SPC n v v`。
+   - `my/dash-index` / `my/dash-review`：命名快捷方式。对应 `SPC n v i` / `SPC n v w`。
+   - `my/dashboard-create`：提示名字后生成带骨架的新 dashboard 文件。对应 `SPC n m d`。
+   - 需要更多快捷方式时，直接在 `Roam/dashboards/` 加文件，用 `my/dashboard-find` 访问即可，**不必再改 elisp**。
 
-(defun orgseq/edit-supertag-schema ()
-  "Open the supertag schema definition file."
-  (interactive)
-  (find-file orgseq/schema-file))
+6. **PARA 层导航**：`my/find-in-outputs` / `my/find-in-practice` / `my/find-in-library` / `my/ripgrep-notehq`。对应 leader key：`SPC P o` / `SPC P p` / `SPC P l` / `SPC P g`。
 
-(defun orgseq/reload-supertag-schema ()
-  "Reload tag definitions without restarting Emacs."
-  (interactive)
-  (load orgseq/schema-file)
-  (message "Supertag schema reloaded from %s" orgseq/schema-file))
+7. **NoteHQ 目录结构 bootstrap**：`my/ensure-notehq-structure` 在模块加载时调用，幂等地创建 `Roam/daily/` / `Roam/capture/` / `Roam/dashboards/` / `Outputs/` / `Practice/` / `Library/` / `Archives/`。
 
-;; ================================================================
-;; Tag 与字段快速操作
-;; ================================================================
+### 加载顺序要求
 
-(defun orgseq/supertag-quick-action ()
-  "Context-aware popup for tag and field operations on the current node."
-  (interactive)
-  (require 'org-supertag)
-  (let* ((node-id (org-id-get-create))
-         (tags (ignore-errors (org-supertag-node-get-tags node-id))))
-    (if (null tags)
-        (call-interactively #'org-supertag-tag-add-tag)
-      (let ((choice (completing-read
-                     "Action: "
-                     `("[+] Add another tag"
-                       "[—] Remove a tag"
-                       ,@(mapcar (lambda (tag) (format "[edit] %s fields" tag)) tags)
-                       ,@(mapcar (lambda (tag) (format "[goto] linked from %s" tag)) tags)))))
-        (cond
-         ((string-prefix-p "[+]"   choice) (call-interactively #'org-supertag-tag-add-tag))
-         ((string-prefix-p "[—]"   choice) (call-interactively #'org-supertag-tag-remove))
-         ((string-prefix-p "[edit]" choice) (call-interactively #'org-supertag-node-edit-field))
-         ((string-prefix-p "[goto]" choice) (call-interactively #'org-supertag-node-follow-ref)))))))
+`init-supertag.el` 的加载位置在 `init-pkm.el` 之后、`init-ai.el` 之前。完整链条见 `CLAUDE.md` 的 "Module Load Order" 小节。
 
-;; ================================================================
-;; Dashboard 入口
-;; ================================================================
+### 函数命名约定
 
-(defun orgseq/open-dashboard (name)
-  "Open dashboard NAME (without .org) and refresh all dynamic blocks."
-  (find-file (expand-file-name (concat name ".org") orgseq/dashboards-dir))
-  (when (fboundp 'org-update-all-dblocks)
-    (ignore-errors (org-update-all-dblocks))))
-
-(defun orgseq/dash-index   () (interactive) (orgseq/open-dashboard "index"))
-(defun orgseq/dash-review  () (interactive) (orgseq/open-dashboard "weekly-review"))
-(defun orgseq/dash-reading () (interactive) (orgseq/open-dashboard "reading"))
-
-;; ================================================================
-;; PARA 层导航
-;; ================================================================
-
-(defun orgseq/find-in-outputs ()
-  (interactive)
-  (let ((default-directory orgseq/outputs-dir))
-    (call-interactively #'find-file)))
-
-(defun orgseq/find-in-practice ()
-  (interactive)
-  (let ((default-directory orgseq/practice-dir))
-    (call-interactively #'find-file)))
-
-(defun orgseq/find-in-library ()
-  (interactive)
-  (let ((default-directory orgseq/library-dir))
-    (call-interactively #'find-file)))
-
-(defun orgseq/ripgrep-notehq ()
-  "Ripgrep across the entire NoteHQ (Roam + PARA layers)."
-  (interactive)
-  (consult-ripgrep orgseq/notehq-dir))
-
-;; ================================================================
-;; Leader key 绑定 (与 init-roam.el 中 SPC n 不冲突)
-;; init-roam.el 已占用: f c i b s g a r d t q
-;; 本模块新增:        p (supertag) v (views) m (meta)
-;; SPC P 顶层为 PARA 导航
-;; ================================================================
-
-(with-eval-after-load 'general
-  (general-define-key
-   :states '(normal visual)
-   :prefix "SPC"
-
-   ;; --- 顶层 PARA 导航 (大写 P,与 SPC p project 区分) ---
-   "P"   '(:ignore t :which-key "PARA")
-   "P o" '(orgseq/find-in-outputs  :which-key "find in Outputs")
-   "P p" '(orgseq/find-in-practice :which-key "find in Practice")
-   "P l" '(orgseq/find-in-library  :which-key "find in Library")
-   "P g" '(orgseq/ripgrep-notehq   :which-key "ripgrep all NoteHQ")
-
-   ;; --- supertag 操作 ---
-   "n p"   '(:ignore t :which-key "supertag")
-   "n p p" '(orgseq/supertag-quick-action  :which-key "quick action")
-   "n p a" '(org-supertag-tag-add-tag      :which-key "add tag")
-   "n p e" '(org-supertag-node-edit-field  :which-key "edit field")
-   "n p x" '(org-supertag-tag-remove       :which-key "remove tag")
-   "n p l" '(org-supertag-node-list-fields :which-key "list fields")
-   "n p j" '(org-supertag-node-follow-ref  :which-key "jump linked")
-
-   ;; --- views / dashboards ---
-   "n v"   '(:ignore t :which-key "views")
-   "n v v" '(orgseq/dash-index    :which-key "dashboard index")
-   "n v w" '(orgseq/dash-review   :which-key "weekly review")
-   "n v r" '(orgseq/dash-reading  :which-key "reading queue")
-
-   ;; --- meta / schema 维护 ---
-   "n m"   '(:ignore t :which-key "meta/schema")
-   "n m t" '(orgseq/edit-supertag-schema   :which-key "edit tag schema")
-   "n m r" '(orgseq/reload-supertag-schema :which-key "reload schema")
-   "n m d" '(orgseq/dash-index             :which-key "dashboard index")))
-
-(provide 'init-supertag)
-;;; init-supertag.el ends here
-```
-
-在 `init.el` 中追加：
-
-```elisp
-(require 'init-supertag)  ;; 紧跟 init-pkm.el 之后
-```
-
-新增 dashboard 文件后，记得在 `init-supertag.el` 中加对应的 `orgseq/dash-xxx` 函数和 `n v X` 绑定。
+所有函数统一用 `my/` 前缀（私有 helper 用 `my/module--helper` 双短横线）。**不使用** `orgseq/` 前缀——这是早期设计草稿的命名方案，已被统一为 `my/`。
 
 ---
 
@@ -414,15 +319,16 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 * 快捷键
   - ~SPC n m t~ 编辑 tag schema
-  - ~SPC n m r~ 重载 schema
+  - ~SPC n m T~ 重载 schema
   - ~SPC n c~  新建笔记 (按类型选模板)
   - ~SPC n p p~ 当前节点 tag/字段操作
   - ~SPC P o/p/l~ PARA 导航 (Outputs/Practice/Library)
 
 * 增加新 dashboard 的步骤
-  1. 在本目录新建 xxx.org 文件,写若干 #+BEGIN: supertag-query 块
-  2. 在 lisp/init-supertag.el 加 orgseq/dash-xxx 函数和 leader 绑定
-  3. 在本文件加链接
+  1. SPC n m d (my/dashboard-create) 生成带骨架的新 dashboard 文件
+  2. 编辑 #+BEGIN: supertag-query 块定义查询
+  3. SPC n v v (my/dashboard-find) 会自动列出此目录下的所有 .org 文件,
+     无需再改 elisp 或加命名函数
 ```
 
 ### `weekly-review.org`
@@ -598,84 +504,40 @@ Library 层存放被取用而非被维护的素材:
 
 ## 九、Bootstrap 脚本
 
-`scripts/bootstrap-notes.sh`（Linux/macOS）：
+> **实现参考**：真实脚本在 `scripts/bootstrap-notes.sh`（Linux/macOS/Git Bash）和 `scripts/bootstrap-notes.ps1`（Windows PowerShell），请以源文件为准。
+
+`bootstrap-notes.sh` / `bootstrap-notes.ps1` 的当前职责：
+
+1. **创建目录骨架**：`Roam/daily/` / `Roam/capture/` / `Roam/dashboards/` / `Outputs/_template/` / `Practice/_template/` / `Library/{bibliography,datasets,snippets,references,pdfs}` / `Archives/` / `.orgseq/`。所有目录均幂等创建。
+2. **扁平化历史子目录**：如果从旧版本升级并发现 `Roam/lit/` 或 `Roam/concepts/`，把里面的 `.org` 文件移动到 `Roam/` 根目录，然后删掉空子目录。
+3. **部署 Claude Code 脚手架**：把 `notehq/CLAUDE.md`、`notehq/.claude/rules/*`、`notehq/.claude/skills/*` 拷贝到 `~/NoteHQ/` 对应位置。首次执行时只创建缺失文件，不覆写已有文件。
+4. **增量更新模式**（`--update` / `-Update` flag）：当 org-seq 仓库里的 `notehq/*` 文件升级后，运行 `bash scripts/bootstrap-notes.sh --update` 或 `.\scripts\bootstrap-notes.ps1 -Update`，脚本会按 hash 比较，只覆写实际有变化的文件。用户内容（笔记、`supertag-schema.el`、`capture-templates.el`、`ai-config.org`）**永远不会被触碰**。
+
+### 首次执行后的下一步
+
+脚本本身不会替你写笔记或 schema。跑完之后你需要：
+
+1. 在 `~/NoteHQ/Roam/supertag-schema.el` 写第一个 supertag（参考本文档 §4；或用 Claude Code 的 `/new-tag` skill 快速生成）
+2. 在 `~/NoteHQ/Roam/dashboards/index.org` 写 dashboard 索引（参考本文档 §7；或用 `SPC n m d` / `/new-dashboard` skill 生成）
+3. （可选）`cd ~/NoteHQ && git init && git add . && git commit -m 'initial structure'`——把笔记本身纳入版本控制
+4. 在 Emacs 中运行 `M-x supertag-sync-full-initialize`（或 `SPC n p R`）完成 supertag 首次索引
+
+### 更新部署的 Claude Code 脚手架
+
+当 org-seq 仓库里的 `notehq/` 下任何文件（CLAUDE.md / rules / skills）有升级时：
 
 ```bash
-#!/usr/bin/env bash
-# bootstrap-notes.sh — 初始化 ~/NoteHQ/ 笔记库结构
-set -e
-
-NOTEHQ="${HOME}/NoteHQ"
-
-echo "==> Creating directory structure under ${NOTEHQ}/"
-mkdir -p "${NOTEHQ}/Roam/daily"
-mkdir -p "${NOTEHQ}/Roam/dashboards"
-mkdir -p "${NOTEHQ}/Outputs/_template"
-mkdir -p "${NOTEHQ}/Practice/_template"
-mkdir -p "${NOTEHQ}/Library/bibliography"
-mkdir -p "${NOTEHQ}/Library/datasets"
-mkdir -p "${NOTEHQ}/Library/snippets"
-mkdir -p "${NOTEHQ}/Library/references"
-mkdir -p "${NOTEHQ}/Library/pdfs"
-mkdir -p "${NOTEHQ}/Archives"
-
-echo "==> Flattening existing Roam subdirectories (lit/, concepts/) if present"
-cd "${NOTEHQ}/Roam"
-shopt -s nullglob
-if [ -d "lit" ]; then
-  for f in lit/*.org; do mv "$f" .; done
-  rmdir lit 2>/dev/null || echo "  (lit/ not empty, skipping rmdir)"
-fi
-if [ -d "concepts" ]; then
-  for f in concepts/*.org; do mv "$f" .; done
-  rmdir concepts 2>/dev/null || echo "  (concepts/ not empty, skipping rmdir)"
-fi
-
-echo "==> Done. Next:"
-echo "  1. Drop supertag-schema.el into ~/NoteHQ/Roam/ (see docs §4)"
-echo "  2. Drop dashboard files into ~/NoteHQ/Roam/dashboards/ (see docs §7)"
-echo "  3. Drop seed example notes (see docs §8)"
-echo "  4. Update lisp/init-roam.el capture templates (see docs §5)"
-echo "  5. Add lisp/init-supertag.el (see docs §6)"
-echo "  6. (cd ${NOTEHQ} && git init && git add . && git commit -m 'initial structure')"
+# 从 org-seq 仓库根目录执行
+bash scripts/bootstrap-notes.sh --update
+# 或 Windows:
+.\scripts\bootstrap-notes.ps1 -Update
 ```
 
-`scripts/bootstrap-notes.ps1`（Windows）：
-
-```powershell
-$NoteHQ = Join-Path $HOME "NoteHQ"
-
-$dirs = @(
-  "Roam\daily",
-  "Roam\dashboards",
-  "Outputs\_template",
-  "Practice\_template",
-  "Library\bibliography",
-  "Library\datasets",
-  "Library\snippets",
-  "Library\references",
-  "Library\pdfs",
-  "Archives"
-)
-
-foreach ($d in $dirs) {
-  $full = Join-Path $NoteHQ $d
-  New-Item -ItemType Directory -Force -Path $full | Out-Null
-}
-
-$litDir = Join-Path $NoteHQ "Roam\lit"
-if (Test-Path $litDir) {
-  Get-ChildItem $litDir -Filter *.org | Move-Item -Destination (Join-Path $NoteHQ "Roam")
-  if ((Get-ChildItem $litDir).Count -eq 0) { Remove-Item $litDir }
-}
-$conceptsDir = Join-Path $NoteHQ "Roam\concepts"
-if (Test-Path $conceptsDir) {
-  Get-ChildItem $conceptsDir -Filter *.org | Move-Item -Destination (Join-Path $NoteHQ "Roam")
-  if ((Get-ChildItem $conceptsDir).Count -eq 0) { Remove-Item $conceptsDir }
-}
-
-Write-Host "Done. See NOTES_ARCHITECTURE.md sections 4-8 for files to drop in."
-```
+脚本会：
+- 对比源文件与已部署文件的 hash
+- 只覆写实际有差异的文件（`[updated]`）
+- 对内容一致的文件报告 `[unchanged]`，不产生 mtime 变动
+- **永远不触碰** `Roam/supertag-schema.el`、`.orgseq/capture-templates.el`、`.orgseq/ai-config.org`、任何笔记内容
 
 ---
 
@@ -702,18 +564,34 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 
 ## 十一、生长原则
 
-笔记系统不应该被预先设计完整，应该跟随使用情况自然演化。以下原则指导扩展决策。
+笔记系统几乎没有办法被一次性设计完美。你不知道自己将来会写什么样的笔记，也不知道哪些 tag 和字段在实际使用中会变得重要——这些都要在真实使用中才能显现。因此这份架构文档给出的不是一个完整的 schema，而是一套**扩展决策的判断标准**：当你考虑增加什么、删除什么、提升什么的时候，回到这些原则来做决定。
 
-**Schema 字段的添加门槛**。任何新字段都该回答一个**你已经反复需要查询但当前 schema 答不出来**的问题。不要预先添加"可能用得上"的字段——预留字段会带来录入摩擦却很少被填写。
+### 关于 Schema 字段
 
-**Schema 字段的删除门槛**。任何字段如果**两周内没填过 3 次**，立刻删除。已有数据中的孤立值不影响（org-supertag 容忍 schema 与数据不完全一致）。
+**什么时候该加一个新字段？** 当你发现自己已经**反复需要查询某个信息但当前 schema 答不出来**的时候。比如你多次想查"上季度我和某某谈话的所有记录"，却发现 session tag 没有 date 字段——这时候就该加一个。**不要**因为"以后可能用得上"就预先加字段——闲置字段会带来持续的录入摩擦（每次新建节点都看到一个空表单）却几乎不会被填写，最终变成整个系统里最令人烦躁的部分。
 
-**新 tag 的添加门槛**。当某类事情你已经用 default 模板记过 5 次以上，且发现它们有共同的结构，就为它建一个新 tag。**先用，再结构化**，不要反过来。
+**什么时候该删一个字段？** 规则同样简单：如果某个字段**两周内没填过三次**，立刻删掉它。已经录入的历史数据里的孤立值不影响你删除 schema 里的字段定义——org-supertag 容忍 schema 和数据不完全一致。宁愿砍得狠一点，总比让 schema 变成僵尸字段的博物馆强。
 
-**Dashboard 的迭代节奏**。第一版 dashboard 只放 1-2 个查询，跑一周后看哪些查询你真的每天看，删掉不看的，添加缺失的。Dashboard 应该反映你**当前**的关注焦点，而不是一个一劳永逸的定义。
+### 关于 tag
 
-**PARA 子目录的创建时机**。Outputs 子目录应该有具体的交付时刻；Practice 子目录应该对应一个真实的长期角色。**不要为"未来可能做的事"提前建目录**，那只会让 Outputs 目录里堆满空壳。
+**什么时候该定义一个新 tag？** 当你已经用 default 模板记过至少 **5 条以上同类型笔记**，并且你发现这些笔记共享某种结构（比如都有 "核心观点 / 例子 / 反驳"），才考虑为它建一个专门的 tag。**先用，再结构化**，不要反过来——那些先设计 tag 体系再去写笔记的人，最后往往发现 70% 的 tag 从未被用过。
 
-**碎片晋升的判断**。一条 daily 流水值不值得提升为独立 Roam 节点？**判定问题：这个想法以后可能会在另一个完全不同的上下文里被引用吗？** 是 → 提升；否 → 留在 daily。一条 Roam 碎片值不值得晋升为 Practice 沉淀？**判定问题：我会主动维护和审阅它吗？** 是 → 晋升；否 → 留在 Roam。
+### 关于 Dashboard
 
-**Schema 文件的版本控制**。`supertag-schema.el` 在 `Roam/` 内，跟笔记一起 git。每次重大改动前打 tag，方便回滚。重大改动包括：删除字段、删除 tag、修改 `:type`、修改 `:options`。
+**什么时候该加一个新 dashboard？** 当你发现自己每天都想看某个视图、但每次都要手动敲一遍 query 的时候。加 dashboard 时的节奏要**从小开始**——第一版只放 1-2 个查询块，跑一周之后看你真的每天打开它看什么，删掉不看的、补上缺失的。Dashboard 应当反映你**当下**的关注焦点，而不是一个一劳永逸的定义。六个月后你的关注焦点会变，你会想删掉旧 dashboard 重写新的——这是健康的，不是失败。
+
+### 关于 PARA 子目录
+
+**什么时候该建一个新的 Outputs 或 Practice 子目录？** Outputs 的子目录必须对应一个具体的交付时刻——论文的投稿日期、课程的开学、基金的截止。没有明确交付时刻的东西不属于 Outputs，属于 Practice 或 Library。Practice 的子目录必须对应一个**真实的**长期角色——你每周都会为它投入时间的那种。**不要为"将来可能做的事情"提前建目录**——那样 Outputs 会很快堆满几十个空壳子目录，每次你打开它都要在脑子里过滤掉一半的"幽灵项目"，心理成本高得惊人。
+
+### 关于"晋升"决策
+
+这套架构里有两个层级跃迁需要你做决策。
+
+**从 daily 流水晋升到独立 Roam 节点**：判断问题是"这个想法将来可能在另一个**完全不同**的上下文里被引用吗？"如果是，就提升；如果不是（只是一次性的事务记录、或者只和今天相关的琐碎观察），就留在 daily 里不动——daily 本身就是档案，它们不会丢失，只是不会被从别的地方主动找到而已。
+
+**从 Roam 碎片晋升到 Practice 沉淀**：判断问题是"我将来会**主动维护和审阅**它吗？"Practice 层的文件不是被动的档案，是你定期回头修改的活文档。如果一条笔记你写完就再也不会主动打开，它应该留在 Roam 而不是晋升到 Practice——晋升到 Practice 只会让 Practice 目录越来越像坟场。
+
+### 关于 Schema 文件的版本控制
+
+`supertag-schema.el` 放在 `Roam/` 内，和你的笔记一起 git commit。这意味着 schema 的演化历史和笔记的演化历史是**共同**的版本历史——某天你想知道"半年前我的 reading tag 有哪些字段"，直接 `git log` 就能查到。每次做**重大改动**前建议打一个 git tag（例如 `schema-2026-04`），方便回滚。所谓重大改动是指：删除字段、删除 tag、修改 `:type`、修改 `:options` 的可选值列表——任何会让已有数据变得"不合 schema"的改动。单纯添加新字段或新 tag 不算重大改动，不需要打 tag。

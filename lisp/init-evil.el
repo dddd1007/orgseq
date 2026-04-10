@@ -74,7 +74,7 @@
     "RET" '(bookmark-jump :wk "Jump to bookmark")
     "'"   '(my/workspace-toggle-terminal :wk "Terminal popup")
 
-    ;; ── SPC a — Agenda / GTD ──
+    ;; ── SPC a — Agenda / GTD / Focus ──
     "a"   '(:ignore t :wk "agenda")
     "ad"  '(my/org-dashboard :wk "GTD Dashboard")
     "aa"  '(org-agenda :wk "Dispatcher")
@@ -92,6 +92,10 @@
     "a6"  '(my/org-open-logbook :wk "Logbook")
     "a7"  '(my/org-pick-context :wk "Context view")
     "ar"  '((lambda () (interactive) (my/org-roam-agenda-files t)) :wk "Refresh cache")
+    ;; Focus timer (Vitamin-R-style slices)
+    "af"  '(org-focus-start :wk "Focus: start slice")
+    "aF"  '(org-focus-dashboard :wk "Focus: dashboard")
+    "aX"  '(org-focus-abort :wk "Focus: abort current")
 
     ;; ── SPC b — Buffer ──
     "b"   '(:ignore t :wk "buffer")
@@ -132,6 +136,7 @@
     "fR"  '(rename-visited-file :wk "Rename")
     "fD"  '(my/delete-current-file :wk "Delete")
     "fy"  '(my/copy-file-path :wk "Copy path")
+    "fj"  '(dired-jump :wk "Dired jump")
 
     ;; ── SPC g — Git ──
     "g"   '(:ignore t :wk "git")
@@ -170,7 +175,7 @@
     ;; ── SPC l — Layout / workspace ──
     "l"   '(:ignore t :wk "layout")
     "ll"  '(my/workspace-setup :wk "Open workspace")
-    "lt"  '(my/workspace-toggle-sidebar :wk "Toggle treemacs")
+    "lt"  '(my/workspace-toggle-sidebar :wk "Toggle sidebar (dirvish)")
     "lo"  '(my/workspace-toggle-outline :wk "Toggle outline")
     "le"  '(my/workspace-toggle-terminal :wk "Toggle terminal")
     "ld"  '(my/switch-to-dashboard :wk "Dashboard")
@@ -243,10 +248,13 @@
     ;; ── SPC o — Open ──
     "o"   '(:ignore t :wk "open")
     "ot"  '(my/workspace-toggle-terminal :wk "Terminal")
-    "od"  '(my/switch-to-dashboard :wk "Dashboard")
+    "oD"  '(my/switch-to-dashboard :wk "Dashboard")
     "oa"  '(org-agenda :wk "Agenda")
-    "of"  '(treemacs :wk "File tree")
+    "of"  '(dirvish :wk "Dirvish (file manager)")
+    "od"  '(dired-jump :wk "Dired (jump to file)")
+    "oj"  '(dired :wk "Dired (pick directory)")
     "oe"  '((lambda () (interactive) (find-file user-emacs-directory)) :wk "Config dir")
+    "oN"  '((lambda () (interactive) (dirvish my/note-home)) :wk "Dirvish @ NoteHQ")
 
     ;; ── SPC P — PARA layer navigation ──
     "P"   '(:ignore t :wk "PARA")
@@ -310,17 +318,21 @@
              magit-diff-dwim magit-file-dispatch))
 
 ;; ---- which-key: key hint popup ----
-;; Built-in since Emacs 30; install from MELPA only on 29.
-(if (>= emacs-major-version 30)
-    (use-package which-key
-      :ensure nil
-      :demand t
-      :init (which-key-mode)
-      :config (setq which-key-idle-delay 0.3))
-  (use-package which-key
-    :demand t
-    :init (which-key-mode)
-    :config (setq which-key-idle-delay 0.3)))
+;; Built-in on Emacs 30+; install from MELPA on Emacs 29.
+;; The bootstrap-then-use-package pattern lets us keep one declaration
+;; (`:ensure nil') without forcing Emacs 30 users to re-fetch from MELPA.
+(when (< emacs-major-version 30)
+  (unless (package-installed-p 'which-key)
+    (condition-case err
+        (package-install 'which-key)
+      (error
+       (message "WARNING org-seq: failed to install which-key: %s" err)))))
+
+(use-package which-key
+  :ensure nil
+  :demand t
+  :init (which-key-mode)
+  :config (setq which-key-idle-delay 0.3))
 
 ;; ---- Auto-dismiss which-key popup after 10s of inactivity ----
 (defvar my/which-key-auto-dismiss-seconds 10

@@ -1,16 +1,40 @@
 ;;; init-org.el --- Org-mode base configuration -*- lexical-binding: t; -*-
 
 ;; ═══════════════════════════════════════════════════════════════════════════
+;; Section 0: org-seq customization group
+;; ═══════════════════════════════════════════════════════════════════════════
+
+(defgroup org-seq nil
+  "org-seq: Modular Emacs PKM configuration."
+  :group 'convenience
+  :prefix "my/")
+
+;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: Core PKM directory
 ;; ═══════════════════════════════════════════════════════════════════════════
 
-(defvar my/note-home (file-truename "~/NoteHQ/")
-  "Root directory for all notes. org-roam lives under Roam/ subdirectory.")
+(defcustom my/note-home (file-truename "~/NoteHQ/")
+  "Root directory for all PKM content (Roam atomic layer + PARA layers).
+Changing this requires restarting Emacs for derived paths
+\(`my/roam-dir', `my/orgseq-dir') to take effect."
+  :type 'directory
+  :group 'org-seq)
 
-(defvar my/orgseq-dir (expand-file-name ".orgseq/" my/note-home)
-  "Directory for org-seq personalized configuration.
-Similar to .vscode or .cursor — stores non-sensitive settings
-that customize org-seq behavior per note library.")
+(defcustom my/orgseq-dir (expand-file-name ".orgseq/" my/note-home)
+  "Per-library personalized configuration directory.
+Analogous to .vscode/ or .cursor/ — stores non-sensitive settings
+\(AI backends, capture templates) that customize org-seq behavior
+per note library.  Distinct from API keys, which stay in `auth-source'."
+  :type 'directory
+  :group 'org-seq)
+
+(defcustom my/roam-dir (expand-file-name "Roam/" my/note-home)
+  "Atomic-notes layer (org-roam-directory equivalent).
+Used by `org-roam-directory', `org-mem-watch-dirs',
+`org-supertag-sync-directories', and the AI context files
+\(purpose.org, schema.org, overview.org)."
+  :type 'directory
+  :group 'org-seq)
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Org base configuration
@@ -30,7 +54,11 @@ that customize org-seq behavior per note library.")
         org-special-ctrl-a/e t
         org-insert-heading-respect-content t
         org-catch-invisible-edits 'show-and-error
-        org-pretty-entities t)
+        org-pretty-entities t
+        org-hide-emphasis-markers t)
+
+  ;; Highlight LaTeX fragments with native fontification
+  (setq org-highlight-latex-and-related '(native script entities))
 
   (setq org-log-done 'time
         org-log-into-drawer t)
@@ -58,7 +86,30 @@ that customize org-seq behavior per note library.")
 
   ;; Tags
   (setq org-auto-align-tags nil
-        org-tags-column 0))
+        org-tags-column 0)
+
+  ;; Only inherit @context tags — avoids tag noise in agenda
+  (setq org-use-tag-inheritance "^@")
+
+  ;; ---- Babel: enable code execution in org blocks ----
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (shell . t)
+     (python . t)))
+  (setq org-confirm-babel-evaluate nil))
+
+;; ---- org-tempo: quick block insertion (<el TAB → src emacs-lisp) ----
+(use-package org-tempo
+  :ensure nil
+  :after org
+  :config
+  (dolist (item '(("sh"  . "src sh")
+                  ("el"  . "src emacs-lisp")
+                  ("py"  . "src python")
+                  ("yml" . "src yaml")
+                  ("js"  . "src javascript")))
+    (add-to-list 'org-structure-template-alist item)))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 3: Visual enhancement
@@ -69,7 +120,27 @@ that customize org-seq behavior per note library.")
          (org-agenda-finalize . org-modern-agenda))
   :config
   (setq org-modern-star '("◉" "○" "◈" "◇" "⁕")
-        org-modern-table nil))
+        org-modern-table nil)
+
+  ;; Doom fix: default ☑ renders too large on many fonts — use a consistent glyph
+  (setf (alist-get ?X org-modern-checkbox) #("□x" 0 2 (composition ((2)))))
+
+  ;; Doom fix: when org-indent-mode is active, org-modern's hidden stars
+  ;; make sub-headings look too sunken.  org-hide-leading-stars already
+  ;; handles this, so disable org-modern's duplicate hiding.
+  (add-hook 'org-modern-mode-hook
+            (lambda ()
+              (when (bound-and-true-p org-indent-mode)
+                (setq-local org-modern-hide-stars nil)))))
+
+;; org-appear: reveal hidden markup (emphasis, links, entities) at cursor
+;; Complements org-modern — pretty when reading, transparent when editing.
+(use-package org-appear
+  :hook (org-mode . org-appear-mode)
+  :custom
+  (org-appear-autolinks t)
+  (org-appear-autoentities t)
+  (org-appear-autosubmarkers t))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 4: Evil integration for org-mode

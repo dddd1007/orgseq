@@ -1,11 +1,55 @@
 # bootstrap-notes.ps1 --- Create NoteHQ directory structure and flatten legacy Roam subdirs
+#
+# Usage:
+#   .\bootstrap-notes.ps1            First-time setup. Existing files are skipped.
+#   .\bootstrap-notes.ps1 -Update    Overwrite Claude Code support files (CLAUDE.md,
+#                                    .claude/rules/*, .claude/skills/*) with the latest
+#                                    versions from the org-seq repo. Notes, schema,
+#                                    capture templates, and ai-config are never touched.
 #Requires -Version 5.1
+[CmdletBinding()]
+param(
+    [switch]$Update
+)
 $ErrorActionPreference = "Stop"
 
 $NoteHome = Join-Path $HOME "NoteHQ"
 
 Write-Host "=== org-seq: Bootstrap NoteHQ Directory Structure ===" -ForegroundColor Cyan
+if ($Update) {
+    Write-Host "    Mode: UPDATE - Claude Code scaffolding will be overwritten" -ForegroundColor Yellow
+}
 Write-Host ""
+
+# --- Helper: deploy a file with skip / update / create semantics ---
+function Deploy-File {
+    param(
+        [Parameter(Mandatory)] [string]$Src,
+        [Parameter(Mandatory)] [string]$Dest,
+        [Parameter(Mandatory)] [string]$Label
+    )
+    if (-not (Test-Path $Src)) {
+        Write-Host "  [missing] $Label (source not found: $Src)"
+        return
+    }
+    if (Test-Path $Dest) {
+        if ($Update) {
+            $srcHash = (Get-FileHash $Src -Algorithm SHA1).Hash
+            $dstHash = (Get-FileHash $Dest -Algorithm SHA1).Hash
+            if ($srcHash -eq $dstHash) {
+                Write-Host "  [unchanged] $Label"
+            } else {
+                Copy-Item -Force $Src $Dest
+                Write-Host "  [updated] $Label"
+            }
+        } else {
+            Write-Host "  [skip]    $Label (already exists; use -Update to overwrite)"
+        }
+    } else {
+        Copy-Item $Src $Dest
+        Write-Host "  [created] $Label"
+    }
+}
 
 # --- Create directory tree ---
 $dirs = @(
@@ -60,60 +104,52 @@ foreach ($sub in $legacyDirs) {
     }
 }
 
-# --- Copy Claude Code support files (CLAUDE.md + skills) ---
+# --- Copy Claude Code support files (CLAUDE.md + skills + rules) ---
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkeletonDir = Join-Path (Split-Path -Parent $ScriptDir) "notehq"
 
 if (Test-Path $SkeletonDir) {
     Write-Host "  Installing Claude Code support files..."
 
-    # CLAUDE.md
-    $claudeMd = Join-Path $NoteHome "CLAUDE.md"
-    if (-not (Test-Path $claudeMd)) {
-        Copy-Item (Join-Path $SkeletonDir "CLAUDE.md") $claudeMd
-        Write-Host "  [ok] CLAUDE.md"
-    } else {
-        Write-Host "  [skip] CLAUDE.md (already exists)"
-    }
+    Deploy-File -Src (Join-Path $SkeletonDir "CLAUDE.md") `
+                -Dest (Join-Path $NoteHome "CLAUDE.md") `
+                -Label "CLAUDE.md"
 
-    # .claude/skills/
     $skillsDst = Join-Path $NoteHome ".claude\skills"
     New-Item -ItemType Directory -Force -Path $skillsDst | Out-Null
     $skillsSrc = Join-Path $SkeletonDir ".claude\skills"
     if (Test-Path $skillsSrc) {
         Get-ChildItem -Path $skillsSrc -Filter "*.md" | ForEach-Object {
-            $dest = Join-Path $skillsDst $_.Name
-            if (-not (Test-Path $dest)) {
-                Copy-Item $_.FullName $dest
-                Write-Host "  [ok] .claude/skills/$($_.Name)"
-            } else {
-                Write-Host "  [skip] .claude/skills/$($_.Name) (already exists)"
-            }
+            Deploy-File -Src $_.FullName `
+                        -Dest (Join-Path $skillsDst $_.Name) `
+                        -Label ".claude/skills/$($_.Name)"
         }
     }
 
-    # .claude/rules/
     $rulesDst = Join-Path $NoteHome ".claude\rules"
     New-Item -ItemType Directory -Force -Path $rulesDst | Out-Null
     $rulesSrc = Join-Path $SkeletonDir ".claude\rules"
     if (Test-Path $rulesSrc) {
         Get-ChildItem -Path $rulesSrc -Filter "*.md" | ForEach-Object {
-            $dest = Join-Path $rulesDst $_.Name
-            if (-not (Test-Path $dest)) {
-                Copy-Item $_.FullName $dest
-                Write-Host "  [ok] .claude/rules/$($_.Name)"
-            } else {
-                Write-Host "  [skip] .claude/rules/$($_.Name) (already exists)"
-            }
+            Deploy-File -Src $_.FullName `
+                        -Dest (Join-Path $rulesDst $_.Name) `
+                        -Label ".claude/rules/$($_.Name)"
         }
     }
 }
 
 Write-Host ""
-Write-Host "=== Next Steps ===" -ForegroundColor Cyan
-Write-Host "  1. Deploy config:  cd org-seq; .\deploy.ps1   (or deploy.sh on Linux/macOS)"
-Write-Host "  2. Start Emacs and run:  M-x org-roam-db-sync"
-Write-Host "  3. Run:  M-x supertag-sync-full-initialize"
-Write-Host "  4. Use Claude Code inside ~/NoteHQ/ — it now has CLAUDE.md and skills"
+if ($Update) {
+    Write-Host "=== Update complete ===" -ForegroundColor Cyan
+    Write-Host "  Re-pull org-seq and run '.\bootstrap-notes.ps1 -Update' anytime to refresh the scaffolding."
+} else {
+    Write-Host "=== Next Steps ===" -ForegroundColor Cyan
+    Write-Host "  1. Deploy config:  cd org-seq; .\deploy.ps1   (or deploy.sh on Linux/macOS)"
+    Write-Host "  2. Start Emacs and run:  M-x org-roam-db-sync"
+    Write-Host "  3. Run:  M-x supertag-sync-full-initialize"
+    Write-Host "  4. Use Claude Code inside ~/NoteHQ/ — it now has CLAUDE.md and skills"
+    Write-Host ""
+    Write-Host "  Refresh scaffolding later:  .\bootstrap-notes.ps1 -Update"
+}
 Write-Host ""
 Write-Host "Done."

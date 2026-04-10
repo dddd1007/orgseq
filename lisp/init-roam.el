@@ -1,7 +1,8 @@
 ;;; init-roam.el --- org-roam PKM engine + org-node acceleration -*- lexical-binding: t; -*-
 
-;; Requires: init-org (my/note-home)
+;; Requires: init-org (my/note-home, my/roam-dir)
 (defvar my/note-home)  ; forward-declare from init-org
+(defvar my/roam-dir)   ; forward-declare from init-org
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: org-roam — core PKM graph database
@@ -13,11 +14,10 @@
 (use-package org-roam
   :demand t
   :custom
-  (org-roam-directory (file-truename "~/NoteHQ/Roam/"))
-  (org-roam-db-location
-   (expand-file-name "org-roam.db" (file-truename "~/NoteHQ/Roam/")))
+  (org-roam-directory my/roam-dir)
+  (org-roam-db-location (expand-file-name "org-roam.db" my/roam-dir))
   (org-roam-completion-everywhere t)
-  (org-roam-node-display-template "${title:*} ${tags:10}")
+  (org-roam-node-display-template "${type:12} ${title:*} ${backlinkscount:6} ${tags:10}")
   ;; Suppress GC during DB-intensive operations (official recommendation)
   (org-roam-db-gc-threshold most-positive-fixnum)
   ;; Skip roam:-to-id: link replacement on save (we never use roam: links)
@@ -34,6 +34,26 @@
   :config
   ;; Directory creation handled by my/ensure-notehq-structure (init-supertag)
   (make-directory org-roam-directory t)
+
+  ;; ---- Node display: show subdirectory type + backlink count ----
+  (cl-defmethod org-roam-node-type ((node org-roam-node))
+    "Return the subdirectory of NODE relative to `org-roam-directory'."
+    (condition-case nil
+        (file-name-nondirectory
+         (directory-file-name
+          (file-name-directory
+           (file-relative-name (org-roam-node-file node) org-roam-directory))))
+      (error "")))
+
+  (cl-defmethod org-roam-node-backlinkscount ((node org-roam-node))
+    "Return the backlink count of NODE as a bracketed string."
+    (let ((count (caar (org-roam-db-query
+                        [:select (funcall count source)
+                                 :from links
+                                 :where (= dest $s1)
+                                 :and (= type "id")]
+                        (org-roam-node-id node)))))
+      (format "[%d]" (or count 0))))
 
   (add-to-list 'display-buffer-alist
                '("\\*org-roam\\*"
@@ -53,6 +73,13 @@
 
   (setq org-id-method 'ts
         org-id-ts-format "%Y%m%dT%H%M%S")
+
+  ;; Prefer fast file finders over slow `find' (Doom)
+  (setq org-roam-list-files-commands '(fd fdfind rg find))
+
+  ;; Use ID links when inserting from roam files (Doom recommendation)
+  (add-hook 'org-roam-find-file-hook
+            (lambda () (setq-local org-id-link-to-org-use-id 'create-if-interactive)))
 
   ;; ---- Capture templates ----
   ;; Built-in default only.  User templates are appended from
@@ -81,7 +108,45 @@
                                   ("Journal")))))
 
   ;; autosync-mode still handles org-id hooks; DB writes are off (see above).
-  (org-roam-db-autosync-mode))
+  (org-roam-db-autosync-mode)
+
+  ;; Soft-wrap lines in the backlinks buffer (Doom)
+  (add-hook 'org-roam-mode-hook #'visual-line-mode)
+
+  ;; Doom-derived Evil fixes (loaded together when evil is available):
+  ;;   1. org-roam-node-insert places links *before* whitespace in normal mode
+  ;;   2. magit-section-mode-map overrides Evil keys in org-roam buffer
+  (with-eval-after-load 'evil
+    (define-advice org-roam-node-insert (:around (fn &rest args) my/evil-fix-insert-position)
+      "Insert link after whitespace/EOL in evil normal mode."
+      (if (and (bound-and-true-p evil-local-mode)
+               (not (evil-insert-state-p))
+               (or (looking-at-p "[[:blank:]]")
+                   (eolp)))
+          (evil-with-state 'insert
+            (unless (eolp) (forward-char))
+            (when (eolp) (insert " "))
+            (apply fn args))
+        (apply fn args)))
+
+    (add-hook 'org-roam-mode-hook
+              (lambda () (set-keymap-parent org-roam-mode-map nil))))
+
+  ;; Doom fix: org-roam-node-read candidate width is wrong with vertico.
+  ;; See org-roam/org-roam#2066.
+  (with-eval-after-load 'vertico
+    (define-advice org-roam-node-read--to-candidate (:around (fn &rest args) my/fix-vertico-width)
+      "Fix completion candidate width for vertico."
+      (cl-letf* ((orig-format (symbol-function 'org-roam-node--format-entry))
+                 ((symbol-function 'org-roam-node--format-entry)
+                  (lambda (template node &optional width)
+                    (funcall orig-format template node
+                             (if (bound-and-true-p vertico-mode)
+                                 (if (minibufferp)
+                                     (window-width)
+                                   (1- (frame-width)))
+                               width)))))
+        (apply fn args)))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: org-node + org-mem — high-performance indexing layer
@@ -109,7 +174,7 @@
 
   :config
   ;; Scope org-mem to the notes directory
-  (setq org-mem-watch-dirs (list (file-truename "~/NoteHQ/Roam/")))
+  (setq org-mem-watch-dirs (list my/roam-dir))
 
   ;; Write to org-roam's real DB so org-roam-ui and other extensions work
   (setq org-mem-roamy-do-overwrite-real-db t)

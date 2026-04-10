@@ -20,42 +20,58 @@ This project produces a deployable `~/.emacs.d/` configuration. The output is Em
 ### Directory Layout
 ```
 org-seq/
-├── CLAUDE.md              # This file
-├── org-seq-build.md       # Research & reference guide (read-only)
-├── WORKFLOW.md            # Day-to-day GTD / roam habits (user-oriented)
+├── CLAUDE.md              # This file — development guidelines for Claude Code
+├── README.md              # Quick start and key bindings (user-facing)
+├── LICENSE                # MIT license
 ├── early-init.el          # Pre-GUI: GC suppression, UI blocking, native-comp
 ├── init.el                # Bootstrap: package.el, use-package, module loading
+├── ec.cmd                 # Windows quick-launch: emacsclient -c -a ""
+├── deploy.ps1             # Windows deployment script (PowerShell)
+├── deploy.sh              # Linux/macOS deployment script (Bash)
 ├── .gitattributes         # Line ending rules (LF for .el, CRLF for .ps1)
+├── doc/
+│   ├── GUIDE.md           # Long-form user guide (architecture + rationale)
+│   ├── WORKFLOW.md        # Day-to-day GTD / roam habits (user-oriented)
+│   └── NOTES_ARCHITECTURE.md # Roam + PARA design rationale (read-only)
 ├── lisp/
 │   ├── init-ui.el         # Fonts, themes, modeline, olivetti (loaded 1st)
 │   ├── init-completion.el # Vertico stack (loaded 2nd)
 │   ├── init-markdown.el   # Markdown editing with Obsidian interop, not in org-roam (loaded 3rd)
-│   ├── init-org.el        # Org-mode base config + org-modern + evil-org (loaded 4th)
-│   ├── init-roam.el       # org-roam + org-node acceleration + capture + dailies (loaded 5th)
+│   ├── init-org.el        # Org-mode base + org-modern + org-appear + org-tempo + evil-org (loaded 4th)
+│   ├── init-roam.el       # org-roam + org-node acceleration + capture + dailies + Doom-derived advices (loaded 5th)
 │   ├── init-gtd.el        # GTD system: dashboard, agenda views, state machine (loaded 6th)
-│   ├── init-pkm.el        # org-supertag (install) + org-transclusion + org-ql (loaded 7th)
-│   ├── init-supertag.el   # Supertag schema/dashboard/PARA nav + NoteHQ bootstrap (loaded 8th)
-│   ├── init-ai.el         # gptel + ob-gptel + .orgseq AI config + PKM AI commands + KB overview (loaded 9th)
-│   ├── init-dashboard.el  # Startup dashboard with vertical centering (loaded 10th)
-│   ├── init-workspace.el  # Workspace layout: treemacs + outline + terminal (loaded 11th)
+│   ├── init-focus.el      # org-focus-timer integration (Vitamin-R-style focus slices) (loaded 7th)
+│   ├── init-pkm.el        # org-supertag (install) + org-transclusion + org-ql (loaded 8th)
+│   ├── init-supertag.el   # Supertag schema/dashboard/PARA nav + NoteHQ bootstrap (loaded 9th)
+│   ├── init-ai.el         # gptel + ob-gptel + .orgseq AI config + PKM AI commands + KB overview (loaded 10th)
+│   ├── init-dashboard.el  # Startup dashboard with vertical centering (loaded 11th)
+│   ├── init-dired.el      # Dired + dirvish (sidebar, override-dired, peek, quick-access) (loaded 12th)
+│   ├── init-workspace.el  # Workspace layout: dirvish-side + imenu-list outline + eshell terminal (loaded 13th)
 │   ├── init-evil.el       # Evil + general.el + which-key + magit + casual (loaded last)
 │   └── banner-compact.txt # ASCII art banner for dashboard
 ├── .claude/
+│   ├── settings.json      # Hooks: PostToolUse byte-compile, PreToolUse pre-commit lint
 │   ├── settings.local.json # Permissions for Claude Code (not committed)
+│   ├── rules/
+│   │   ├── elisp-style.md   # Scoped to *.el — coding conventions
+│   │   └── org-conventions.md # Scoped to *.org — note structure rules
 │   └── skills/
 │       ├── elisp-lint.md      # /elisp-lint — batch byte-compile all .el files
 │       ├── add-package.md     # /add-package — add new package following conventions
 │       ├── deploy-config.md   # /deploy-config — deploy to ~/.emacs.d/
 │       └── check-windows-deps.md # /check-windows-deps — verify external deps
-├── deploy.ps1             # Windows deployment script (PowerShell)
-├── deploy.sh              # Linux/macOS deployment script (Bash)
-├── README.md              # Quick start and usage guide
-├── LICENSE                # MIT license
-├── scripts/
-│   ├── bootstrap-notes.sh   # Init ~/NoteHQ/ structure (Linux/macOS)
-│   └── bootstrap-notes.ps1  # Init ~/NoteHQ/ structure (Windows)
-├── snippets/              # YASnippet templates (future)
-└── templates/             # org-roam capture template files (future)
+├── notehq/                # Claude Code scaffolding deployed to ~/NoteHQ/ by bootstrap script
+│   ├── CLAUDE.md          # Per-NoteHQ guidance (note conventions, supertag schema)
+│   └── .claude/
+│       ├── rules/         # org-notes.md, supertag-schema.md
+│       └── skills/        # archive-project, new-dashboard, new-tag, new-template, weekly-review
+├── packages/              # Bundled subprojects (copied to ~/.emacs.d/packages/ by deploy)
+│   └── org-focus-timer/   # Vitamin-R-style focus timer (will graduate to its own repo when mature)
+│       ├── org-focus-timer.el
+│       └── README.md
+└── scripts/
+    ├── bootstrap-notes.sh   # Init ~/NoteHQ/ structure + copy notehq/ scaffold (Linux/macOS)
+    └── bootstrap-notes.ps1  # Init ~/NoteHQ/ structure + copy notehq/ scaffold (Windows)
 
 ~/NoteHQ/                    # Created by bootstrap script or init-supertag
 ├── Roam/                    # Atomic layer (org-roam-directory)
@@ -116,7 +132,7 @@ org-seq/
 2. Use `:after` for dependencies, `:hook` for mode activation
 3. Add Windows-specific notes as comments with `⚠️` prefix
 4. Add leader key bindings in `init-evil.el` if needed
-5. Update the package table in `org-seq-build.md` if it's a new dependency
+5. The PostToolUse hook will byte-compile the file on save; run `/elisp-lint` for full-repo verification before commit
 
 ### Adding a New Module
 1. Create `lisp/init-<name>.el` with proper header and `(provide 'init-<name>)`
@@ -125,15 +141,17 @@ org-seq/
 
 ### Module Load Order (init.el)
 ```
-init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd -> init-pkm -> init-supertag -> init-ai -> init-dashboard -> init-workspace -> init-evil
+init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-evil
 ```
-- `init-org` before `init-roam` because org-roam depends on org; defines `my/note-home` and `my/orgseq-dir` used by later modules
+- `init-org` before `init-roam` because org-roam depends on org; defines `my/note-home`, `my/orgseq-dir`, `my/roam-dir` used by later modules
 - `init-roam` before `init-gtd` because GTD agenda cache can use org-mem's async file list
-- `init-gtd` before `init-pkm` because GTD functions must exist before supertag bindings reference them
+- `init-gtd` before `init-focus` because focus-timer is conceptually adjacent to GTD (both are time/productivity features)
+- `init-focus` before `init-pkm` because focus-timer is a thin external-package reference with no dependencies on supertag; grouping it next to GTD keeps the productivity stack together
 - `init-pkm` before `init-supertag` because pkm installs org-supertag, supertag loads schema and provides higher-level functions
 - `init-supertag` before `init-ai` because supertag's AI bridge uses gptel; supertag also ensures NoteHQ directory structure
 - `init-dashboard` after `init-roam` because it needs org-roam and nerd-icons to be ready
-- `init-workspace` after `init-dashboard` because startup layout displays the dashboard buffer
+- `init-dired` after `init-dashboard` because it depends on `nerd-icons` (loaded in `init-ui`) and `my/roam-dir` (from `init-org`); defines `my/dirvish-side-*` helpers consumed by `init-workspace`
+- `init-workspace` after `init-dired` because the sidebar is provided by `dirvish-side` via helpers in `init-dired`
 - `init-evil` loads last because general.el leader keys reference all other modules
 
 ### NoteHQ Architecture: Roam + PARA
@@ -157,17 +175,36 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd
 - GTD agenda scans `Roam/` + `Outputs/` + `Practice/` (not Library/ or Archives/)
 - Classification is by supertag, not directory. Roam/capture/ is flat.
 
+### Claude Code Hooks (`.claude/settings.json`)
+Two automatic hooks run without user invocation:
+
+- **PostToolUse** (matcher `Write|Edit`): on every `.el` file edit, runs `emacs --batch -Q -L . -L lisp --eval "(byte-compile-file ...)"` and reports OK/FAILED. Per-file lint for fast feedback.
+- **PreToolUse** (matcher `Bash(git commit*)`): before any git commit, byte-compiles every `.el` in the repo. Blocks the commit if any file fails. Full-repo gate.
+
+Together they mean per-edit feedback + commit-time enforcement, so manual `/elisp-lint` invocation is only needed when you want to verify the whole repo mid-session.
+
+### Claude Code Rules (`.claude/rules/`)
+Auto-loaded scoped guidance via the `globs:` frontmatter:
+
+- **`elisp-style.md`** — applies to `*.el` and `lisp/*.el`; enforces `lexical-binding`, `my/` prefix, `defcustom` with `:group 'org-seq`, section header style, byte-compile gate.
+- **`org-conventions.md`** — applies to `*.org` (incl. `notehq/`); enforces `:ID:` properties, `[[id:...]]` linking, supertag-over-directory classification, dashboard write-protection, TODO sequence.
+
 ### Claude Code Skills (`.claude/skills/`)
-Slash commands are defined there for Claude Code; use them when the task matches.
+Slash commands defined for Claude Code; use them when the task matches.
 
 | Skill | Purpose |
 |-------|---------|
-| `/elisp-lint` | Batch byte-compile all `early-init.el`, `init.el`, `lisp/*.el`; report errors |
+| `/elisp-lint` | Batch byte-compile `early-init.el`, `init.el`, `lisp/*.el`; report errors. Complements the per-edit PostToolUse hook for full-repo verification. |
 | `/add-package` | Add a `use-package` block in the correct `init-*.el`, keys in `init-evil` if needed |
 | `/deploy-config` | Deploy to `~/.emacs.d/` with backup/safety; do not overwrite without confirmation |
 | `/check-windows-deps` | Emacs 29+, SQLite, native-comp, rg, fd, git, HOME |
 
-After changing elisp, run `/elisp-lint` before considering work done.
+After changing elisp, the PostToolUse hook auto-lints; run `/elisp-lint` if you want a full-repo sanity check.
+
+### NoteHQ Scaffolding (`notehq/`)
+The `notehq/` subdirectory holds Claude Code support files that the bootstrap script copies into the user's `~/NoteHQ/` on first setup. Its own `CLAUDE.md`, rules, and skills are scoped to that runtime location — they are **not** loaded for org-seq development. Treat `notehq/` as a deliverable for end users, not as project guidance.
+
+**Updating deployed scaffolding**: `scripts/bootstrap-notes.sh --update` (or `.\bootstrap-notes.ps1 -Update`) overwrites `~/NoteHQ/CLAUDE.md`, `~/NoteHQ/.claude/skills/*`, and `~/NoteHQ/.claude/rules/*` with the latest from the org-seq repo. User content (notes, schema, capture-templates.el, ai-config.org) is never touched. The helper compares hashes and only writes changed files, so re-running is idempotent. Whenever you ship changes to anything under `notehq/` in this repo, mention the user should re-run with `--update` to pick them up.
 
 ## Key Design Decisions
 
@@ -184,8 +221,13 @@ After changing elisp, run `/elisp-lint` before considering work done.
 - **org-supertag as core**: v5.8+ is stable (336 stars, pure Elisp, ~16K LOC). Demand-loaded in init-pkm.el. Sync directory matches org-roam's `~/NoteHQ/Roam/`. AI bridge enabled via gptel. First-time setup requires `M-x supertag-sync-full-initialize`.
 - **AI purpose/schema context** (inspired by llm_wiki): Two persistent org files — `~/NoteHQ/Roam/purpose.org` (knowledge base goals, key questions) and `~/NoteHQ/Roam/schema.org` (note types, tag conventions, linking rules) — are auto-injected into every gptel system prompt via `my/ai--build-system-prompt`. This gives the LLM persistent context about the user's PKM without manual repetition. Files are created with templates on first load (`SPC i g` or `my/ai--ensure-context-files`). Edit them to customize AI behavior.
 - **KB overview generation**: `my/ai-overview` (`SPC i o`) collects org-roam statistics (total nodes, tag distribution, recent notes) and asks the LLM to generate a structured overview report (themes, gaps, connections, suggestions). Result is saved to `~/NoteHQ/Roam/overview.org` with timestamp. Inspired by llm_wiki's auto-updated overview.md.
-- **Workspace layout**: Default startup opens treemacs + dashboard (lightweight). Full 3-column layout (treemacs + outline + terminal) is on-demand via `SPC l l`.
+- **Workspace layout**: Default startup opens dirvish-side + dashboard (lightweight). Full 3-column layout (dirvish-side + outline + terminal) is on-demand via `SPC l l`.
 - **.orgseq personalized config**: `~/NoteHQ/.orgseq/` stores non-sensitive per-library settings (like `.vscode/`). First use case: `ai-config.org` — AI backend definitions, model lists, and defaults in an editable org file. API keys remain in `~/.authinfo.gpg` (auth-source). Init is incremental: files are created with templates only if missing, never overwritten. Parsed at gptel load time with hardcoded fallback on failure.
+- **org-appear paired with org-hide-emphasis-markers**: Both must be enabled together. `org-hide-emphasis-markers t` makes `*bold*`/`/italic/` markers invisible at rest; `org-appear` reveals them only at the cursor for editing. Either alone is useless — hide-only loses editability, appear-only has nothing to reveal.
+- **Doom-derived org-roam advices**: `init-roam.el` carries 4 fixes from Doom's `lang/org/contrib/roam.el` for issues that bite Evil + vertico users: (1) `org-roam-node-insert` places links *before* whitespace in evil normal mode — advised to insert after; (2) `magit-section-mode-map` overrides Evil keys in the org-roam buffer — parent keymap is detached on `org-roam-mode-hook`; (3) vertico truncates node candidates because of upstream org-roam#2066 — advised to use frame width; (4) `visual-line-mode` in the backlinks buffer prevents long titles from being cut off. All four are conditional on `evil`/`vertico` being loaded.
+- **dirvish over treemacs**: The file sidebar was migrated from `treemacs` to `dirvish-side` in `init-dired.el`.  Rationale: (1) dirvish is based on dired — every dired keybinding works, muscle memory carries over; (2) active maintenance vs. treemacs' slower release cycle; (3) built-in preview pane (`dirvish-peek-mode`) for navigating notes without opening them; (4) `dirvish-override-dired-mode` upgrades every dired call globally, giving the whole config one consistent file-manager UI. `init-dired.el` is a dedicated module for dired+dirvish because the user is a dired-native and wants the package exposed beyond the sidebar. Sidebar helpers (`my/dirvish-side-open-at-notehq`, `my/dirvish-side-toggle`, `my/dirvish-side-visible-p`) are defined there and consumed by `init-workspace.el`.
+- **org-focus-timer is a bundled subproject under `packages/`**: The Vitamin-R-style focus tracker lives at `packages/org-focus-timer/` inside this repository and is referenced from `lisp/init-focus.el` via a `:load-path` pointing at `<user-emacs-directory>/packages/org-focus-timer/`. Rationale: the package has enough independent value (zero deps, clean API) that it *could* be standalone, but until the API and data format stabilize it is easier to iterate with the source sitting right next to the config that calls it. The `packages/` directory is copied to `~/.emacs.d/packages/` by the deploy scripts alongside `lisp/`. When the package matures it will graduate to its own repo — at that point `init-focus.el` will switch to a `:vc` reference and the `packages/org-focus-timer/` directory will be deleted. **Do not add org-seq-specific code to the package**; keep it usable by any org user. The integration layer (`init-focus.el`) is the only place org-seq-specific defaults live — it points the log file at `~/NoteHQ/.orgseq/focus-log.org` and sets the Vitamin-R-style 10/30/15 duration parameters. Keybindings under `SPC a`: `SPC a f` starts a slice, `SPC a F` opens the dashboard, `SPC a X` aborts a running slice. If you clone org-seq but keep the package somewhere else, override `my/focus-timer-path` via `customize-group org-seq`.
+- **NoteHQ scaffolding lives in `notehq/`**: A complete Claude Code support tree (CLAUDE.md + rules + skills) that bootstrap-notes copies to the user's `~/NoteHQ/`. Its rules and skills run *in* the user's notes directory, not in this repo. Keep notehq/ artifacts focused on note-author tasks (new-tag, weekly-review, archive-project), and keep org-seq/ artifacts focused on Emacs config tasks.
 
 ## Troubleshooting Quick Reference
 

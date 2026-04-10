@@ -1,12 +1,70 @@
 #!/usr/bin/env bash
 # bootstrap-notes.sh --- Create NoteHQ directory structure and flatten legacy Roam subdirs
+#
+# Usage:
+#   bootstrap-notes.sh           First-time setup. Existing files are skipped.
+#   bootstrap-notes.sh --update  Overwrite Claude Code support files (CLAUDE.md,
+#                                .claude/rules/*, .claude/skills/*) with the latest
+#                                versions from the org-seq repo. Notes, schema,
+#                                capture templates, and ai-config are never touched.
 set -e
 shopt -s nullglob
+
+UPDATE_MODE=0
+for arg in "$@"; do
+  case "$arg" in
+    --update|-u)
+      UPDATE_MODE=1
+      ;;
+    --help|-h)
+      echo "Usage: $0 [--update]"
+      echo ""
+      echo "  --update, -u   Overwrite Claude Code scaffolding files (CLAUDE.md, rules, skills)"
+      echo "                 with the latest versions from the org-seq repo. User content"
+      echo "                 (notes, schema, capture templates, ai-config) is never touched."
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $arg" >&2
+      echo "Run '$0 --help' for usage." >&2
+      exit 1
+      ;;
+  esac
+done
 
 NOTE_HOME="$HOME/NoteHQ"
 
 echo "=== org-seq: Bootstrap NoteHQ Directory Structure ==="
+if [ "$UPDATE_MODE" = "1" ]; then
+  echo "    Mode: UPDATE — Claude Code scaffolding will be overwritten"
+fi
 echo ""
+
+# --- Helper: deploy a file with skip / update / create semantics ---
+deploy_file() {
+  local src="$1"
+  local dest="$2"
+  local label="$3"
+  if [ ! -f "$src" ]; then
+    echo "  [missing] $label (source not found: $src)"
+    return
+  fi
+  if [ -f "$dest" ]; then
+    if [ "$UPDATE_MODE" = "1" ]; then
+      if cmp -s "$src" "$dest"; then
+        echo "  [unchanged] $label"
+      else
+        cp "$src" "$dest"
+        echo "  [updated] $label"
+      fi
+    else
+      echo "  [skip]    $label (already exists; use --update to overwrite)"
+    fi
+  else
+    cp "$src" "$dest"
+    echo "  [created] $label"
+  fi
+}
 
 # --- Create directory tree ---
 dirs=(
@@ -61,51 +119,40 @@ for sub in "${legacy_dirs[@]}"; do
   fi
 done
 
-# --- Copy Claude Code support files (CLAUDE.md + skills) ---
+# --- Copy Claude Code support files (CLAUDE.md + skills + rules) ---
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKELETON_DIR="$SCRIPT_DIR/../notehq"
 
 if [ -d "$SKELETON_DIR" ]; then
   echo "  Installing Claude Code support files..."
 
-  # CLAUDE.md
-  if [ ! -f "$NOTE_HOME/CLAUDE.md" ]; then
-    cp "$SKELETON_DIR/CLAUDE.md" "$NOTE_HOME/CLAUDE.md"
-    echo "  [ok] CLAUDE.md"
-  else
-    echo "  [skip] CLAUDE.md (already exists)"
-  fi
+  deploy_file "$SKELETON_DIR/CLAUDE.md" "$NOTE_HOME/CLAUDE.md" "CLAUDE.md"
 
-  # .claude/skills/
   mkdir -p "$NOTE_HOME/.claude/skills"
   for skill in "$SKELETON_DIR/.claude/skills/"*.md; do
     base="$(basename "$skill")"
-    if [ ! -f "$NOTE_HOME/.claude/skills/$base" ]; then
-      cp "$skill" "$NOTE_HOME/.claude/skills/$base"
-      echo "  [ok] .claude/skills/$base"
-    else
-      echo "  [skip] .claude/skills/$base (already exists)"
-    fi
+    deploy_file "$skill" "$NOTE_HOME/.claude/skills/$base" ".claude/skills/$base"
   done
 
-  # .claude/rules/
   mkdir -p "$NOTE_HOME/.claude/rules"
   for rule in "$SKELETON_DIR/.claude/rules/"*.md; do
     base="$(basename "$rule")"
-    if [ ! -f "$NOTE_HOME/.claude/rules/$base" ]; then
-      cp "$rule" "$NOTE_HOME/.claude/rules/$base"
-      echo "  [ok] .claude/rules/$base"
-    else
-      echo "  [skip] .claude/rules/$base (already exists)"
-    fi
+    deploy_file "$rule" "$NOTE_HOME/.claude/rules/$base" ".claude/rules/$base"
   done
 fi
 
 echo ""
-echo "=== Next Steps ==="
-echo "  1. Deploy config:  cd org-seq && bash deploy.sh   (or deploy.ps1 on Windows)"
-echo "  2. Start Emacs and run:  M-x org-roam-db-sync"
-echo "  3. Run:  M-x supertag-sync-full-initialize"
-echo "  4. Use Claude Code inside ~/NoteHQ/ — it now has CLAUDE.md and skills"
+if [ "$UPDATE_MODE" = "1" ]; then
+  echo "=== Update complete ==="
+  echo "  Re-pull org-seq and run '$0 --update' anytime to refresh the scaffolding."
+else
+  echo "=== Next Steps ==="
+  echo "  1. Deploy config:  cd org-seq && bash deploy.sh   (or deploy.ps1 on Windows)"
+  echo "  2. Start Emacs and run:  M-x org-roam-db-sync"
+  echo "  3. Run:  M-x supertag-sync-full-initialize"
+  echo "  4. Use Claude Code inside ~/NoteHQ/ — it now has CLAUDE.md and skills"
+  echo ""
+  echo "  Refresh scaffolding later:  $0 --update"
+fi
 echo ""
 echo "Done."

@@ -1,16 +1,25 @@
 ;;; init-workspace.el --- Three-column workspace layout -*- lexical-binding: t; -*-
 
-;; Requires: init-org (my/note-home)
+;; Requires: init-org   (my/note-home)
+;; Requires: init-dired (dirvish + my/dirvish-side-* helpers)
 (defvar my/note-home)
 
 (require 'cl-lib)
 (require 'subr-x)
 
+(defcustom my/workspace-startup-delay 0.3
+  "Idle delay (seconds) before opening the startup workspace layout.
+Gives package autoloads (dirvish, dashboard, nerd-icons) time to settle
+before the layout function tries to attach them.  Increase on slow systems
+if the sidebar fails to open on startup."
+  :type 'number
+  :group 'org-seq)
+
 ;; Layout (16:9 display):
 ;;   ┌──────────┬────────────────────────┬────────────┐
-;;   │ treemacs │                        │  outline   │
-;;   │  (~15%)  │     main editor        │   (~20%)   │
-;;   │          │       (~65%)           ├────────────┤
+;;   │ dirvish- │                        │  outline   │
+;;   │  side    │     main editor        │   (~20%)   │
+;;   │ (~15%)   │       (~65%)           ├────────────┤
 ;;   │          │                        │  terminal  │
 ;;   │          │                        │   (~20%)   │
 ;;   └──────────┴────────────────────────┴────────────┘
@@ -26,33 +35,9 @@
     (push '(left . 0.5) default-frame-alist)
     (push '(top  . 0.5) default-frame-alist)))
 
-;; ---- treemacs: file tree rooted at NoteHQ ----
-;; Deferred: loaded when workspace-startup or workspace-setup runs (~0.3s after init)
-(use-package treemacs
-  :defer t
-  :commands (treemacs treemacs-select-window treemacs-current-visibility
-             treemacs-get-local-window treemacs-current-workspace
-             treemacs-workspace->projects treemacs-project->path
-             treemacs-do-add-project-to-workspace)
-  :custom
-  (treemacs-width 24)
-  (treemacs-width-is-initially-locked t)
-  (treemacs-position 'left)
-  (treemacs-show-hidden-files nil)
-  (treemacs-no-png-images nil)
-  (treemacs-indentation 2)
-  (treemacs-sorting 'alphabetic-asc)
-  (treemacs-is-never-other-window nil)
-  :config
-  (treemacs-follow-mode t)
-  (treemacs-fringe-indicator-mode 'always))
-
-(use-package treemacs-evil
-  :after (treemacs evil))
-
-(use-package treemacs-nerd-icons
-  :after (treemacs nerd-icons)
-  :config (treemacs-load-theme "nerd-icons"))
+;; The sidebar is provided by `dirvish-side' from init-dired.el.
+;; Helper functions live there: `my/dirvish-side-open-at-notehq',
+;; `my/dirvish-side-toggle', `my/dirvish-side-visible-p'.
 
 ;; ---- imenu-list: outline sidebar ----
 (use-package imenu-list
@@ -68,21 +53,14 @@
 
 ;; ---- Workspace orchestration ----
 
-(defun my/workspace-open-treemacs ()
-  "Open treemacs rooted at NoteHQ."
-  (let ((note-dir my/note-home))
-    (make-directory note-dir t)
-    (treemacs-select-window)
-    (let ((ws (treemacs-current-workspace)))
-      (unless (cl-find (file-name-as-directory note-dir)
-                       (treemacs-workspace->projects ws)
-                       :test (lambda (a b)
-                               (let ((b-norm (file-name-as-directory b)))
-                                 (if (eq system-type 'windows-nt)
-                                     (string= (downcase a) (downcase b-norm))
-                                   (string= a b-norm))))
-                       :key #'treemacs-project->path)
-        (treemacs-do-add-project-to-workspace note-dir "NoteHQ")))))
+(defun my/workspace--non-sidebar-windows ()
+  "Return the list of windows that are NOT the dirvish sidebar or other side panes."
+  (cl-remove-if (lambda (w)
+                  (or (eq (window-parameter w 'window-side) 'left)
+                      (eq (window-parameter w 'window-side) 'right)
+                      (eq (window-parameter w 'window-side) 'bottom)
+                      (eq (window-parameter w 'window-side) 'top)))
+                (window-list nil 'no-minibuffer)))
 
 (defun my/workspace-open-terminal ()
   "Open eshell terminal in the selected window, rooted at NoteHQ."
@@ -93,67 +71,70 @@
         (rename-buffer "*NoteHQ-term*" t)))))
 
 (defun my/workspace-setup ()
-  "Set up three-column workspace layout."
+  "Set up three-column workspace layout.
+Wrapped in `condition-case' so a failure (e.g. dirvish not yet loaded,
+display window too small) leaves the user with a usable Emacs instead
+of a half-built layout."
   (interactive)
-  (delete-other-windows)
+  (condition-case err
+      (progn
+        (delete-other-windows)
 
-  ;; Step 1: treemacs on the left
-  (my/workspace-open-treemacs)
+        ;; Step 1: dirvish sidebar on the left (uses Emacs side-window slot)
+        (my/dirvish-side-open-at-notehq)
 
-  ;; Step 2: select the one non-treemacs window (main editor)
-  (let ((editor-win (car (cl-remove-if
-                          (lambda (w) (string-match-p "Treemacs"
-                                                      (buffer-name (window-buffer w))))
-                          (window-list)))))
-    (select-window editor-win)
+        ;; Step 2: select the main (non-side) window as the editor
+        (let ((editor-win (car (my/workspace--non-sidebar-windows))))
+          (when editor-win
+            (select-window editor-win)
 
-    ;; Step 3: split editor -> editor (~80%) | right panel (~20%)
-    (let* ((right-cols (max 28 (floor (* (window-total-width editor-win) 0.20))))
-           (right-win (split-window editor-win (- (window-total-width editor-win) right-cols)
-                                    'right)))
+            ;; Step 3: split editor -> editor (~80%) | right panel (~20%)
+            (let* ((right-cols (max 28 (floor (* (window-total-width editor-win) 0.20))))
+                   (right-win (split-window editor-win
+                                            (- (window-total-width editor-win) right-cols)
+                                            'right)))
 
-      ;; Step 4: right panel -> outline (top 60%) | terminal (bottom 40%)
-      (let* ((term-rows (max 8 (floor (* (window-total-height right-win) 0.40))))
-             (term-win (split-window right-win (- (window-total-height right-win) term-rows)
-                                     'below)))
-        (select-window term-win)
-        (my/workspace-open-terminal))
+              ;; Step 4: right panel -> outline (top 60%) | terminal (bottom 40%)
+              (let* ((term-rows (max 8 (floor (* (window-total-height right-win) 0.40))))
+                     (term-win (split-window right-win
+                                              (- (window-total-height right-win) term-rows)
+                                              'below)))
+                (select-window term-win)
+                (my/workspace-open-terminal))
 
-      ;; Enable imenu-list from editor window so it tracks the right buffer
-      (select-window editor-win)
-      (imenu-list-minor-mode 1)))
+              ;; Enable imenu-list from editor window so it tracks the right buffer
+              (select-window editor-win)
+              (imenu-list-minor-mode 1))))
 
-  ;; Step 5: focus back to main editor, show dashboard if no file is open
-  (let ((editor-win (car (cl-remove-if
-                          (lambda (w)
-                            (string-match-p "\\*Treemacs\\|\\*Ilist\\|\\*NoteHQ"
-                                            (buffer-name (window-buffer w))))
-                          (window-list)))))
-    (when editor-win
-      (select-window editor-win)
-      (when-let ((dash (get-buffer "*dashboard*")))
-        (unless (cl-some #'buffer-file-name (buffer-list))
-          (switch-to-buffer dash))))))
+        ;; Step 5: focus back to main editor, show dashboard if no file is open
+        (let ((editor-win (car (my/workspace--non-sidebar-windows))))
+          (when editor-win
+            (select-window editor-win)
+            (when-let ((dash (get-buffer "*dashboard*")))
+              (unless (cl-some #'buffer-file-name (buffer-list))
+                (switch-to-buffer dash))))))
+    (error
+     (message "WARNING org-seq: workspace setup failed: %s" err))))
 
 (defun my/workspace-startup ()
-  "Startup layout: treemacs + dashboard. Outline and terminal are on demand."
-  (delete-other-windows)
-  (my/workspace-open-treemacs)
-  (let ((editor-win (car (cl-remove-if
-                          (lambda (w) (string-match-p "Treemacs"
-                                                      (buffer-name (window-buffer w))))
-                          (window-list)))))
-    (when editor-win
-      (select-window editor-win)
-      (when-let ((dash (get-buffer "*dashboard*")))
-        (switch-to-buffer dash)))))
+  "Startup layout: dirvish sidebar + dashboard. Outline and terminal are on demand.
+Wrapped in `condition-case' so a failure during emacs-startup-hook does
+not break other startup hooks or leave the frame empty."
+  (condition-case err
+      (progn
+        (delete-other-windows)
+        (my/dirvish-side-open-at-notehq)
+        (let ((editor-win (car (my/workspace--non-sidebar-windows))))
+          (when editor-win
+            (select-window editor-win)
+            (when-let ((dash (get-buffer "*dashboard*")))
+              (switch-to-buffer dash)))))
+    (error
+     (message "WARNING org-seq: workspace startup failed: %s" err))))
 
-(defun my/workspace-toggle-sidebar ()
-  "Toggle treemacs sidebar."
-  (interactive)
-  (pcase (treemacs-current-visibility)
-    ('visible (delete-window (treemacs-get-local-window)))
-    (_        (my/workspace-open-treemacs))))
+(defalias 'my/workspace-toggle-sidebar 'my/dirvish-side-toggle
+  "Toggle the dirvish-side sidebar.  Thin alias over `my/dirvish-side-toggle'
+so existing leader keys (`SPC l t') don't need to change.")
 
 (defun my/workspace-toggle-outline ()
   "Toggle imenu-list outline."
@@ -172,12 +153,20 @@
             (switch-to-buffer term-buf)
           (my/workspace-open-terminal))))))
 
-;; Startup: lightweight layout (treemacs + dashboard, no terminal)
-;; Use SPC l l for full 3-column layout with terminal
+;; Startup: lightweight layout (dirvish sidebar + dashboard, no terminal)
+;; Use SPC l l for full 3-column layout with terminal.
+;;
+;; The delay (`my/workspace-startup-delay') gives package autoloads
+;; (dirvish, dashboard, nerd-icons) time to register before the layout
+;; function tries to attach them.  Use `run-with-idle-timer' so the layout
+;; runs only after Emacs settles into idle, not after a fixed wall-clock
+;; period -- this matches "ready to use" semantics across slow and fast
+;; machines.
 (add-hook 'emacs-startup-hook
           (lambda ()
             (when (display-graphic-p)
-              (run-at-time 0.3 nil #'my/workspace-startup))))
+              (run-with-idle-timer my/workspace-startup-delay nil
+                                   #'my/workspace-startup))))
 
 (provide 'init-workspace)
 ;;; init-workspace.el ends here

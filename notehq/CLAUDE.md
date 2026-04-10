@@ -2,6 +2,18 @@
 
 This is a personal knowledge management (PKM) note library managed by **org-seq** (an Emacs configuration). It uses Org-mode, org-roam, and org-supertag.
 
+## User context (read this first)
+
+The user is **migrating from prior PKM systems** — Tana, Doom Emacs, Obsidian, and Notion — into this org-seq + NoteHQ setup. They are an experienced PKM practitioner, not a beginner.
+
+What this means for you (Claude Code):
+
+- **Honor existing patterns**. If the user mentions a Tana supertag, an Obsidian dataview, or a Notion database, translate it faithfully — don't reinvent.
+- **Speed > interrogation**. Two questions max before generating something. The user already knows what they want; they just need the syntax translated.
+- **Markdown shadow library is intentional**. Files under `Practice/`, `Assets/`, and elsewhere may be `.md` rather than `.org`. These are **historical work from prior systems** — do **not** suggest converting them en masse. Treat them as archives that the user reads but doesn't actively maintain in the org-roam graph.
+- **Migration is gradual**. New atomic notes go into `Roam/capture/` as `.org`; legacy work stays where it is. Don't pressure the user to "complete the migration" — they decide the pace.
+- **Schema is empty by design (initially)**. `Roam/supertag-schema.el` may not exist yet. The user will add tags as they re-encounter patterns from their prior systems. The `/new-tag` skill is the primary entry point and supports `archetype:` and `from <system>:` modes for fast translation.
+
 ## Directory Structure
 
 ```
@@ -106,10 +118,12 @@ User-defined templates in `.orgseq/capture-templates.el` set the variable `my/us
 
 ## Useful Skills
 
-| Skill | Purpose |
-|-------|---------|
-| `/new-tag` | Define a new supertag in supertag-schema.el |
-| `/new-dashboard` | Create a dashboard query file |
-| `/new-template` | Add a capture template |
-| `/weekly-review` | Summarize recent activity and suggest actions |
-| `/archive-project` | Move an Outputs/ project to Archives/ |
+| Skill | Purpose | Fast invocation example |
+|-------|---------|-------------------------|
+| `/new-tag` | Generate a supertag definition. Supports archetypes and Tana/Notion/Obsidian field migration. | `/new-tag reading event:topic` or `/new-tag from notion: my Books database with Author, Year, Status` or `/new-tag archetype:client` |
+| `/new-dashboard` | Create a dashboard query file. Supports kanban / queue / by-status / by-date / MOC / weekly-pulse archetypes and Notion view translation. | `/new-dashboard reading-queue queue reading` or `/new-dashboard from notion: client board grouped by status` |
+| `/new-template` | Add an org-roam capture template to `.orgseq/capture-templates.el`. | `/new-template r reading` |
+| `/weekly-review` | Summarize recent daily notes and suggest review actions. | `/weekly-review` |
+| `/archive-project` | Move a completed `Outputs/` project to `Archives/YYYY-name/`. | `/archive-project grant-2026` |
+
+**Tip for the migration phase**: when re-creating a tag, dashboard, or template that you used in a prior PKM system, tell the skill the source format directly (`/new-tag from tana: ...`). Faster than describing it from scratch.

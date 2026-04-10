@@ -1,7 +1,8 @@
 ;;; init-ai.el --- AI integration via gptel -*- lexical-binding: t; -*-
 
-;; Requires: init-org (my/note-home, my/orgseq-dir)
+;; Requires: init-org (my/note-home, my/orgseq-dir, my/roam-dir)
 (defvar my/orgseq-dir)  ; forward-declare from init-org
+(defvar my/roam-dir)    ; forward-declare from init-org
 
 ;; ---- API key retrieval via auth-source ----
 ;; Store your key in ~/.authinfo (or ~/.authinfo.gpg for encryption):
@@ -188,14 +189,14 @@ returns nil so the caller can fall back to hardcoded defaults."
 ;; understands your PKM context without manual repetition.
 
 (defcustom my/ai-purpose-file
-  (expand-file-name "purpose.org" (file-truename "~/NoteHQ/Roam/"))
+  (expand-file-name "purpose.org" my/roam-dir)
   "Path to the purpose.org file defining knowledge base goals and scope.
 Auto-injected into gptel system prompts.  Edit to define your research
 interests, key questions, and knowledge domains."
   :type 'file :group 'org-seq)
 
 (defcustom my/ai-schema-file
-  (expand-file-name "schema.org" (file-truename "~/NoteHQ/Roam/"))
+  (expand-file-name "schema.org" my/roam-dir)
   "Path to the schema.org file defining note structure rules.
 Auto-injected into gptel system prompts.  Edit to define your note
 types, tag conventions, and linking rules."
@@ -471,9 +472,7 @@ and discover unexpected connections.")
       :callback
       (lambda (response info)
         (if response
-            (let ((overview-file (expand-file-name
-                                   "overview.org"
-                                   (file-truename "~/NoteHQ/Roam/"))))
+            (let ((overview-file (expand-file-name "overview.org" my/roam-dir)))
               (with-current-buffer (find-file overview-file)
                 (erase-buffer)
                 (insert (format
@@ -488,31 +487,21 @@ and discover unexpected connections.")
 
 ;; ---- ob-gptel: org-babel integration ----
 ;; Enables #+begin_src gptel blocks in org notes, executed with C-c C-c.
-;; Not on MELPA; install from GitHub.
+;; Not on MELPA; install from GitHub via package-vc-install (Emacs 29+).
 
-(when (< emacs-major-version 30)
-  (unless (package-installed-p 'ob-gptel)
-    (when (fboundp 'package-vc-install)
-      (condition-case err
-          (package-vc-install "https://github.com/jwiegley/ob-gptel")
-        (error
-         (message "WARNING org-seq: failed to install ob-gptel: %s" err))))))
+(unless (package-installed-p 'ob-gptel)
+  (condition-case err
+      (package-vc-install "https://github.com/jwiegley/ob-gptel")
+    (error
+     (message "WARNING org-seq: failed to install ob-gptel: %s" err))))
 
-(if (>= emacs-major-version 30)
-    (use-package ob-gptel
-      :after (org gptel)
-      :vc (:url "https://github.com/jwiegley/ob-gptel" :rev :newest)
-      :config
-      (add-to-list 'org-babel-load-languages '(gptel . t))
-      (org-babel-do-load-languages 'org-babel-load-languages
-                                   org-babel-load-languages))
-  (use-package ob-gptel
-    :after (org gptel)
-    :if (locate-library "ob-gptel")
-    :config
-    (add-to-list 'org-babel-load-languages '(gptel . t))
-    (org-babel-do-load-languages 'org-babel-load-languages
-                                 org-babel-load-languages)))
+(use-package ob-gptel
+  :if (locate-library "ob-gptel")
+  :after (org gptel)
+  :config
+  (add-to-list 'org-babel-load-languages '(gptel . t))
+  (org-babel-do-load-languages 'org-babel-load-languages
+                               org-babel-load-languages))
 
 ;; ---- claude-code: Claude Code CLI inside Emacs ----
 ;; Runs the Claude Code CLI as an interactive terminal session.
@@ -525,35 +514,24 @@ and discover unexpected connections.")
 ;; inheritenv: required by claude-code, must be installed before it
 (use-package inheritenv :defer t)
 
-(when (< emacs-major-version 30)
-  (unless (package-installed-p 'claude-code)
-    (when (fboundp 'package-vc-install)
-      (condition-case err
-          (package-vc-install "https://github.com/stevemolitor/claude-code.el")
-        (error
-         (message "WARNING org-seq: failed to install claude-code: %s" err))))))
+;; Bootstrap claude-code from GitHub (not on MELPA).  Works on Emacs 29+
+;; via package-vc-install.
+(unless (package-installed-p 'claude-code)
+  (condition-case err
+      (package-vc-install "https://github.com/stevemolitor/claude-code.el")
+    (error
+     (message "WARNING org-seq: failed to install claude-code: %s" err))))
 
-(if (>= emacs-major-version 30)
-    (use-package claude-code
-      :vc (:url "https://github.com/stevemolitor/claude-code.el" :rev :newest)
-      :defer t
-      :commands (claude-code claude-code-toggle claude-code-transient
-                 claude-code-send-region claude-code-send-command
-                 claude-code-send-command-with-context
-                 claude-code-fix-error-at-point)
-      :custom
-      (claude-code-terminal-backend 'eat)
-      (claude-code-enable-notifications t))
-  (use-package claude-code
-    :if (locate-library "claude-code")
-    :defer t
-    :commands (claude-code claude-code-toggle claude-code-transient
-               claude-code-send-region claude-code-send-command
-               claude-code-send-command-with-context
-               claude-code-fix-error-at-point)
-    :custom
-    (claude-code-terminal-backend 'eat)
-    (claude-code-enable-notifications t)))
+(use-package claude-code
+  :if (locate-library "claude-code")
+  :defer t
+  :commands (claude-code claude-code-toggle claude-code-transient
+             claude-code-send-region claude-code-send-command
+             claude-code-send-command-with-context
+             claude-code-fix-error-at-point)
+  :custom
+  (claude-code-terminal-backend 'eat)
+  (claude-code-enable-notifications t))
 
 (provide 'init-ai)
 ;;; init-ai.el ends here

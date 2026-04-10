@@ -182,7 +182,9 @@
 
 (dolist (mode '(org-mode-hook
                dashboard-mode-hook
-               treemacs-mode-hook
+               dired-mode-hook
+               dirvish-mode-hook
+               dirvish-directory-view-mode-hook
                term-mode-hook
                shell-mode-hook
                eshell-mode-hook))

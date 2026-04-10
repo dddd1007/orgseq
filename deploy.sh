@@ -133,6 +133,17 @@ deploy_config() {
     module_count="$(find "$TARGET/lisp" -name '*.el' | wc -l)"
     pass "lisp/ ($module_count modules)"
 
+    # Bundled subprojects live under packages/ — currently just
+    # org-focus-timer.  Copy the whole tree so init-focus.el can find it
+    # via user-emacs-directory.
+    if [[ -d "$SCRIPT_DIR/packages" ]]; then
+        if [[ -d "$TARGET/packages" ]]; then rm -rf "$TARGET/packages"; fi
+        cp -r "$SCRIPT_DIR/packages" "$TARGET/packages"
+        local pkg_count
+        pkg_count="$(find "$TARGET/packages" -name '*.el' | wc -l)"
+        pass "packages/ ($pkg_count elisp files)"
+    fi
+
     # Restore custom.el from latest backup if needed
     local latest_backup
     latest_backup="$(ls -dt "${TARGET}.backup-"* 2>/dev/null | head -1)"
@@ -153,13 +164,23 @@ verify_deployment() {
     fi
 
     local lisp_dir="$TARGET/lisp"
+    local pkg_dir="$TARGET/packages"
     local files=("$TARGET/early-init.el" "$TARGET/init.el")
     while IFS= read -r f; do files+=("$f"); done < <(find "$lisp_dir" -name '*.el')
+    if [[ -d "$pkg_dir" ]]; then
+        while IFS= read -r f; do files+=("$f"); done < <(find "$pkg_dir" -name '*.el')
+    fi
+
+    local load_paths=("-L" "$TARGET" "-L" "$lisp_dir")
+    if [[ -d "$pkg_dir" ]]; then
+        while IFS= read -r d; do load_paths+=("-L" "$d"); done \
+            < <(find "$pkg_dir" -mindepth 1 -maxdepth 1 -type d)
+    fi
 
     local output
     local status
     set +e
-    output="$(emacs --batch -Q -L "$TARGET" -L "$lisp_dir" -f batch-byte-compile "${files[@]}" 2>&1)"
+    output="$(emacs --batch -Q "${load_paths[@]}" -f batch-byte-compile "${files[@]}" 2>&1)"
     status=$?
     set -e
 
