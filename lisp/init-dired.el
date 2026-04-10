@@ -36,6 +36,20 @@
   (dired-recursive-deletes 'top)
   ;; Refresh buffer on file system changes
   (dired-auto-revert-buffer t)
+  ;; `C-s' inside a dired buffer searches ONLY filenames, not the full
+  ;; line including permissions/size/date.  Dramatically fewer false
+  ;; matches when hunting for a file by substring.
+  (dired-isearch-filenames t)
+  ;; Emacs 29+: enable drag-and-drop of dired files out to other apps
+  ;; (file manager, browser, email client, chat apps).  Works on
+  ;; Windows when the Emacs build supports `x-begin-drag'.
+  (dired-mouse-drag-files t)
+  ;; Hide the "total used in directory" header line at the top of
+  ;; every listing.  Pure cosmetic noise for normal use; can be
+  ;; restored by setting this back to 'first or 'separate.
+  (dired-free-space nil)
+  ;; Hide symlink targets when details are hidden so file names align.
+  (dired-hide-details-hide-symlink-targets t)
   :config
   ;; Enable `a' (dired-find-alternate-file) — reuses the current buffer
   (put 'dired-find-alternate-file 'disabled nil)
@@ -64,7 +78,32 @@
         (concat "\\`[.]"                  ; dot-prefixed files/dirs
                 "\\|\\`CLAUDE\\.md\\'"))  ; and CLAUDE.md exactly
   (setq dired-omit-verbose nil)
-  (add-hook 'dired-mode-hook #'dired-omit-mode))
+  (add-hook 'dired-mode-hook #'dired-omit-mode)
+
+  ;; ---- dired-hide-details-mode: show filenames only ----
+  ;;
+  ;; By default dired shows the full `ls -l' output per line:
+  ;;   -rw-r--r-- 1 user user 4.0K Apr 10 20:00 foo.org
+  ;; That's useful in a full-window dired when you need permissions
+  ;; or sizes, but in a narrow sidebar it crowds the filename off
+  ;; the right edge.  Enabling hide-details globally collapses each
+  ;; line to just the filename (plus nerd-icon via dirvish attribute).
+  ;; Toggle back on in any individual buffer by pressing `(' -- the
+  ;; standard dired key for this mode.
+  (add-hook 'dired-mode-hook #'dired-hide-details-mode))
+
+;; ---- dired-narrow: live-filter a directory by substring ----
+;;
+;; Press `/' in any dired/dirvish buffer to enter filter mode.  As you
+;; type, the listing shrinks to just the lines matching your input.
+;; RET to confirm (narrowed view stays), C-g to cancel (original view
+;; restored).  Much faster than isearch for "find the file I want"
+;; when a directory has dozens of entries.  From the `dired-hacks'
+;; collection, widely recommended on r/emacs and Emacs StackExchange.
+(use-package dired-narrow
+  :after dired
+  :bind (:map dired-mode-map
+              ("/" . dired-narrow-fuzzy)))
 
 ;; ---- diredfl: colorize dired lines by file type ----
 (use-package diredfl
@@ -277,6 +316,22 @@ Called via `[mouse-1]' in `dirvish-mode-map' (see `:bind' above)."
   (if-let ((win (my/dirvish-side-visible-p)))
       (delete-window win)
     (my/dirvish-side-open-at-notehq)))
+
+(defun my/dirvish-side-reveal ()
+  "Navigate the dirvish-side sidebar to show the current buffer's file.
+This is the one-shot alternative to `dirvish-side-follow-mode':
+call it when you want the sidebar to jump to where you are RIGHT
+NOW, without committing to auto-reveal-every-switch behavior.
+
+If the current buffer has no file, fall back to the buffer's
+`default-directory'.  If dirvish-side is not currently open, this
+will open it first."
+  (interactive)
+  (require 'dirvish-side)
+  (let ((target (or (and buffer-file-name
+                         (file-name-directory buffer-file-name))
+                    default-directory)))
+    (dirvish-side target)))
 
 (provide 'init-dired)
 ;;; init-dired.el ends here
