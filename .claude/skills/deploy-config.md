@@ -10,18 +10,23 @@ Copy the org-seq configuration to the user's Emacs directory for use.
 
 ## Steps
 
+Most of the time you should invoke `./deploy.sh` (or `.\deploy.ps1`) from the repo root — they already do everything listed below. This skill exists to mirror the logic when doing a manual deploy, or when helping a user debug a deploy-script issue.
+
 1. Verify the target directory (`~/.emacs.d/` or the user's configured Emacs directory)
-2. **IMPORTANT**: Check if an existing config exists at the target. If yes, warn the user and ask for confirmation before overwriting. Offer to back up the existing config.
+2. **IMPORTANT**: Check if an existing config exists at the target. If yes, warn the user and ask for confirmation before overwriting. Offer to back up the existing config to `~/.emacs.d.backup-YYYYMMDD-HHMMSS/`.
 3. If confirmed, copy:
-   - `early-init.el` -> `~/.emacs.d/early-init.el`
-   - `init.el` -> `~/.emacs.d/init.el`
-   - `lisp/` -> `~/.emacs.d/lisp/`
-4. Verify the deployment by listing the target directory
-5. Remind the user about post-deployment steps:
-   - First launch will download packages (needs internet)
-   - Run `M-x nerd-icons-install-fonts` then manually install .ttf files (Windows)
-   - `~/NoteHQ/Roam/` and subdirs are auto-created on first launch by init-roam.el
-   - Install external tools: `rg` (ripgrep), `fd` (fd-find)
+   - `early-init.el` → `~/.emacs.d/early-init.el`
+   - `init.el` → `~/.emacs.d/init.el`
+   - `lisp/` → `~/.emacs.d/lisp/`
+   - `packages/` → `~/.emacs.d/packages/` (bundled subprojects like `org-focus-timer`)
+4. Preserve `~/.emacs.d/custom.el` if it exists (restore from the backup after deploying new files).
+5. Verify the deployment by listing the target directory and running `emacs --batch -Q -L ~/.emacs.d -L ~/.emacs.d/lisp -L ~/.emacs.d/packages/org-focus-timer -f batch-byte-compile ...` on all the deployed `.el` files.
+6. Remind the user about post-deployment steps:
+   - First launch will download all MELPA/ELPA packages (needs internet, ~2-5 minutes)
+   - Run `M-x nerd-icons-install-fonts`, then (Windows only) manually install the downloaded `.ttf` files
+   - `~/NoteHQ/Roam/` and its subdirectories are auto-created on first launch by init-supertag.el
+   - Install external tools if missing: `rg` (ripgrep), `fd` (fd-find), `git`
+   - Post-install **org-supertag** first-time sync: `M-x supertag-sync-full-initialize` (or `SPC n p R` after packages load)
 
 ## Files NOT deployed (stay in repo only)
 - `doc/` — GUIDE.md, WORKFLOW.md, NOTES_ARCHITECTURE.md (read in repo clone)

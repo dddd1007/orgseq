@@ -1,8 +1,10 @@
 ---
-globs: ["*.el", "lisp/*.el"]
+globs: ["lisp/*.el", "early-init.el", "init.el"]
 ---
 
-# Elisp Style Rules
+# Elisp Style Rules (org-seq config modules)
+
+> Scope: this rule covers the **org-seq config itself** — `early-init.el`, `init.el`, and the `lisp/init-*.el` module files. Bundled subprojects under `packages/` follow different conventions; see [`packages-style.md`](packages-style.md).
 
 ## File structure
 - Always use `lexical-binding: t` in file headers

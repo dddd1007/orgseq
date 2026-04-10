@@ -446,7 +446,7 @@ identify gaps, and suggest connections. Result opens in an org buffer."
          (tag-str (mapconcat
                    (lambda (pair) (format "- %s (%d)" (car pair) (cdr pair)))
                    tags "\n"))
-         (recent-str (mapconcat (lambda (t) (format "- %s" t))
+         (recent-str (mapconcat (lambda (title) (format "- %s" title))
                                  recent "\n"))
          (prompt (format
                   (concat "Analyze this personal knowledge base and generate "

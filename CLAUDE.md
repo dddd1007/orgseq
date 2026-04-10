@@ -53,12 +53,13 @@ org-seq/
 │   ├── settings.json      # Hooks: PostToolUse byte-compile, PreToolUse pre-commit lint
 │   ├── settings.local.json # Permissions for Claude Code (not committed)
 │   ├── rules/
-│   │   ├── elisp-style.md   # Scoped to *.el — coding conventions
+│   │   ├── elisp-style.md     # Scoped to lisp/*.el — org-seq module conventions (my/ prefix, defgroup org-seq, ...)
+│   │   ├── packages-style.md  # Scoped to packages/**/*.el — bundled-subproject conventions (package-local prefix, own defgroup)
 │   │   └── org-conventions.md # Scoped to *.org — note structure rules
 │   └── skills/
-│       ├── elisp-lint.md      # /elisp-lint — batch byte-compile all .el files
-│       ├── add-package.md     # /add-package — add new package following conventions
-│       ├── deploy-config.md   # /deploy-config — deploy to ~/.emacs.d/
+│       ├── elisp-lint.md      # /elisp-lint — batch byte-compile lisp/ + packages/
+│       ├── add-package.md     # /add-package — add new package (module OR bundled subproject)
+│       ├── deploy-config.md   # /deploy-config — deploy to ~/.emacs.d/ (includes packages/)
 │       └── check-windows-deps.md # /check-windows-deps — verify external deps
 ├── notehq/                # Claude Code scaffolding deployed to ~/NoteHQ/ by bootstrap script
 │   ├── CLAUDE.md          # Per-NoteHQ guidance (note conventions, supertag schema)
@@ -178,26 +179,27 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd
 ### Claude Code Hooks (`.claude/settings.json`)
 Two automatic hooks run without user invocation:
 
-- **PostToolUse** (matcher `Write|Edit`): on every `.el` file edit, runs `emacs --batch -Q -L . -L lisp --eval "(byte-compile-file ...)"` and reports OK/FAILED. Per-file lint for fast feedback.
-- **PreToolUse** (matcher `Bash(git commit*)`): before any git commit, byte-compiles every `.el` in the repo. Blocks the commit if any file fails. Full-repo gate.
+- **PostToolUse** (matcher `Write|Edit`): on every `.el` file edit, runs `emacs --batch -Q -L . -L lisp --eval "(byte-compile-file ...)"` on the single changed file and reports `[hook] OK` or `[hook] FAILED`. This works for files under both `lisp/` and `packages/**/` because single-file byte-compilation doesn't need the full load path when the package is self-contained (as `org-focus-timer` is).
+- **PreToolUse** (matcher `Bash(git commit*)`): before any `git commit`, byte-compiles every `.el` in the repo — specifically `early-init.el`, `init.el`, `lisp/*.el`, and `packages/*/*.el` — with a load path that dynamically picks up every `packages/*/` subdirectory. Blocks the commit if any file fails. This is the full-repo gate.
 
 Together they mean per-edit feedback + commit-time enforcement, so manual `/elisp-lint` invocation is only needed when you want to verify the whole repo mid-session.
 
 ### Claude Code Rules (`.claude/rules/`)
-Auto-loaded scoped guidance via the `globs:` frontmatter:
+Auto-loaded scoped guidance via the `globs:` frontmatter. The scopes are **mutually exclusive** so the same file never matches two rules:
 
-- **`elisp-style.md`** — applies to `*.el` and `lisp/*.el`; enforces `lexical-binding`, `my/` prefix, `defcustom` with `:group 'org-seq`, section header style, byte-compile gate.
-- **`org-conventions.md`** — applies to `*.org` (incl. `notehq/`); enforces `:ID:` properties, `[[id:...]]` linking, supertag-over-directory classification, dashboard write-protection, TODO sequence.
+- **`elisp-style.md`** — scoped to `early-init.el` / `init.el` / `lisp/*.el`; enforces `lexical-binding`, `my/` prefix, `defcustom` with `:group 'org-seq`, section header style, character-set discipline (no emoji, no fullwidth punctuation).
+- **`packages-style.md`** — scoped to `packages/**/*.el`; enforces the opposite conventions for bundled subprojects: package-local prefix (not `my/`), own `defgroup` (not `org-seq`), proper package header for standalone consumption, no references to org-seq paths or keybindings. The goal is that any `packages/<name>/` directory can be graduated to its own repo with `git mv` alone.
+- **`org-conventions.md`** — scoped to `*.org` (includes `notehq/`); enforces `:ID:` properties, `[[id:...]]` linking, supertag-over-directory classification, dashboard write-protection, TODO sequence.
 
 ### Claude Code Skills (`.claude/skills/`)
 Slash commands defined for Claude Code; use them when the task matches.
 
 | Skill | Purpose |
 |-------|---------|
-| `/elisp-lint` | Batch byte-compile `early-init.el`, `init.el`, `lisp/*.el`; report errors. Complements the per-edit PostToolUse hook for full-repo verification. |
-| `/add-package` | Add a `use-package` block in the correct `init-*.el`, keys in `init-evil` if needed |
-| `/deploy-config` | Deploy to `~/.emacs.d/` with backup/safety; do not overwrite without confirmation |
-| `/check-windows-deps` | Emacs 29+, SQLite, native-comp, rg, fd, git, HOME |
+| `/elisp-lint` | Batch byte-compile `early-init.el`, `init.el`, `lisp/*.el`, and `packages/*/*.el`; report errors. Complements the per-edit PostToolUse hook for full-repo verification. |
+| `/add-package` | Add a new package — either as a `use-package` block inside `lisp/init-*.el` (for 3rd-party integrations) or as a new bundled subproject under `packages/<name>/` (for packages you are writing yourself). Covers both flows. |
+| `/deploy-config` | Deploy to `~/.emacs.d/` with backup/safety; copies `lisp/` AND `packages/`; do not overwrite without confirmation. |
+| `/check-windows-deps` | Emacs 29+, SQLite, native-comp, rg, fd, git, HOME. |
 
 After changing elisp, the PostToolUse hook auto-lints; run `/elisp-lint` if you want a full-repo sanity check.
 
