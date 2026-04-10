@@ -176,6 +176,7 @@
     "l"   '(:ignore t :wk "layout")
     "ll"  '(my/workspace-setup :wk "Open workspace")
     "lt"  '(my/workspace-toggle-sidebar :wk "Toggle sidebar (dirvish)")
+    "lT"  '(dirvish-side-follow-mode :wk "Toggle sidebar auto-reveal (follow current file)")
     "lo"  '(my/workspace-toggle-outline :wk "Toggle outline")
     "le"  '(my/workspace-toggle-terminal :wk "Toggle terminal")
     "ld"  '(my/switch-to-dashboard :wk "Dashboard")

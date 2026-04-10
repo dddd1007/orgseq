@@ -110,13 +110,21 @@
   ;; Hide the built-in mode-line in dirvish buffers; use the header line instead
   (dirvish-use-mode-line nil)
   (dirvish-use-header-line t)
-  ;; Auto-follow the sidebar selection to the main window
-  (dirvish-side-follow-mode t)
 
   :config
   ;; Global takeover: every dired invocation opens dirvish.
   ;; Set this here (not :custom) because it's a minor-mode toggle.
   (dirvish-override-dired-mode 1)
+
+  ;; `dirvish-side-follow-mode' (when enabled) auto-reveals the
+  ;; current file's directory in the sidebar every time you switch
+  ;; buffers -- similar to VSCode's file-tree auto-reveal.  We turn
+  ;; it OFF by default because PKM workflows involve constantly
+  ;; switching between Roam / Outputs / Practice and you usually
+  ;; care more about "where I want to go" than "where I currently
+  ;; am", so an auto-jumping sidebar becomes distracting.  Toggle
+  ;; it on per-session with `SPC l T' (or `M-x dirvish-side-follow-mode').
+  (dirvish-side-follow-mode -1)
 
   ;; Peek mode: when the minibuffer shows a file candidate (e.g. consult-find),
   ;; show its contents in a preview window automatically.
