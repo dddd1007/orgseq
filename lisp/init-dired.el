@@ -158,8 +158,24 @@
          ;; Single-click: open file in main editor window, or toggle
          ;; directory subtree in place (see `my/dirvish-mouse-click'
          ;; below for the full semantics).
+         ;;
+         ;; We bind BOTH mouse-1 and mouse-2 here on purpose.  Dired
+         ;; declares `(define-key map [follow-link] 'mouse-face)',
+         ;; which tells Emacs "a mouse-1 click on text carrying the
+         ;; `mouse-face' property should be dispatched as a mouse-2
+         ;; click instead".  Dirvish attaches `mouse-face' to the
+         ;; filename portion of each line (for hover highlight).
+         ;; Without the mouse-2 binding below, clicks that land
+         ;; specifically on the filename text would get rewritten
+         ;; to mouse-2 and hit `dired-mouse-find-file-other-window',
+         ;; which opens the directory as a separate dired buffer --
+         ;; confusing.  Binding both buttons to the same handler
+         ;; means the in-place-expand behavior wins regardless of
+         ;; exactly where on the line the click lands.
          ([mouse-1]        . my/dirvish-mouse-click)
+         ([mouse-2]        . my/dirvish-mouse-click)
          ([double-mouse-1] . my/dirvish-mouse-click)
+         ([double-mouse-2] . my/dirvish-mouse-click)
          ;; Dirvish's own menus (Transient-based)
          ("a"   . dirvish-quick-access)
          ("f"   . dirvish-file-info-menu)
