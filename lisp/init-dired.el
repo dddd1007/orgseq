@@ -139,6 +139,11 @@
           ("e" ,user-emacs-directory                         "Emacs config")))
 
   :bind (:map dirvish-mode-map
+         ;; Single-click: open file in main editor window, or toggle
+         ;; directory subtree in place (see `my/dirvish-mouse-click'
+         ;; below for the full semantics).
+         ([mouse-1]        . my/dirvish-mouse-click)
+         ([double-mouse-1] . my/dirvish-mouse-click)
          ;; Dirvish's own menus (Transient-based)
          ("a"   . dirvish-quick-access)
          ("f"   . dirvish-file-info-menu)
@@ -157,10 +162,63 @@
          ("M-j" . dirvish-fd-jump)))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
-;; Section 3: Sidebar helpers
+;; Section 3: Sidebar helpers + mouse click behavior
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
-;; `init-workspace.el' consumes these to build the 3-column layout.
+;; `init-workspace.el' consumes the side-window helpers to build the
+;; 3-column layout.  The mouse-click handler makes the dirvish sidebar
+;; behave like a modern file tree: single-click opens a file in the
+;; main editor window, or expands a directory in place without leaving
+;; the sidebar.
+
+(defun my/dirvish-mouse-click (event)
+  "Handle a mouse click inside a dirvish buffer.
+
+Default dired binds mouse-1 to `mouse-set-point', which only moves
+point without opening anything -- fine for full-window dired, but
+unintuitive for a sidebar where you expect a click to do something.
+
+This handler:
+
+  - On a directory, calls `dirvish-subtree-toggle' so the subtree
+    expands or collapses in place, keeping the sidebar as a tree
+    view instead of jumping into the directory.
+
+  - On a regular file, picks the first non-side (main editor)
+    window in the current frame and opens the file there with
+    `find-file'.  The sidebar itself stays put.
+
+Called via `[mouse-1]' in `dirvish-mode-map' (see `:bind' above)."
+  (interactive "e")
+  ;; First, move point to the line under the click inside the dirvish window.
+  (let* ((posn (event-end event))
+         (window (posn-window posn))
+         (point (posn-point posn)))
+    (when (windowp window)
+      (select-window window))
+    (when (integerp point)
+      (goto-char point)))
+  ;; Then act on whatever file the point now refers to.
+  (when-let* ((file (ignore-errors (dired-get-file-for-visit)))
+              (basename (file-name-nondirectory (directory-file-name file))))
+    (cond
+     ;; Ignore the `.' and `..' pseudo-entries entirely.
+     ((member basename '("." "..")) nil)
+     ;; Directory -> toggle subtree in place (tree-view behavior).
+     ((file-directory-p file)
+      (if (fboundp 'dirvish-subtree-toggle)
+          (dirvish-subtree-toggle)
+        (dired-find-alternate-file)))
+     ;; Regular file -> open in the main editor window.
+     (t
+      (let ((editor (seq-find
+                     (lambda (w) (null (window-parameter w 'window-side)))
+                     (window-list nil 'no-minibuffer))))
+        (if editor
+            (progn (select-window editor)
+                   (find-file file))
+          ;; No non-side window available (rare) — fall back to other-window.
+          (find-file-other-window file)))))))
 
 (defun my/dirvish-side-visible-p ()
   "Return the dirvish-side window if visible in the current frame, else nil."
