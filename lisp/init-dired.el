@@ -116,6 +116,14 @@
   ;; Set this here (not :custom) because it's a minor-mode toggle.
   (dirvish-override-dired-mode 1)
 
+  ;; Explicitly load the subtree extension so `dirvish-subtree-toggle'
+  ;; is available immediately -- without this, the function is only
+  ;; autoloaded lazily when you press TAB in a dirvish buffer, and
+  ;; our mouse-1 click handler (which calls it directly) would fall
+  ;; through to a default action and open a new buffer instead of
+  ;; expanding the clicked directory in place.
+  (require 'dirvish-subtree)
+
   ;; `dirvish-side-follow-mode' (when enabled) auto-reveals the
   ;; current file's directory in the sidebar every time you switch
   ;; buffers -- similar to VSCode's file-tree auto-reveal.  We turn
@@ -213,10 +221,14 @@ Called via `[mouse-1]' in `dirvish-mode-map' (see `:bind' above)."
      ;; Ignore the `.' and `..' pseudo-entries entirely.
      ((member basename '("." "..")) nil)
      ;; Directory -> toggle subtree in place (tree-view behavior).
+     ;; `dirvish-subtree' is explicitly required in :config above so
+     ;; this function is guaranteed to be loaded by the time a click
+     ;; can reach this branch; we call it directly without an
+     ;; fboundp guard on purpose, so a missing-function error would
+     ;; surface loudly instead of silently falling through to some
+     ;; other behavior that looks like a bug.
      ((file-directory-p file)
-      (if (fboundp 'dirvish-subtree-toggle)
-          (dirvish-subtree-toggle)
-        (dired-find-alternate-file)))
+      (dirvish-subtree-toggle))
      ;; Regular file -> open in the main editor window.
      (t
       (let ((editor (seq-find
