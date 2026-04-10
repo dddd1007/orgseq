@@ -289,6 +289,7 @@
     "to"  '(olivetti-mode :wk "Olivetti")
     "tf"  '(toggle-frame-fullscreen :wk "Fullscreen")
     "ti"  '(org-modern-mode :wk "Org-modern")
+    "th"  '(dired-omit-mode :wk "Hide dot-files / CLAUDE.md (dired)")
 
     ;; ── SPC w — Window ──
     "w"   '(:ignore t :wk "window")

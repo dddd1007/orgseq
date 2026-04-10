@@ -17,7 +17,9 @@
   :ensure nil
   :commands (dired dired-jump)
   :custom
-  ;; Long listing, human-readable sizes, dirs first, show dotfiles
+  ;; Long listing, human-readable sizes, dirs first, sort by name (the
+  ;; default with -l is name, -v would switch to version-sort; we keep
+  ;; name-sort so the sidebar listing is alphabetical).
   (dired-listing-switches "-alh --group-directories-first")
   ;; Smart default target: if two dired windows are open, use the other as target
   (dired-dwim-target t)
@@ -36,7 +38,27 @@
   ;; When `ls-lisp' is used, --group-directories-first is ignored but harmless.
   (when (eq system-type 'windows-nt)
     (setq ls-lisp-dirs-first t
-          ls-lisp-use-insert-directory-program nil)))
+          ls-lisp-use-insert-directory-program nil))
+
+  ;; ---- dired-omit-mode: hide dot-files and CLAUDE.md by default ----
+  ;;
+  ;; `dired-x' provides `dired-omit-mode' as a minor mode that filters
+  ;; the displayed file list.  We enable it globally via `dired-mode-hook'
+  ;; so both regular dired buffers and dirvish-side start hidden.
+  ;;
+  ;; The regex hides:
+  ;;   - Anything starting with a dot (`.git', `.DS_Store', `.orgseq', ...)
+  ;;     This also catches the `.' and `..' entries automatically.
+  ;;   - Exactly `CLAUDE.md' files (the Claude Code project-instruction file
+  ;;     that lives in many repos and rarely needs to be visible to the user).
+  ;;
+  ;; Toggle visibility at any time with `M-x dired-omit-mode' or `SPC t h'.
+  (require 'dired-x)
+  (setq dired-omit-files
+        (concat "\\`[.]"                  ; dot-prefixed files/dirs
+                "\\|\\`CLAUDE\\.md\\'"))  ; and CLAUDE.md exactly
+  (setq dired-omit-verbose nil)
+  (add-hook 'dired-mode-hook #'dired-omit-mode))
 
 ;; ---- diredfl: colorize dired lines by file type ----
 (use-package diredfl
@@ -67,10 +89,16 @@
   :custom
   ;; Sidebar width (treemacs was 24; dirvish-side feels better a bit wider)
   (dirvish-side-width 28)
-  ;; Main-view attributes: icons + file-size + collapse arrows + VC state
-  ;; `git-msg' shows the last commit message for each file (nice for notes
-  ;; versioned in git).
-  (dirvish-attributes '(nerd-icons file-size collapse subtree-state vc-state git-msg))
+  ;; Main-view attributes: icons + file-size + collapse arrows + VC state.
+  ;;
+  ;; Note: `git-msg' (which shows the last commit message for each file)
+  ;; was removed from this list because it spawns a `git log' subprocess
+  ;; per directory and fails with "Fetch dir data failed: (end-of-file)"
+  ;; on Windows when the subprocess output cannot be parsed, or when the
+  ;; directory is not a git repository.  If you want commit messages back,
+  ;; re-add `git-msg' but expect the error to reappear on non-repo
+  ;; directories.
+  (dirvish-attributes '(nerd-icons file-size collapse subtree-state vc-state))
   ;; Sidebar view is more compact: only icons + collapse + VC state
   (dirvish-side-attributes '(nerd-icons collapse vc-state))
   ;; Hide the built-in mode-line in dirvish buffers; use the header line instead
