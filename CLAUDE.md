@@ -48,6 +48,7 @@ org-seq/
 │   ├── init-dired.el      # Dired + dirvish (sidebar, override-dired, peek, quick-access) (loaded 12th)
 │   ├── init-workspace.el  # Workspace layout: dirvish-side + imenu-list outline + eshell terminal (loaded 13th)
 │   ├── init-evil.el       # Evil + general.el + which-key + magit + casual (loaded last)
+│   ├── dashboard-quotes.el # Data-only file: `my/dashboard-quotes' list consumed by init-dashboard.el
 │   └── banner-compact.txt # ASCII art banner for dashboard
 ├── .claude/
 │   ├── settings.json      # Hooks: PostToolUse byte-compile, PreToolUse pre-commit lint

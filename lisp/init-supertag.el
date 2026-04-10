@@ -1,7 +1,33 @@
-;;; init-supertag.el --- Tana-style structured tags + PARA navigation -*- lexical-binding: t; -*-
+;;; init-supertag.el --- Tana-style structured tags + PARA navigation + dashboard helpers -*- lexical-binding: t; -*-
+;;
+;; This module is the USER-FACING side of org-supertag integration. The
+;; package itself is installed and minimally configured by init-pkm.el;
+;; this file layers on:
+;;
+;;   - NoteHQ PARA path constants        (my/outputs-dir, my/practice-dir, ...)
+;;   - Schema edit/reload                 (my/edit-supertag-schema, SPC n m t/T)
+;;   - Capture template management        (my/user-capture-templates merged
+;;                                         with my/default-capture-templates
+;;                                         from init-roam.el)
+;;   - Context-aware quick-action menu    (my/supertag-quick-action, SPC n p p)
+;;   - Dashboard open/create/find         (my/dashboard-find, my/dashboard-create)
+;;   - PARA layer navigation              (my/find-in-outputs, my/ripgrep-notehq)
+;;   - NoteHQ directory bootstrap         (my/ensure-notehq-structure, runs on load)
+;;
+;; Load order:
+;;
+;;   init-org  ->  init-roam  ->  init-gtd  ->  init-pkm  ->  init-supertag
+;;   (paths)       (templates)                   (install)     (this file)
+;;
+;; The split between init-pkm (bootstrap) and init-supertag (higher-level)
+;; exists because init-supertag depends on `my/default-capture-templates'
+;; from init-roam.el, which must load before the supertag package can be
+;; set up. Keeping the install in init-pkm means "packages that need to
+;; be installed early" and "features that need the install plus downstream
+;; state" stay separate.
 
-;; Requires: init-org (my/note-home, my/orgseq-dir, my/roam-dir)
-;; Requires: init-pkm (org-supertag base setup)
+;; Requires: init-org  (my/note-home, my/orgseq-dir, my/roam-dir)
+;; Requires: init-pkm  (org-supertag package installed)
 ;; Requires: init-roam (my/default-capture-templates)
 (defvar my/note-home)
 (defvar my/orgseq-dir)

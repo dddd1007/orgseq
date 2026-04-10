@@ -1,22 +1,53 @@
-;;; init-pkm.el --- PKM extensions: org-supertag + org-transclusion + org-ql -*- lexical-binding: t; -*-
+;;; init-pkm.el --- PKM support packages: org-supertag bootstrap + org-transclusion + org-ql -*- lexical-binding: t; -*-
+;;
+;; This module is the "support packages" layer of the PKM stack. It
+;; handles three independent things that share one property: each is a
+;; pure package installation with minimal configuration.
+;;
+;;   1. `org-supertag' — BOOTSTRAP INSTALL ONLY.
+;;      Installs the package from GitHub and sets two baseline options
+;;      (sync directory, AI bridge). All higher-level supertag logic
+;;      (schema editing, dashboards, PARA navigation, capture-template
+;;      management) lives in `lisp/init-supertag.el' which loads right
+;;      after this module. The split exists because init-supertag.el
+;;      needs `my/default-capture-templates' from init-roam.el, which
+;;      forces this load order:
+;;
+;;          init-org -> init-roam -> init-gtd -> init-pkm -> init-supertag
+;;
+;;   2. `org-transclusion' — enables live `#+transclude:' blocks.
+;;      Stand-alone, no org-seq-specific config.
+;;
+;;   3. `org-ql' — SQL-like query language for org; used by init-gtd's
+;;      dashboard for live counts.
+;;
+;; Naming note: "pkm" here means "pkm support packages", not "PKM hub".
+;; The actual PKM feature surface is split across four modules:
+;;   init-roam       graph layer (org-roam + org-node + org-mem)
+;;   init-pkm        structured-data + transclusion + query package install
+;;   init-supertag   supertag higher-level UI and helpers
+;;   init-gtd        task management on top of the agenda
+;;
+;; If you are looking for "where does the supertag schema editing
+;; function live?" the answer is init-supertag.el, not here.
 
 ;; Requires: init-org (my/roam-dir)
 (defvar my/roam-dir)  ; forward-declare from init-org
 
 ;; ═══════════════════════════════════════════════════════════════════════════
-;; Section 1: org-supertag — structured data engine (Tana-style)
+;; Section 1: org-supertag — bootstrap install + baseline config
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
-;; Core PKM engine: turns #tags into database tables with typed fields.
-;; Provides structured queries, table views, kanban boards, and automation.
+;; org-supertag (v5.8+, Tana-style tags with typed fields) is not on
+;; MELPA; we install it from GitHub via `package-vc-install'. This
+;; section does ONLY the install and minimal config.  Everything
+;; user-facing (schema editing, SPC n p * keys, dashboards, etc.) is
+;; in init-supertag.el.
 ;;
-;; Three-layer PKM architecture:
-;;   org-roam      = graph layer      (nodes, links, backlinks, capture)
-;;   org-node      = performance layer (fast indexing, async DB sync)
-;;   org-supertag  = data layer       (structured tags, fields, queries, views)
-;;
-;; Higher-level supertag functions (schema, dashboards, PARA navigation)
-;; live in init-supertag.el which loads after this module.
+;; Three-layer PKM architecture (as a reminder):
+;;   org-roam      = graph layer       (nodes, links, backlinks, capture)
+;;   org-node/mem  = performance layer (fast indexing, async DB sync)
+;;   org-supertag  = data layer        (structured tags, fields, queries)
 
 ;; ht: hash-table library required by org-supertag
 (use-package ht :ensure t)

@@ -1,4 +1,60 @@
 ;;; init-gtd.el --- GTD task management system -*- lexical-binding: t; -*-
+;;
+;; This is the largest module in the project (~700 lines). It implements a
+;; complete GTD workflow on top of org-mode's agenda system, including:
+;; a live dashboard with org-ql counts, a state machine, context views,
+;; and auto-refresh hooks. Everything happens inside org buffers and uses
+;; org-mode's native task state transitions -- this module only adds
+;; higher-level ergonomics.
+;;
+;; ┌─────────────────────────────────────────────────────────────────┐
+;; │                       Table of Contents                          │
+;; ├─────────────────────────────────────────────────────────────────┤
+;; │ Section  1  Agenda file cache                                    │
+;; │              `my/agenda-cache', `my/org-roam-agenda-files'       │
+;; │                                                                  │
+;; │ Section  2  GTD constants and context tags                       │
+;; │              `my/gtd-closed-states', `my/gtd-active-states',     │
+;; │              `my/gtd-context-tags'                               │
+;; │                                                                  │
+;; │ Section  3  Project detection helpers                            │
+;; │              `my/org-project-p', `my/org-stuck-project-p',       │
+;; │              `my/org-skip-non-projects'                          │
+;; │                                                                  │
+;; │ Section  4  Agenda view openers                                  │
+;; │              `my/org-open-task-dashboard',                       │
+;; │              `my/org-open-today', `my/org-open-inbox', ...       │
+;; │                                                                  │
+;; │ Section  5  State picker + complete/cancel with child handling   │
+;; │              `my/gtd-set-state', `my/gtd-complete',              │
+;; │              `my/gtd-cancel' -- bound to `, q' in org buffers    │
+;; │                                                                  │
+;; │ Section  6  DONE sink + hide/show toggle                         │
+;; │              auto-moves DONE tasks to bottom;                    │
+;; │              `my/gtd-toggle-hide-done' bound to `, h'            │
+;; │                                                                  │
+;; │ Section  7  Context views                                        │
+;; │              `my/org-pick-context' prompts for @work/@home/...   │
+;; │                                                                  │
+;; │ Section  8  Upcoming view (org-ql powered)                       │
+;; │              `my/org-open-upcoming' -- scheduled from today on   │
+;; │                                                                  │
+;; │ Section  9  Agenda visual polish                                 │
+;; │              strikethrough CANCELLED, checkmark DONE,            │
+;; │              empty-state placeholders                            │
+;; │                                                                  │
+;; │ Section 10  GTD Dashboard buffer (*GTD*)                         │
+;; │              live-count dashboard with projects + contexts;      │
+;; │              `my/org-dashboard' is the main entry point          │
+;; │                                                                  │
+;; │ Section 11  Auto-refresh                                         │
+;; │              debounced refresh on state change / schedule /      │
+;; │              deadline changes                                    │
+;; │                                                                  │
+;; │ Section 12  GTD-specific org config (hooks + agenda commands)    │
+;; │              `org-agenda-custom-commands' definitions for the    │
+;; │              "0 / 1 / 3 / 4 / 5 / 6 / n / p / w" views           │
+;; └─────────────────────────────────────────────────────────────────┘
 
 ;; Requires: init-org (my/note-home)
 
