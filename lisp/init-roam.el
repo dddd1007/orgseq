@@ -26,7 +26,7 @@
   (org-roam-db-update-on-save nil)
 
   :bind (("C-c n l" . org-roam-buffer-toggle)
-         ("C-c n f" . org-roam-node-find)
+         ("C-c n F" . org-roam-node-find)
          ("C-c n i" . org-roam-node-insert)
          ("C-c n c" . org-roam-capture)
          ("C-c n j" . org-roam-dailies-capture-today))
@@ -161,9 +161,42 @@
 ;;   20 backlinks:      5-10s   →  org-node:  instant
 ;;   minibuffer open:   1-3s    →  org-node:  instant
 
+(defun my/byte-compile-library-if-needed (library)
+  "Byte-compile LIBRARY when its .elc is missing or stale.
+
+This is used for org-mem's hot-path dependencies so startup does not
+fall back to interpreted code and trigger performance warnings.  Any
+failure is downgraded to a warning so PKM startup still succeeds."
+  (let* ((source (locate-library library))
+         (dest (and source (byte-compile-dest-file source))))
+    (when (and source
+               dest
+               (string-match-p "\\.el\\'" source)
+               (or (not (file-exists-p dest))
+                   (file-newer-than-file-p source dest)))
+      (condition-case err
+          (progn
+            (require 'bytecomp)
+            (byte-recompile-file source nil 0)
+            t)
+        (error
+         (message "WARNING org-seq: failed to byte-compile %s: %s" library err)
+         nil)))))
+
+(defun my/ensure-org-mem-compiled ()
+  "Compile org-mem hot-path libraries before loading org-node.
+
+org-mem warns loudly when it or truename-cache run interpreted because
+path normalization becomes much slower.  Compile the dependency chain
+up front so first startup does not spam avoidable warnings."
+  (dolist (library '("truename-cache" "org-mem" "org-node"))
+    (my/byte-compile-library-if-needed library)))
+
 (use-package org-node
   :after org-roam
   :demand t
+  :init
+  (my/ensure-org-mem-compiled)
   :custom
   ;; Delegate node creation to org-roam's capture system
   (org-node-creation-fn #'org-node-new-via-roam-capture)
@@ -187,8 +220,32 @@
   (org-mem-roamy-db-mode 1))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
-;; Section 3: Utilities and visualization
+;; Section 3: Search and visualization
 ;; ═══════════════════════════════════════════════════════════════════════════
+
+;; Deft: fast incremental note search over the Roam layer only.
+;; Keep project/content search on Consult; Deft is the primary UI for note
+;; discovery under ~/NoteHQ/00_Roam/.
+(use-package deft
+  :after org-roam
+  :commands (deft deft-find-file deft-refresh)
+  :bind (("C-c n f" . deft))
+  :custom
+  (deft-directory my/roam-dir)
+  (deft-extensions '("org"))
+  (deft-recursive t)
+  (deft-default-extension "org")
+  (deft-org-mode-title-prefix t)
+  (deft-use-filename-as-title nil)
+  (deft-auto-save-interval 0)
+  (deft-strip-summary-regexp
+   (concat "\\("
+           "[\n\t]"
+           "\\|^#\\+[[:upper:]_]+:.*$"
+           "\\|^:PROPERTIES:$"
+           "\\|^:END:$"
+           "\\|^:[[:upper:]_]+:.*$"
+           "\\)")))
 
 (defun my/org-roam-rg-search ()
   "Search org-roam directory with consult-ripgrep."

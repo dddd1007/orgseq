@@ -129,11 +129,12 @@ Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` a
 
 | Key | Action |
 |-----|--------|
-| `SPC n f` | Find note |
+| `SPC n f` | Search notes (Deft) |
+| `SPC n F` | Find note (org-roam) |
 | `SPC n c` | New note (capture) |
 | `SPC n i` | Insert link |
 | `SPC n b` | Toggle backlinks |
-| `SPC n /` | Search notes in Roam dir (ripgrep) |
+| `SPC n /` | Search note text in Roam dir (ripgrep) |
 | `SPC n g` | Graph view |
 | `SPC n a` | Add alias |
 | `SPC n r` | Add ref |
@@ -283,7 +284,7 @@ Load order is fixed in `init.el` (see [CLAUDE.md](CLAUDE.md)).
 | 2 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
 | 3 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
 | 4 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
-| 5 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), dailies, org-roam-ui, Doom-derived advices |
+| 5 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft note search, dailies, org-roam-ui, Doom-derived advices |
 | 6 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
 | 7 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
 | 8 | `init-pkm.el` | org-supertag (install) + org-transclusion + org-ql |

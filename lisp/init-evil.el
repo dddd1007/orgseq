@@ -190,12 +190,13 @@
 
     ;; ── SPC n — Notes / org-roam ──
     "n"   '(:ignore t :wk "notes")
-    "nf"  '(org-roam-node-find :wk "Find note")
+    "nf"  '(deft :wk "Search notes")
+    "nF"  '(org-roam-node-find :wk "Find note (roam)")
     "ni"  '(org-roam-node-insert :wk "Insert link")
     "nc"  '(org-roam-capture :wk "New note")
     "nb"  '(org-roam-buffer-toggle :wk "Backlinks")
     "ng"  '(org-roam-ui-mode :wk "Graph view")
-    "n/"  '(my/org-roam-rg-search :wk "Search notes")
+    "n/"  '(my/org-roam-rg-search :wk "Search note text")
     "na"  '(org-roam-alias-add :wk "Add alias")
     "nr"  '(org-roam-ref-add :wk "Add ref")
     "nl"  '(consult-org-roam-forward-links :wk "Forward links")

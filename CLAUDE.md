@@ -25,7 +25,7 @@ org-seq/
 ├── LICENSE                # MIT license
 ├── early-init.el          # Pre-GUI: GC suppression, UI blocking
 ├── init.el                # Bootstrap: package.el, use-package, module loading
-├── ec.cmd                 # Windows quick-launch: emacsclient -c -s org-seq
+├── ec.cmd                 # Windows quick-launch: open a new org-seq client frame
 ├── deploy.ps1             # Windows deployment script (PowerShell)
 ├── deploy.sh              # Linux/macOS deployment script (Bash)
 ├── .gitattributes         # Line ending rules (LF for .el, CRLF for .ps1)
@@ -38,7 +38,7 @@ org-seq/
 │   ├── init-completion.el # Vertico stack (loaded 2nd)
 │   ├── init-markdown.el   # Markdown editing with Obsidian interop, not in org-roam (loaded 3rd)
 │   ├── init-org.el        # Org-mode base + org-modern + org-appear + org-tempo + evil-org (loaded 4th)
-│   ├── init-roam.el       # org-roam + org-node acceleration + capture + dailies + Doom-derived advices (loaded 5th)
+│   ├── init-roam.el       # org-roam + org-node acceleration + Deft search + capture + dailies + Doom-derived advices (loaded 5th)
 │   ├── init-gtd.el        # GTD system: dashboard, agenda views, state machine (loaded 6th)
 │   ├── init-focus.el      # org-focus-timer integration (Vitamin-R-style focus slices) (loaded 7th)
 │   ├── init-pkm.el        # org-supertag (install) + org-transclusion + org-ql (loaded 8th)

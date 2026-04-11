@@ -121,8 +121,8 @@
            " Today " "Open today's daily note  [SPC n d d]"
            (lambda (&rest _) (org-roam-dailies-capture-today)))
           (,(my/dashboard-icon "nf-md-magnify")
-           " Find " "Find an org-roam note  [SPC n f]"
-           (lambda (&rest _) (org-roam-node-find)))
+           " Find " "Search notes with Deft  [SPC n f]"
+           (lambda (&rest _) (deft)))
           (,(my/dashboard-icon "nf-md-format_list_checks")
            " Tasks " "Open GTD task dashboard  [SPC a n]"
            (lambda (&rest _) (my/org-open-task-dashboard)))
