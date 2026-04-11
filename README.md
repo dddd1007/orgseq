@@ -46,6 +46,47 @@ Primary target: **Windows** (with Linux/macOS compatibility).
    ```
    Then right-click the downloaded `.ttf` files and select "Install".
 
+## Server Mode (Windows)
+
+org-seq uses a named Emacs server (`org-seq`) so you can start the daemon once and open instant client frames. On Windows, clients connect through the TCP auth file at `~/.emacs.d/server/org-seq`.
+
+### System tray daemon manager
+
+A PowerShell tray app manages the daemon lifecycle:
+
+```powershell
+# Launch directly (or let it auto-start on login via the tray menu):
+powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File scripts\emacs-server-tray.ps1
+```
+
+The tray icon provides:
+- **Double-click** — open a new emacsclient frame
+- **Right-click menu** — New Frame, Server Status (PID + uptime), Restart Server, Stop & Quit, Auto-start toggle
+
+The "Auto-start on login" option creates a shortcut in `shell:startup` so the daemon starts automatically when you log in to Windows.
+
+### Quick client shortcut
+
+`ec.cmd` connects to the running server:
+
+```cmd
+ec.cmd                 # open a new frame
+ec.cmd path\to\file    # open file in existing server
+```
+
+### Manual server control
+
+If you prefer not to use the tray app:
+
+```elisp
+;; Start server inside a running Emacs:
+M-x server-start
+
+;; Or from command line:
+emacs --daemon=org-seq
+emacsclientw -c -n -f ~/.emacs.d/server/org-seq
+```
+
 ## Key Bindings
 
 Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` and wait for the which-key popup to see all available keys.

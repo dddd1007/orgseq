@@ -25,7 +25,7 @@ org-seq/
 ├── LICENSE                # MIT license
 ├── early-init.el          # Pre-GUI: GC suppression, UI blocking
 ├── init.el                # Bootstrap: package.el, use-package, module loading
-├── ec.cmd                 # Windows quick-launch: emacsclient -c -a ""
+├── ec.cmd                 # Windows quick-launch: emacsclient -c -s org-seq
 ├── deploy.ps1             # Windows deployment script (PowerShell)
 ├── deploy.sh              # Linux/macOS deployment script (Bash)
 ├── .gitattributes         # Line ending rules (LF for .el, CRLF for .ps1)
@@ -74,7 +74,8 @@ org-seq/
 │       └── README.md
 └── scripts/
     ├── bootstrap-notes.sh   # Init ~/NoteHQ/ structure + copy notehq/ scaffold (Linux/macOS)
-    └── bootstrap-notes.ps1  # Init ~/NoteHQ/ structure + copy notehq/ scaffold (Windows)
+    ├── bootstrap-notes.ps1  # Init ~/NoteHQ/ structure + copy notehq/ scaffold (Windows)
+    └── emacs-server-tray.ps1 # System tray daemon manager (Windows): start/stop/restart server, auto-start
 
 ~/NoteHQ/                    # Created by bootstrap script or init-supertag.
                              # Layers carry numeric prefixes so the sidebar
@@ -237,6 +238,7 @@ The `notehq/` subdirectory holds Claude Code support files that the bootstrap sc
 - **treemacs for sidebar, dirvish for file management**: The left workspace sidebar uses `treemacs` again because its dedicated tree model is more stable for deep nested navigation. `dirvish` remains the enhanced dired/file-manager layer for full-window browsing, preview, quick-access jumps, and modern dired UX. This split keeps the sidebar predictable without giving up the dired-native workflow elsewhere.
 - **org-focus-timer is a bundled subproject under `packages/`**: The Vitamin-R-style focus tracker lives at `packages/org-focus-timer/` inside this repository and is referenced from `lisp/init-focus.el` via a `:load-path` pointing at `<user-emacs-directory>/packages/org-focus-timer/`. Rationale: the package has enough independent value (zero deps, clean API) that it *could* be standalone, but until the API and data format stabilize it is easier to iterate with the source sitting right next to the config that calls it. The `packages/` directory is copied to `~/.emacs.d/packages/` by the deploy scripts alongside `lisp/`. When the package matures it will graduate to its own repo — at that point `init-focus.el` will switch to a `:vc` reference and the `packages/org-focus-timer/` directory will be deleted. **Do not add org-seq-specific code to the package**; keep it usable by any org user. The integration layer (`init-focus.el`) is the only place org-seq-specific defaults live — it points the log file at `~/NoteHQ/.orgseq/focus-log.org` and sets the Vitamin-R-style 10/30/15 duration parameters. Keybindings under `SPC a`: `SPC a f` starts a slice, `SPC a F` opens the dashboard, `SPC a X` aborts a running slice. If you clone org-seq but keep the package somewhere else, override `my/focus-timer-path` via `customize-group org-seq`.
 - **NoteHQ scaffolding lives in `notehq/`**: A complete Claude Code support tree (CLAUDE.md + rules + skills) that bootstrap-notes copies to the user's `~/NoteHQ/`. Its rules and skills run *in* the user's notes directory, not in this repo. Keep notehq/ artifacts focused on note-author tasks (new-tag, weekly-review, archive-project), and keep org-seq/ artifacts focused on Emacs config tasks.
+- **Server mode**: Use `server-use-tcp t` on Windows (no Unix domain sockets). The config starts a named Emacs server (`org-seq`) — either via `emacs --daemon=org-seq` from the tray app, or via `server-start` inside a running Emacs. On Windows, clients connect via the full TCP auth file path `~/.emacs.d/server/org-seq` passed to `emacsclient -f`, not via `-s`. `ec.cmd` and the tray app use `emacsclientw.exe` for GUI frames and `emacsclient.exe` for silent background operations (health checks, eval, kill). The tray app (`scripts/emacs-server-tray.ps1`) is a PowerShell NotifyIcon application that manages the daemon lifecycle, tracks PID, and can toggle Windows startup via a `shell:startup` shortcut.
 
 ## Troubleshooting Quick Reference
 
