@@ -38,12 +38,12 @@
   ;; ---- Node display: show subdirectory type + backlink count ----
   (cl-defmethod org-roam-node-type ((node org-roam-node))
     "Return the subdirectory of NODE relative to `org-roam-directory'."
-    (condition-case nil
-        (file-name-nondirectory
-         (directory-file-name
-          (file-name-directory
-           (file-relative-name (org-roam-node-file node) org-roam-directory))))
-      (error "")))
+    (let* ((file (org-roam-node-file node))
+           (relative (and file (file-relative-name file org-roam-directory)))
+           (directory (and relative (file-name-directory relative))))
+      (if directory
+          (file-name-nondirectory (directory-file-name directory))
+        "")))
 
   (cl-defmethod org-roam-node-backlinkscount ((node org-roam-node))
     "Return the backlink count of NODE as a bracketed string."
@@ -173,28 +173,18 @@
   (org-node-file-timestamp-format "%Y%m%dT%H%M%S-")
 
   :config
-  ;; Scope org-mem to the notes directory
-  (setq org-mem-watch-dirs (list my/roam-dir))
+  ;; Scope org-mem to the actionable PKM layers used by org-roam and GTD.
+  (setq org-mem-watch-dirs
+        (list my/roam-dir
+              (expand-file-name "10_Outputs/" my/note-home)
+              (expand-file-name "20_Practice/" my/note-home)))
 
   ;; Write to org-roam's real DB so org-roam-ui and other extensions work
   (setq org-mem-roamy-do-overwrite-real-db t)
 
   (org-node-cache-mode 1)
   (org-node-roam-accelerator-mode 1)
-  (org-mem-roamy-db-mode 1)
-
-  ;; Auto-compile org-mem/org-node if not yet compiled (suppresses
-  ;; "will be very slow unless compiled" warnings on next startup)
-  (run-with-idle-timer 3 nil
-    (lambda ()
-      (dolist (pkg '(org-mem org-node))
-        (when (and (package-installed-p pkg)
-                   (not (file-exists-p
-                         (expand-file-name
-                          (concat (symbol-name pkg) ".elc")
-                          (package-desc-dir (cadr (assq pkg package-alist)))))))
-          (message "org-seq: compiling %s (one-time)..." pkg)
-          (package-recompile pkg))))))
+  (org-mem-roamy-db-mode 1))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 3: Utilities and visualization
