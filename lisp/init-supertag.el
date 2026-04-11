@@ -46,7 +46,7 @@
 ;; can reference it without depending on this module.
 
 ;; Numeric prefixes (10/20/30/40) ensure the NoteHQ layers sort in
-;; workflow priority order in the dirvish sidebar: 00_Roam is where
+;; workflow priority order in the sidebar: 00_Roam is where
 ;; daily writing happens, then 10_Outputs (active deliverables),
 ;; 20_Practice (long-term domains), 30_Library (consumed reference),
 ;; 40_Archives (completed/paused).  The 10-step gaps leave room to
@@ -61,6 +61,16 @@
   (expand-file-name "capture-templates.el" my/orgseq-dir)
   "User-defined capture templates.  Edit with SPC n m c, reload with SPC n m C.")
 
+(defun my/load-user-file-safely (file description)
+  "Load FILE and report a clear error tagged with DESCRIPTION on failure."
+  (condition-case err
+      (progn
+        (load file nil 'nomessage)
+        t)
+    (error
+     (message "org-seq: failed to load %s from %s: %s" description file err)
+     nil)))
+
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Schema editing and reloading
 ;; ═══════════════════════════════════════════════════════════════════════════
@@ -74,14 +84,13 @@
   "Reload tag definitions without restarting Emacs."
   (interactive)
   (if (file-exists-p my/schema-file)
-      (progn
-        (load my/schema-file :noerror :nomessage)
+      (if (my/load-user-file-safely my/schema-file "supertag schema")
         (message "org-seq: supertag schema reloaded from %s" my/schema-file))
     (message "org-seq: schema file not found: %s" my/schema-file)))
 
 (with-eval-after-load 'org-supertag
   (when (file-exists-p my/schema-file)
-    (load my/schema-file :noerror :nomessage)))
+    (my/load-user-file-safely my/schema-file "supertag schema")))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 3: Capture template management
@@ -156,7 +165,7 @@
   (interactive)
   (setq my/user-capture-templates nil)
   (when (file-exists-p my/capture-templates-file)
-    (load my/capture-templates-file :noerror :nomessage))
+    (my/load-user-file-safely my/capture-templates-file "capture templates"))
   (setq org-roam-capture-templates
         (append my/default-capture-templates my/user-capture-templates))
   (message "org-seq: %d capture templates active (%d built-in + %d user)"
@@ -184,7 +193,11 @@
   (interactive)
   (require 'org-supertag)
   (let* ((node-id (org-id-get-create))
-         (tags (ignore-errors (org-supertag-node-get-tags node-id))))
+         (tags (condition-case err
+                   (org-supertag-node-get-tags node-id)
+                 (error
+                  (message "org-seq: failed to read supertag metadata: %s" err)
+                  nil))))
     (if (null tags)
         (call-interactively #'org-supertag-tag-add-tag)
       (let ((choice (completing-read
@@ -214,7 +227,10 @@
         (progn
           (find-file file)
           (when (fboundp 'org-update-all-dblocks)
-            (ignore-errors (org-update-all-dblocks))))
+            (condition-case err
+                (org-update-all-dblocks)
+              (error
+               (message "org-seq: dashboard refresh failed: %s" err)))))
       (message "org-seq: dashboard not found: %s" file))))
 
 (defun my/dashboard-find ()
@@ -292,7 +308,9 @@
                      my/archives-dir))
     (make-directory dir t)))
 
-(my/ensure-notehq-structure)
+(add-hook 'after-init-hook
+          (lambda ()
+            (run-with-idle-timer 0.5 nil #'my/ensure-notehq-structure)))
 
 (provide 'init-supertag)
 ;;; init-supertag.el ends here

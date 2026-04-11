@@ -34,6 +34,24 @@
 ;; Requires: init-org (my/roam-dir)
 (defvar my/roam-dir)  ; forward-declare from init-org
 
+(defvar my/supertag-install-error nil
+  "Last error encountered while installing org-supertag, if any.")
+
+(defvar my/supertag-sync-timer nil
+  "Idle timer used to debounce post-capture supertag syncs.")
+
+(defun my/supertag-schedule-sync ()
+  "Debounce `supertag-sync-check-now' after org-roam capture finalization."
+  (when my/supertag-sync-timer
+    (cancel-timer my/supertag-sync-timer))
+  (setq my/supertag-sync-timer
+        (run-with-idle-timer
+         0.5 nil
+         (lambda ()
+           (setq my/supertag-sync-timer nil)
+           (when (fboundp 'supertag-sync-check-now)
+             (supertag-sync-check-now))))))
+
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: org-supertag — bootstrap install + baseline config
 ;; ═══════════════════════════════════════════════════════════════════════════
@@ -60,6 +78,7 @@
   (condition-case err
       (package-vc-install "https://github.com/yibie/org-supertag")
     (error
+     (setq my/supertag-install-error err)
      (message "WARNING org-seq: failed to install org-supertag: %s" err))))
 
 (use-package org-supertag
@@ -81,18 +100,17 @@
 (unless (locate-library "org-supertag")
   (run-with-idle-timer 2 nil
     (lambda ()
-      (message "WARNING org-seq: org-supertag not found. \
-Run M-x package-vc-install to install it manually."))))
+      (message "WARNING org-seq: org-supertag not found. %sRun M-x package-vc-install RET https://github.com/yibie/org-supertag RET"
+               (if my/supertag-install-error
+                   (format "Last install error: %s. " my/supertag-install-error)
+                 "")))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Capture bridge — org-roam → org-supertag
 ;; ═══════════════════════════════════════════════════════════════════════════
 
 (with-eval-after-load 'org-roam
-  (add-hook 'org-roam-capture-after-finalize-hook
-            (lambda ()
-              (when (fboundp 'supertag-sync-check-now)
-                (run-with-idle-timer 0.5 nil #'supertag-sync-check-now)))))
+  (add-hook 'org-roam-capture-after-finalize-hook #'my/supertag-schedule-sync))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 3: org-transclusion — live content embedding
