@@ -42,17 +42,17 @@ check_prerequisites() {
         ver="$(emacs --version | head -1)"
         local major
         major="$(echo "$ver" | grep -oE '[0-9]+' | head -1)"
-        if [[ "$major" -ge 29 ]]; then
+        if [[ "$major" -ge 30 ]]; then
             pass "Emacs $major ($ver)"
         else
-            warn "Emacs $major found, 29+ required"
+            warn "Emacs $major found, 30+ required"
             all_ok=0
         fi
 
         local sqlite
         sqlite="$(emacs --batch --eval '(message "%s" (sqlite-available-p))' 2>&1 | tail -1)"
         if [[ "$sqlite" == "t" ]]; then pass "SQLite support available"
-        else fail "SQLite not available. org-roam requires Emacs 29+ with SQLite."; all_ok=0; fi
+        else fail "SQLite not available. org-roam requires Emacs 30+ with SQLite."; all_ok=0; fi
 
         local nc
         nc="$(emacs --batch --eval '(message "%s" (native-comp-available-p))' 2>&1 | tail -1)"
@@ -151,6 +151,13 @@ deploy_config() {
         cp "$latest_backup/custom.el" "$TARGET/custom.el"
         pass "custom.el restored from backup"
     fi
+
+    local version="unknown"
+    if command -v git &>/dev/null; then
+        version="$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
+    fi
+    printf '%s' "$version" > "$TARGET/.org-seq-version"
+    pass ".org-seq-version ($version)"
 }
 
 # ── Verify ──

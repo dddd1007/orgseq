@@ -6,8 +6,8 @@ Primary target: **Windows** (with Linux/macOS compatibility).
 
 ## Prerequisites
 
-- **Emacs 29+** (required for built-in SQLite and use-package)
-  - Windows: MSYS2 build recommended for native-comp support
+- **Emacs 30+** (required for built-in SQLite, use-package, and which-key)
+  - Windows: official GNU build from https://ftp.gnu.org/gnu/emacs/windows/ (native-comp is optional)
   - Verify: `M-: (sqlite-available-p)` must return `t`
 - **ripgrep** (`rg`): recommended for consult-ripgrep
 - **fd**: recommended for consult-find
@@ -146,7 +146,7 @@ Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` a
 | `SPC i o` | Generate KB overview |
 | `SPC i g` | Init AI context files |
 
-All AI commands are enriched with your **purpose.org** and **schema.org** context files (stored in `~/NoteHQ/Roam/concepts/`). Edit these files to customize how the LLM understands your knowledge base — no manual repetition needed.
+All AI commands are enriched with your **purpose.org** and **schema.org** context files (stored in `~/NoteHQ/00_Roam/`). Edit these files to customize how the LLM understands your knowledge base — no manual repetition needed.
 
 ### Other groups
 
@@ -166,6 +166,21 @@ All AI commands are enriched with your **purpose.org** and **schema.org** contex
 | `SPC t` | Toggle (theme/line-numbers/wrap/olivetti/fullscreen) |
 | `SPC w` | Window (split/close/maximize/navigate/resize) |
 | `SPC q q` | Quit Emacs |
+| `SPC q u` | Update all packages (ELPA + vc) |
+
+Under `SPC l` the most important sidebar controls are:
+
+| Key | Action |
+|-----|--------|
+| `SPC l t` | Toggle treemacs sidebar |
+| `SPC l f` | Focus treemacs sidebar |
+| `SPC l h` | Jump treemacs to NoteHQ root |
+| `SPC l r` | Reveal current file in treemacs |
+| `SPC l R` | Reveal current file and focus treemacs |
+| `SPC l T` | Toggle treemacs follow-mode |
+| `SPC l c` | Collapse all treemacs nodes |
+| `SPC l w` | Set sidebar width |
+| `SPC l W` | Toggle sidebar width lock |
 
 ### `, ` Local leader (mode-specific)
 
@@ -213,7 +228,7 @@ TODO keywords: `PROJECT` → `TODO` → `NEXT` → `IN-PROGRESS` → `WAITING` /
 
 The GTD Dashboard (`SPC a d`) shows live counts and is the central hub:
 - **Inbox / Today / Upcoming / Anytime / Waiting / Someday / Logbook** with task counts
-- **Projects** with status indicators (● stuck, ~ no NEXT, blank = healthy)
+- **Projects** with status indicators (* stuck, ~ no NEXT, blank = healthy)
 - **Context tags** (@work, @home, etc.) with NEXT task counts
 - Click any row to open the corresponding view in the right pane
 
@@ -235,8 +250,9 @@ Load order is fixed in `init.el` (see [CLAUDE.md](CLAUDE.md)).
 | 10 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + claude-code + .orgseq AI config + KB overview |
 | 11 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
 | 12 | `init-dired.el` | Dired + dirvish (modern file manager, sidebar, peek, quick-access) |
-| 13 | `init-workspace.el` | Workspace: dirvish-side sidebar + imenu-list outline + eshell terminal |
-| 14 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
+| 13 | `init-workspace.el` | Workspace: treemacs sidebar + imenu-list outline + eshell terminal |
+| 14 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
+| 15 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
 
 ### Bundled subproject: `packages/org-focus-timer/`
 
@@ -264,7 +280,7 @@ Notes live under `~/NoteHQ/`, organized as a Roam + PARA hybrid:
 └── .orgseq/             ← Per-library config (ai-config.org, etc.)
 ```
 
-The numeric prefixes (10-step gaps) exist so the dirvish sidebar sorts the layers in workflow priority order (Roam first, Archives last) instead of alphabetical-by-name order.
+The numeric prefixes (10-step gaps) exist so the sidebar sorts the layers in workflow priority order (Roam first, Archives last) instead of alphabetical-by-name order.
 
 Classification is by **supertag**, not directory — `00_Roam/` itself is flat. GTD agenda scans `00_Roam/` + `10_Outputs/` + `20_Practice/` (skips `30_Library/` and `40_Archives/`). org-roam, org-mem, and org-supertag all sync against `~/NoteHQ/00_Roam/`.
 

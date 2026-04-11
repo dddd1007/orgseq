@@ -4,7 +4,7 @@ A modular Emacs configuration for building a personal knowledge management (PKM)
 
 ## Project Overview
 
-This project produces a deployable `~/.emacs.d/` configuration. The output is Emacs Lisp — not a standalone application. The config targets **Emacs 29+** (required for built-in SQLite and use-package). Org-mode is installed from GNU ELPA (not the built-in version) for latest features.
+This project produces a deployable `~/.emacs.d/` configuration. The output is Emacs Lisp — not a standalone application. The config targets **Emacs 30+** (required for built-in SQLite, use-package, and which-key). On Windows the official GNU build is recommended; native-comp is optional. Org-mode is installed from GNU ELPA (not the built-in version) for latest features.
 
 ### Core Stack
 - **Editing**: Evil mode (Vim keybindings) + general.el (SPC leader keys)
@@ -23,7 +23,7 @@ org-seq/
 ├── CLAUDE.md              # This file — development guidelines for Claude Code
 ├── README.md              # Quick start and key bindings (user-facing)
 ├── LICENSE                # MIT license
-├── early-init.el          # Pre-GUI: GC suppression, UI blocking, native-comp
+├── early-init.el          # Pre-GUI: GC suppression, UI blocking
 ├── init.el                # Bootstrap: package.el, use-package, module loading
 ├── ec.cmd                 # Windows quick-launch: emacsclient -c -a ""
 ├── deploy.ps1             # Windows deployment script (PowerShell)
@@ -46,7 +46,8 @@ org-seq/
 │   ├── init-ai.el         # gptel + ob-gptel + .orgseq AI config + PKM AI commands + KB overview (loaded 10th)
 │   ├── init-dashboard.el  # Startup dashboard with vertical centering (loaded 11th)
 │   ├── init-dired.el      # Dired + dirvish (sidebar, override-dired, peek, quick-access) (loaded 12th)
-│   ├── init-workspace.el  # Workspace layout: dirvish-side + imenu-list outline + eshell terminal (loaded 13th)
+│   ├── init-workspace.el  # Workspace layout: treemacs + imenu-list outline + eshell terminal (loaded 13th)
+│   ├── init-update.el     # Periodic silent package auto-update: ELPA + vc (loaded 14th)
 │   ├── init-evil.el       # Evil + general.el + which-key + magit + casual (loaded last)
 │   ├── dashboard-quotes.el # Data-only file: `my/dashboard-quotes' list consumed by init-dashboard.el
 │   └── banner-compact.txt # ASCII art banner for dashboard
@@ -76,7 +77,7 @@ org-seq/
     └── bootstrap-notes.ps1  # Init ~/NoteHQ/ structure + copy notehq/ scaffold (Windows)
 
 ~/NoteHQ/                    # Created by bootstrap script or init-supertag.
-                             # Layers carry numeric prefixes so dirvish-side
+                             # Layers carry numeric prefixes so the sidebar
                              # sorts them in workflow priority order.
 ├── 00_Roam/                 # Atomic layer (org-roam-directory)
 │   ├── daily/               # Daily notes
@@ -134,7 +135,7 @@ org-seq/
 ### Adding a New Package
 1. Add `use-package` declaration in the appropriate `lisp/init-*.el` module
 2. Use `:after` for dependencies, `:hook` for mode activation
-3. Add Windows-specific notes as comments with `⚠️` prefix
+3. Add Windows-specific notes as comments with `NOTE(win):` prefix
 4. Add leader key bindings in `init-evil.el` if needed
 5. The PostToolUse hook will byte-compile the file on save; run `/elisp-lint` for full-repo verification before commit
 
@@ -145,7 +146,7 @@ org-seq/
 
 ### Module Load Order (init.el)
 ```
-init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-evil
+init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-update -> init-evil
 ```
 - `init-org` before `init-roam` because org-roam depends on org; defines `my/note-home`, `my/orgseq-dir`, `my/roam-dir` used by later modules
 - `init-roam` before `init-gtd` because GTD agenda cache can use org-mem's async file list
@@ -154,8 +155,9 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd
 - `init-pkm` before `init-supertag` because pkm installs org-supertag, supertag loads schema and provides higher-level functions
 - `init-supertag` before `init-ai` because supertag's AI bridge uses gptel; supertag also ensures NoteHQ directory structure
 - `init-dashboard` after `init-roam` because it needs org-roam and nerd-icons to be ready
-- `init-dired` after `init-dashboard` because it depends on `nerd-icons` (loaded in `init-ui`) and `my/roam-dir` (from `init-org`); defines `my/dirvish-side-*` helpers consumed by `init-workspace`
-- `init-workspace` after `init-dired` because the sidebar is provided by `dirvish-side` via helpers in `init-dired`
+- `init-dired` after `init-dashboard` because it depends on `nerd-icons` (loaded in `init-ui`) and `my/roam-dir` (from `init-org`); provides the general dired/dirvish file-manager UI used alongside the sidebar
+- `init-workspace` after `init-dired` because the workspace layout combines the treemacs sidebar with the dirvish-enhanced file-manager workflow
+- `init-update` after `init-workspace` because auto-update is low-priority infrastructure; only needs package.el which is available from init.el
 - `init-evil` loads last because general.el leader keys reference all other modules
 
 ### NoteHQ Architecture: Roam + PARA (with numeric prefixes)
@@ -173,7 +175,7 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd
 └── .orgseq/               ← Per-library personalized config
 ```
 
-The numeric prefixes exist so the dirvish sidebar's alphabetical sort matches the workflow priority order instead of putting rarely-touched `Archives` at the top. 10-step gaps (00 / 10 / 20 / 30 / 40) leave room to insert new layers later without renumbering.
+The numeric prefixes exist so the sidebar's alphabetical sort matches the workflow priority order instead of putting rarely-touched `Archives` at the top. 10-step gaps (00 / 10 / 20 / 30 / 40) leave room to insert new layers later without renumbering.
 
 ### Scope: Agenda vs PKM vs PARA
 - `my/note-home` (`~/NoteHQ/`): Root directory for all layers
@@ -204,7 +206,7 @@ Slash commands defined for Claude Code; use them when the task matches.
 | `/elisp-lint` | Batch byte-compile `early-init.el`, `init.el`, `lisp/*.el`, and `packages/*/*.el`; report errors. Complements the per-edit PostToolUse hook for full-repo verification. |
 | `/add-package` | Add a new package — either as a `use-package` block inside `lisp/init-*.el` (for 3rd-party integrations) or as a new bundled subproject under `packages/<name>/` (for packages you are writing yourself). Covers both flows. |
 | `/deploy-config` | Deploy to `~/.emacs.d/` with backup/safety; copies `lisp/` AND `packages/`; do not overwrite without confirmation. |
-| `/check-windows-deps` | Emacs 29+, SQLite, native-comp, rg, fd, git, HOME. |
+| `/check-windows-deps` | Emacs 30+, SQLite, native-comp (optional), rg, fd, git, HOME. |
 
 After changing elisp, the PostToolUse hook auto-lints; run `/elisp-lint` if you want a full-repo sanity check.
 
@@ -225,14 +227,14 @@ The `notehq/` subdirectory holds Claude Code support files that the bootstrap sc
 - **No md-roam**: Markdown is editable with Obsidian interop (wiki links, GFM) but NOT indexed by org-roam. PKM graph/backlinks are Org-only. md-roam removed because it conflicts with org-node indexing.
 - **No GCMH**: Direct `gc-cons-threshold` (16MB) is safer than gcmh's timer-based approach.
 - **org-modern over org-superstar**: org-modern uses text properties (more efficient), actively maintained by Daniel Mendler.
-- **org-supertag as core**: v5.8+ is stable (336 stars, pure Elisp, ~16K LOC). Demand-loaded in init-pkm.el. Sync directory matches org-roam's `~/NoteHQ/Roam/`. AI bridge enabled via gptel. First-time setup requires `M-x supertag-sync-full-initialize`.
-- **AI purpose/schema context** (inspired by llm_wiki): Two persistent org files — `~/NoteHQ/Roam/purpose.org` (knowledge base goals, key questions) and `~/NoteHQ/Roam/schema.org` (note types, tag conventions, linking rules) — are auto-injected into every gptel system prompt via `my/ai--build-system-prompt`. This gives the LLM persistent context about the user's PKM without manual repetition. Files are created with templates on first load (`SPC i g` or `my/ai--ensure-context-files`). Edit them to customize AI behavior.
-- **KB overview generation**: `my/ai-overview` (`SPC i o`) collects org-roam statistics (total nodes, tag distribution, recent notes) and asks the LLM to generate a structured overview report (themes, gaps, connections, suggestions). Result is saved to `~/NoteHQ/Roam/overview.org` with timestamp. Inspired by llm_wiki's auto-updated overview.md.
-- **Workspace layout**: Default startup opens dirvish-side + dashboard (lightweight). Full 3-column layout (dirvish-side + outline + terminal) is on-demand via `SPC l l`.
+- **org-supertag as core**: v5.8+ is stable (336 stars, pure Elisp, ~16K LOC). Demand-loaded in init-pkm.el. Sync directory matches org-roam's `~/NoteHQ/00_Roam/`. AI bridge enabled via gptel. First-time setup requires `M-x supertag-sync-full-initialize`.
+- **AI purpose/schema context** (inspired by llm_wiki): Two persistent org files — `~/NoteHQ/00_Roam/purpose.org` (knowledge base goals, key questions) and `~/NoteHQ/00_Roam/schema.org` (note types, tag conventions, linking rules) — are auto-injected into every gptel system prompt via `my/ai--build-system-prompt`. This gives the LLM persistent context about the user's PKM without manual repetition. Files are created with templates on first load (`SPC i g` or `my/ai--ensure-context-files`). Edit them to customize AI behavior.
+- **KB overview generation**: `my/ai-overview` (`SPC i o`) collects org-roam statistics (total nodes, tag distribution, recent notes) and asks the LLM to generate a structured overview report (themes, gaps, connections, suggestions). Result is saved to `~/NoteHQ/00_Roam/overview.org` with timestamp. Inspired by llm_wiki's auto-updated overview.md.
+- **Workspace layout**: Default startup opens treemacs + dashboard (lightweight). Full 3-column layout (treemacs + outline + terminal) is on-demand via `SPC l l`.
 - **.orgseq personalized config**: `~/NoteHQ/.orgseq/` stores non-sensitive per-library settings (like `.vscode/`). First use case: `ai-config.org` — AI backend definitions, model lists, and defaults in an editable org file. API keys remain in `~/.authinfo.gpg` (auth-source). Init is incremental: files are created with templates only if missing, never overwritten. Parsed at gptel load time with hardcoded fallback on failure.
 - **org-appear paired with org-hide-emphasis-markers**: Both must be enabled together. `org-hide-emphasis-markers t` makes `*bold*`/`/italic/` markers invisible at rest; `org-appear` reveals them only at the cursor for editing. Either alone is useless — hide-only loses editability, appear-only has nothing to reveal.
 - **Doom-derived org-roam advices**: `init-roam.el` carries 4 fixes from Doom's `lang/org/contrib/roam.el` for issues that bite Evil + vertico users: (1) `org-roam-node-insert` places links *before* whitespace in evil normal mode — advised to insert after; (2) `magit-section-mode-map` overrides Evil keys in the org-roam buffer — parent keymap is detached on `org-roam-mode-hook`; (3) vertico truncates node candidates because of upstream org-roam#2066 — advised to use frame width; (4) `visual-line-mode` in the backlinks buffer prevents long titles from being cut off. All four are conditional on `evil`/`vertico` being loaded.
-- **dirvish over treemacs**: The file sidebar was migrated from `treemacs` to `dirvish-side` in `init-dired.el`.  Rationale: (1) dirvish is based on dired — every dired keybinding works, muscle memory carries over; (2) active maintenance vs. treemacs' slower release cycle; (3) built-in preview pane (`dirvish-peek-mode`) for navigating notes without opening them; (4) `dirvish-override-dired-mode` upgrades every dired call globally, giving the whole config one consistent file-manager UI. `init-dired.el` is a dedicated module for dired+dirvish because the user is a dired-native and wants the package exposed beyond the sidebar. Sidebar helpers (`my/dirvish-side-open-at-notehq`, `my/dirvish-side-toggle`, `my/dirvish-side-visible-p`) are defined there and consumed by `init-workspace.el`.
+- **treemacs for sidebar, dirvish for file management**: The left workspace sidebar uses `treemacs` again because its dedicated tree model is more stable for deep nested navigation. `dirvish` remains the enhanced dired/file-manager layer for full-window browsing, preview, quick-access jumps, and modern dired UX. This split keeps the sidebar predictable without giving up the dired-native workflow elsewhere.
 - **org-focus-timer is a bundled subproject under `packages/`**: The Vitamin-R-style focus tracker lives at `packages/org-focus-timer/` inside this repository and is referenced from `lisp/init-focus.el` via a `:load-path` pointing at `<user-emacs-directory>/packages/org-focus-timer/`. Rationale: the package has enough independent value (zero deps, clean API) that it *could* be standalone, but until the API and data format stabilize it is easier to iterate with the source sitting right next to the config that calls it. The `packages/` directory is copied to `~/.emacs.d/packages/` by the deploy scripts alongside `lisp/`. When the package matures it will graduate to its own repo — at that point `init-focus.el` will switch to a `:vc` reference and the `packages/org-focus-timer/` directory will be deleted. **Do not add org-seq-specific code to the package**; keep it usable by any org user. The integration layer (`init-focus.el`) is the only place org-seq-specific defaults live — it points the log file at `~/NoteHQ/.orgseq/focus-log.org` and sets the Vitamin-R-style 10/30/15 duration parameters. Keybindings under `SPC a`: `SPC a f` starts a slice, `SPC a F` opens the dashboard, `SPC a X` aborts a running slice. If you clone org-seq but keep the package somewhere else, override `my/focus-timer-path` via `customize-group org-seq`.
 - **NoteHQ scaffolding lives in `notehq/`**: A complete Claude Code support tree (CLAUDE.md + rules + skills) that bootstrap-notes copies to the user's `~/NoteHQ/`. Its rules and skills run *in* the user's notes directory, not in this repo. Keep notehq/ artifacts focused on note-author tasks (new-tag, weekly-review, archive-project), and keep org-seq/ artifacts focused on Emacs config tasks.
 
@@ -241,7 +243,7 @@ The `notehq/` subdirectory holds Claude Code support files that the bootstrap sc
 | Symptom | Check |
 |---------|-------|
 | org-roam won't start | `M-: (sqlite-available-p)` must return `t` |
-| No native-comp | `M-: (native-comp-available-p)`, need MSYS2 build |
+| No native-comp | `M-: (native-comp-available-p)`, optional -- official Windows build omits libgccjit |
 | Chinese fonts broken | `M-: (font-family-list)` to verify font names |
 | ripgrep not found | `M-: (executable-find "rg")`, install via package manager |
 | Slow startup | `M-x esup` or `M-x benchmark-init/show-durations-tabulated` |

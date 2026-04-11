@@ -6,7 +6,7 @@
 
 ### 1. 启动 Emacs
 
-启动后你会看到一个轻量布局：左侧是 dirvish-side 侧栏，一个基于 dired 的现代文件管理器，显示着你的 NoteHQ 目录树；右侧是 Dashboard，列出最近编辑过的文件和几个快捷入口按钮。这个布局会在首屏就让你看到两件事——最近在写什么，以及今天可以做什么。
+启动后你会看到一个轻量布局：左侧是 treemacs 侧栏，显示着你的 NoteHQ 目录树；右侧是 Dashboard，列出最近编辑过的文件和几个快捷入口按钮。这个布局会在首屏就让你看到两件事——最近在写什么，以及今天可以做什么。
 
 ### 2. 晨间回顾（2 分钟）
 
@@ -497,7 +497,7 @@ Dashboard 按天展示彩色时间线（█ flow / ▓ normal / ░ unfocused）
 
 | 场景 | 键位 | 说明 |
 |------|------|------|
-| 开关侧栏 | `SPC l t` | dirvish-side（NoteHQ 根目录） |
+| 开关侧栏 | `SPC l t` | treemacs（NoteHQ 根目录） |
 | 全屏 dirvish | `SPC o f` | 当前目录 |
 | 打开 NoteHQ | `SPC o N` | 全屏 dirvish 到 NoteHQ 根 |
 | 跳到当前文件目录 | `SPC f j` 或 `SPC o d` | dired-jump |

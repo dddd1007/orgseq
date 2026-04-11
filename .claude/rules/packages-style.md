@@ -19,7 +19,7 @@ Everything that follows is a consequence of this rule.
 - Its own `defcustom` with sensible standalone defaults (not tied to `~/NoteHQ/` or any org-seq-specific path)
 - Its own `(provide '<package-name>)` matching the filename
 - Its own README.md that can be read independently
-- Ideally zero external dependencies beyond Emacs 29+
+- Ideally zero external dependencies beyond Emacs 30+
 
 ## What does NOT belong inside `packages/<name>/`
 

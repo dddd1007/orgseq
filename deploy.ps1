@@ -28,35 +28,56 @@ function Write-Section($msg) { Write-Host "`n── $msg ──" -ForegroundColo
 
 # ── Prerequisites ──
 
+# Find Emacs executable: PATH first, then common Windows install locations.
+function Find-Emacs {
+    $cmd = Get-Command emacs -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+
+    # Scan Program Files for official GNU Emacs installs
+    $roots = @("$env:ProgramFiles", "${env:ProgramFiles(x86)}", "$env:LOCALAPPDATA\Programs")
+    foreach ($root in $roots) {
+        if (-not $root -or -not (Test-Path $root)) { continue }
+        $candidates = Get-ChildItem "$root\Emacs" -Directory -ErrorAction SilentlyContinue |
+                      Sort-Object Name -Descending
+        foreach ($dir in $candidates) {
+            $bin = Join-Path $dir.FullName "bin\emacs.exe"
+            if (Test-Path $bin) { return $bin }
+        }
+    }
+    return $null
+}
+
 function Test-Prerequisites {
     Write-Section "Checking prerequisites"
     $allOk = $true
 
     # Emacs
-    $emacs = Get-Command emacs -ErrorAction SilentlyContinue
-    if ($emacs) {
-        $ver = & emacs --version 2>&1 | Select-Object -First 1
+    $emacsPath = Find-Emacs
+    if ($emacsPath) {
+        $ver = & $emacsPath --version 2>&1 | Select-Object -First 1
         if ($ver -match "(\d+)\.") {
             $major = [int]$Matches[1]
-            if ($major -ge 29) { Write-Pass "Emacs $major ($ver)" }
-            else { Write-Warn "Emacs $major found, 29+ required"; $allOk = $false }
+            if ($major -ge 30) { Write-Pass "Emacs $major ($ver)" }
+            else { Write-Warn "Emacs $major found, 30+ required"; $allOk = $false }
         }
         else { Write-Warn "Cannot parse Emacs version: $ver" }
+        # Store for later use
+        $script:EmacsExe = $emacsPath
     }
-    else { Write-Fail "Emacs not found. Install from https://ftp.gnu.org/gnu/emacs/windows/ or MSYS2"; $allOk = $false }
+    else { Write-Fail "Emacs not found. Install from https://ftp.gnu.org/gnu/emacs/windows/"; $allOk = $false }
 
     # SQLite
-    if ($emacs) {
-        $sqlite = & emacs --batch --eval '(message "%s" (sqlite-available-p))' 2>&1 | Select-String -Pattern "^(t|nil)$"
+    if ($emacsPath) {
+        $sqlite = & $emacsPath --batch --eval '(message "%s" (sqlite-available-p))' 2>&1 | Select-String -Pattern "^(t|nil)$"
         if ($sqlite -and $sqlite.ToString().Trim() -eq "t") { Write-Pass "SQLite support available" }
-        else { Write-Fail "SQLite not available. org-roam requires Emacs 29+ with SQLite."; $allOk = $false }
+        else { Write-Fail "SQLite not available. org-roam requires Emacs 30+ with SQLite."; $allOk = $false }
     }
 
     # Native-comp (optional)
-    if ($emacs) {
-        $nc = & emacs --batch --eval '(message "%s" (native-comp-available-p))' 2>&1 | Select-String -Pattern "^(t|nil)$"
+    if ($emacsPath) {
+        $nc = & $emacsPath --batch --eval '(message "%s" (native-comp-available-p))' 2>&1 | Select-String -Pattern "^(t|nil)$"
         if ($nc -and $nc.ToString().Trim() -eq "t") { Write-Pass "Native-comp available" }
-        else { Write-Warn "Native-comp not available. Consider MSYS2 build for better performance." }
+        else { Write-Warn "Native-comp not available (optional -- official Windows build omits libgccjit)." }
     }
 
     # ripgrep
@@ -161,6 +182,19 @@ function Deploy-Config {
         Copy-Item "$($backups.FullName)/custom.el" "$Target/custom.el"
         Write-Pass "custom.el restored from backup"
     }
+
+    $version = "unknown"
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        try {
+            $gitVersion = (& git -C $ScriptDir rev-parse --short HEAD 2>$null | Select-Object -First 1).Trim()
+            if ($gitVersion) { $version = $gitVersion }
+        }
+        catch {
+            $version = "unknown"
+        }
+    }
+    Set-Content -Path (Join-Path $Target ".org-seq-version") -Value $version -NoNewline
+    Write-Pass ".org-seq-version ($version)"
 }
 
 # ── Verify ──
@@ -176,7 +210,7 @@ function Test-Deployment {
     }
     $allFiles = @("$Target/early-init.el", "$Target/init.el") + $elFiles + $pkgFiles
 
-    $emacs = Get-Command emacs -ErrorAction SilentlyContinue
+    $emacs = if ($script:EmacsExe) { $script:EmacsExe } else { Find-Emacs }
     if (-not $emacs) {
         Write-Warn "Emacs not found, skipping byte-compile check"
         return
@@ -186,7 +220,7 @@ function Test-Deployment {
     $emacsArgs = @("--batch", "-Q", "-L", $Target, "-L", $lispDir, "-f", "batch-byte-compile") + $allFiles
 
     try {
-        $output = & emacs @emacsArgs 2>&1
+        $output = & $emacs @emacsArgs 2>&1
         $compileExitCode = $LASTEXITCODE
         $warnings = $output | Where-Object { $_ -match "Warning|warning" }
         if ($compileExitCode -ne 0) {

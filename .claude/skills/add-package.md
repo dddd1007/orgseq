@@ -64,7 +64,7 @@ For the second case, follow the rules in `.claude/rules/packages-style.md` — n
 4. **If the package is GitHub-only** (not on MELPA), use the unified bootstrap pattern instead of a bifurcated Emacs 29/30 form:
 
    ```elisp
-   ;; Bootstrap install (works on Emacs 29+)
+   ;; Bootstrap install (works on Emacs 30+)
    (unless (package-installed-p 'PKG)
      (condition-case err
          (package-vc-install "https://github.com/AUTHOR/PKG")
