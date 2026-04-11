@@ -151,7 +151,7 @@ function Deploy-Config {
 
     New-Item -ItemType Directory -Force $Target | Out-Null
 
-    $filesToCopy = @("early-init.el", "init.el")
+    $filesToCopy = @("early-init.el", "init.el", "ec.cmd")
     foreach ($f in $filesToCopy) {
         $src = Join-Path $ScriptDir $f
         if (-not (Test-Path $src)) { Write-Fail "Missing source: $src"; exit 1 }
@@ -178,6 +178,17 @@ function Deploy-Config {
         Write-Pass "packages/ ($pkgCount elisp files)"
     }
 
+    $runtimeScripts = @("emacs-server-tray.ps1")
+    $scriptsSrc = Join-Path $ScriptDir "scripts"
+    $scriptsDst = Join-Path $Target "scripts"
+    New-Item -ItemType Directory -Force $scriptsDst | Out-Null
+    foreach ($scriptName in $runtimeScripts) {
+        $src = Join-Path $scriptsSrc $scriptName
+        if (-not (Test-Path $src)) { Write-Fail "Missing source: $src"; exit 1 }
+        Copy-Item -Force $src $scriptsDst
+        Write-Pass "scripts/$scriptName"
+    }
+
     # Restore custom.el if it was in the target before
     $backups = Get-ChildItem "$Target.backup-*" -Directory -ErrorAction SilentlyContinue | Sort-Object -Descending | Select-Object -First 1
     if ($backups -and (Test-Path "$($backups.FullName)/custom.el") -and (-not (Test-Path "$Target/custom.el"))) {
@@ -197,6 +208,56 @@ function Deploy-Config {
     }
     Set-Content -Path (Join-Path $Target ".org-seq-version") -Value $version -NoNewline
     Write-Pass ".org-seq-version ($version)"
+}
+
+function Install-StartMenuShortcuts {
+    Write-Section "Installing Start Menu shortcuts"
+
+    $emacs = if ($script:EmacsExe) { $script:EmacsExe } else { Find-Emacs }
+    if (-not $emacs) {
+        Write-Warn "Emacs not found, skipping Start Menu shortcut creation"
+        return
+    }
+
+    $ver = & $emacs --version 2>&1 | Select-Object -First 1
+    $programsDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+    $folderName = "Emacs"
+    if ($ver -match "(\d+\.\d+)") {
+        $folderName = "Emacs-$($Matches[1])"
+    }
+    $shortcutDir = Join-Path $programsDir $folderName
+    New-Item -ItemType Directory -Force $shortcutDir | Out-Null
+
+    $serverScript = Join-Path $Target "scripts\emacs-server-tray.ps1"
+    $clientCmd = Join-Path $Target "ec.cmd"
+    $iconLocation = "$emacs,0"
+    $wsh = New-Object -ComObject WScript.Shell
+
+    try {
+        $serverShortcutPath = Join-Path $shortcutDir "org-seq Server.lnk"
+        $serverShortcut = $wsh.CreateShortcut($serverShortcutPath)
+        $serverShortcut.TargetPath = "powershell.exe"
+        $serverShortcut.Arguments = "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$serverScript`""
+        $serverShortcut.WorkingDirectory = Split-Path $serverScript
+        $serverShortcut.Description = "Start org-seq Emacs server tray manager"
+        $serverShortcut.IconLocation = $iconLocation
+        $serverShortcut.Save()
+        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($serverShortcut) | Out-Null
+
+        $clientShortcutPath = Join-Path $shortcutDir "org-seq Client.lnk"
+        $clientShortcut = $wsh.CreateShortcut($clientShortcutPath)
+        $clientShortcut.TargetPath = $clientCmd
+        $clientShortcut.WorkingDirectory = $Target
+        $clientShortcut.Description = "Open a new org-seq Emacs client frame"
+        $clientShortcut.IconLocation = $iconLocation
+        $clientShortcut.Save()
+        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($clientShortcut) | Out-Null
+
+        Write-Pass "Start Menu shortcuts installed in $shortcutDir"
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($wsh) | Out-Null
+    }
 }
 
 # ── Verify ──
@@ -300,5 +361,6 @@ Write-Host "Target: $Target"
 if (-not $SkipChecks) { Test-Prerequisites }
 Backup-ExistingConfig
 Deploy-Config
+Install-StartMenuShortcuts
 Test-Deployment
 Write-PostInstall
