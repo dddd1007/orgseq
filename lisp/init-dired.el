@@ -96,7 +96,7 @@
   ;;
   ;; `dired-x' provides `dired-omit-mode' as a minor mode that filters
   ;; the displayed file list.  We enable it globally via `dired-mode-hook'
-  ;; so both regular dired buffers and dirvish-side start hidden.
+  ;; so both regular dired buffers and dirvish views start hidden.
   ;;
   ;; The regex hides:
   ;;   - Anything starting with a dot (`.git', `.DS_Store', `.orgseq', ...)
@@ -145,10 +145,11 @@
 ;; Section 2: dirvish — modern file manager UI over dired
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
-;; dirvish replaces treemacs as the primary file navigation UI.  It:
+;; dirvish complements the treemacs sidebar as the primary full-window file
+;; manager UI.  It:
 ;;   - is based on dired (keybindings, semantics, wdired all still work)
 ;;   - adds nerd-icons, git status, file size, preview pane
-;;   - provides `dirvish-side' mode for use as a sidebar
+;;   - provides subtree navigation for ordinary directory browsing
 ;;   - has an active maintainer and fast release cycle
 ;;
 ;; `dirvish-override-dired-mode' makes every dired call (C-x d, dired-jump,
@@ -164,8 +165,6 @@
   :demand t
   :after (dired nerd-icons)
   :custom
-  ;; Sidebar width (treemacs was 24; dirvish-side feels better a bit wider)
-  (dirvish-side-width 28)
   ;; Main-view attributes: icons + file-size + collapse arrows + VC state.
   ;;
   ;; Note: `git-msg' (which shows the last commit message for each file)
@@ -176,8 +175,6 @@
   ;; re-add `git-msg' but expect the error to reappear on non-repo
   ;; directories.
   (dirvish-attributes '(nerd-icons file-size collapse subtree-state vc-state))
-  ;; Sidebar view is more compact: only icons + collapse + VC state
-  (dirvish-side-attributes '(nerd-icons collapse vc-state))
   ;; Hide the built-in mode-line in dirvish buffers; use the header line instead
   (dirvish-use-mode-line nil)
   (dirvish-use-header-line t)
@@ -224,20 +221,13 @@
           ("Data"         (extensions "csv" "tsv" "json" "yaml" "yml"
                                       "xml" "toml"))
           ("Archives"     (extensions "zip" "tar" "gz" "bz2" "xz" "7z" "rar"))))
-  ;; Turn it on automatically in every dirvish / dired buffer.  The
-  ;; mode is cheap when groups don't match -- headers only appear
-  ;; for non-empty groups.
-  (add-hook 'dired-mode-hook #'dirvish-emerge-mode)
-
-  ;; `dirvish-side-follow-mode' (when enabled) auto-reveals the
-  ;; current file's directory in the sidebar every time you switch
-  ;; buffers -- similar to VSCode's file-tree auto-reveal.  We turn
-  ;; it OFF by default because PKM workflows involve constantly
-  ;; switching between Roam / Outputs / Practice and you usually
-  ;; care more about "where I want to go" than "where I currently
-  ;; am", so an auto-jumping sidebar becomes distracting.  Toggle
-  ;; it on per-session with `SPC l T' (or `M-x dirvish-side-follow-mode').
-  (dirvish-side-follow-mode -1)
+  ;; Turn it on automatically in every dirvish buffer.  Must hook
+  ;; to `dirvish-setup-hook' (NOT `dired-mode-hook') because emerge's
+  ;; apply routine reads `dirvish--dir-data', which is only populated
+  ;; after dirvish finishes its own setup pass.  Hooking on
+  ;; `dired-mode-hook' runs too early and leaves the sidebar stuck
+  ;; on an empty `*Dirvish-temp*' buffer.
+  (add-hook 'dirvish-setup-hook #'dirvish-emerge-mode)
 
   ;; Peek mode: when the minibuffer shows a file candidate (e.g. consult-find),
   ;; show its contents in a preview window automatically.
@@ -299,45 +289,44 @@
          ("M-j" . dirvish-fd-jump)))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
-;; Section 3: Sidebar helpers + mouse click behavior
+;; Section 3: Mouse click behavior inside dirvish buffers
 ;; ═══════════════════════════════════════════════════════════════════════════
-;;
-;; `init-workspace.el' consumes the side-window helpers to build the
-;; 3-column layout.  The mouse-click handler makes the dirvish sidebar
-;; behave like a modern file tree: single-click opens a file in the
-;; main editor window, or expands a directory in place without leaving
-;; the sidebar.
+;; The left sidebar now comes from treemacs in `init-workspace.el'.
+;; We still keep a modern single-click experience in ordinary dirvish buffers:
+;; files open in the main editor area and directories toggle subtrees in place.
 
 (defun my/dirvish-mouse-click (event)
   "Handle a mouse click inside a dirvish buffer.
 
 Default dired binds mouse-1 to `mouse-set-point', which only moves
 point without opening anything -- fine for full-window dired, but
-unintuitive for a sidebar where you expect a click to do something.
+unintuitive for a tree-style file manager where you expect a click to do
+something.
 
 This handler:
 
   - On a directory, calls `dirvish-subtree-toggle' so the subtree
-    expands or collapses in place, keeping the sidebar as a tree
-    view instead of jumping into the directory.
+    expands or collapses in place, keeping the tree view instead of
+    jumping into the directory.
 
   - On a regular file, picks the first non-side (main editor)
     window in the current frame and opens the file there with
-    `find-file'.  The sidebar itself stays put.
+    `find-file'.
 
 Called via `[mouse-1]' in `dirvish-mode-map' (see `:bind' above)."
   (interactive "e")
-  ;; First, move point to the line under the click inside the dirvish window.
-  (let* ((posn (event-end event))
-         (window (posn-window posn))
-         (point (posn-point posn)))
-    (when (windowp window)
-      (select-window window))
-    (when (integerp point)
-      (goto-char point)))
+  ;; First, let Emacs resolve the click position exactly as dired expects.
+  ;; This is more reliable than manually decoding `posn-point' when the side
+  ;; buffer contains subtree prefixes, icons, and other overlays.
+  (mouse-set-point event)
+  ;; Then normalize to the clicked entry's filename so subtree toggling and
+  ;; file visits operate on the logical dired target, not the visual prefix.
+  (when (derived-mode-p 'dired-mode)
+    (beginning-of-line)
+    (dired-move-to-filename))
   ;; Then act on whatever file the point now refers to.
   (when-let* ((file (ignore-errors (dired-get-file-for-visit)))
-              (basename (file-name-nondirectory (directory-file-name file))))
+               (basename (file-name-nondirectory (directory-file-name file))))
     (cond
      ;; Ignore the `.' and `..' pseudo-entries entirely.
      ((member basename '("." "..")) nil)
@@ -349,55 +338,28 @@ Called via `[mouse-1]' in `dirvish-mode-map' (see `:bind' above)."
      ;; surface loudly instead of silently falling through to some
      ;; other behavior that looks like a bug.
      ((file-directory-p file)
-      (dirvish-subtree-toggle))
+       (dirvish-subtree-toggle))
      ;; Regular file -> open in the main editor window.
      (t
-      (let ((editor (seq-find
-                     (lambda (w) (null (window-parameter w 'window-side)))
-                     (window-list nil 'no-minibuffer))))
-        (if editor
-            (progn (select-window editor)
-                   (find-file file))
-          ;; No non-side window available (rare) — fall back to other-window.
-          (find-file-other-window file)))))))
-
-(defun my/dirvish-side-visible-p ()
-  "Return the dirvish-side window if visible in the current frame, else nil."
-  (cl-find-if (lambda (window)
-                (eq (window-parameter window 'window-side) 'left))
-              (window-list nil 'no-minibuffer)))
-
-(defun my/dirvish-side-open-at-notehq ()
-  "Open dirvish-side rooted at NoteHQ (idempotent — does nothing if visible)."
-  (require 'dirvish-side)
-  (make-directory my/note-home t)
-  (unless (my/dirvish-side-visible-p)
-    (let ((default-directory my/note-home))
-      (dirvish-side my/note-home))))
-
-(defun my/dirvish-side-toggle ()
-  "Toggle dirvish-side visibility.  First open uses NoteHQ as root."
-  (interactive)
-  (require 'dirvish-side)
-  (if-let ((win (my/dirvish-side-visible-p)))
-      (delete-window win)
-    (my/dirvish-side-open-at-notehq)))
-
-(defun my/dirvish-side-reveal ()
-  "Navigate the dirvish-side sidebar to show the current buffer's file.
-This is the one-shot alternative to `dirvish-side-follow-mode':
-call it when you want the sidebar to jump to where you are RIGHT
-NOW, without committing to auto-reveal-every-switch behavior.
-
-If the current buffer has no file, fall back to the buffer's
-`default-directory'.  If dirvish-side is not currently open, this
-will open it first."
-  (interactive)
-  (require 'dirvish-side)
-  (let ((target (or (and buffer-file-name
-                         (file-name-directory buffer-file-name))
-                    default-directory)))
-    (dirvish-side target)))
+       (let ((editor (or (and (fboundp 'my/workspace--main-window)
+                              (my/workspace--main-window))
+                         (seq-find
+                          (lambda (w) (null (window-parameter w 'window-side)))
+                          (window-list nil 'no-minibuffer)))))
+         (if editor
+             (progn
+               (select-window editor)
+               (let ((previous-buffer (window-buffer editor)))
+                 (find-file file)
+                 ;; In the intended workspace, the center editor often starts on
+                 ;; `*dashboard*'.  Once a real file replaces it, remove the old
+                 ;; dashboard buffer instead of leaving it around as an extra
+                 ;; transient page.
+                 (when (and (buffer-live-p previous-buffer)
+                            (string= (buffer-name previous-buffer) "*dashboard*"))
+                   (kill-buffer previous-buffer))))
+           ;; No non-side window available (rare) — fall back to other-window.
+            (find-file-other-window file)))))))
 
 (provide 'init-dired)
 ;;; init-dired.el ends here
