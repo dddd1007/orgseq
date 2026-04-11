@@ -87,12 +87,21 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
               (> (- now my/agenda-cache-timestamp) my/agenda-cache-ttl))
       (setq my/agenda-cache
             (cond
-             ;; Fast path: org-mem's async-built file list (Roam/ only)
+             ;; Fast path: org-mem's async-built file list for Roam/, plus
+             ;; explicit scans of actionable PARA layers not indexed there.
              ((and (fboundp 'org-mem-all-files)
-                   (bound-and-true-p org-node-cache-mode))
-              (cl-remove-if-not
-               (lambda (f) (string-suffix-p ".org" f))
-               (org-mem-all-files)))
+                    (bound-and-true-p org-node-cache-mode))
+               (delete-dups
+                (append
+                 (cl-remove-if-not
+                  (lambda (f) (string-suffix-p ".org" f))
+                  (org-mem-all-files))
+                 (let ((dirs (list (expand-file-name "10_Outputs/"  my/note-home)
+                                   (expand-file-name "20_Practice/" my/note-home))))
+                   (cl-mapcan (lambda (d)
+                                (when (file-directory-p d)
+                                  (directory-files-recursively d "\\.org\\'")))
+                              dirs)))))
              ;; Slow path: scan 00_Roam + 10_Outputs + 20_Practice.
              ;; The numeric prefixes match the NoteHQ layer convention
              ;; defined in init-org.el (`my/roam-dir') and init-supertag.el
@@ -126,6 +135,14 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
 
 (defconst my/gtd-closed-states '("DONE" "CANCELLED"))
 (defconst my/gtd-active-states '("NEXT" "IN-PROGRESS" "WAITING" "SOMEDAY"))
+
+(defun my/gtd--closed-state-p (state)
+  "Return non-nil when STATE is a closed GTD state."
+  (member state my/gtd-closed-states))
+
+(defun my/gtd--active-state-p (state)
+  "Return non-nil when STATE is an active GTD state."
+  (member state my/gtd-active-states))
 
 (defcustom my/gtd-context-tags '("@work" "@home" "@computer" "@errands" "@phone")
   "GTD context tags.  Customize to match your workflow."
@@ -244,7 +261,7 @@ Excludes the current heading itself."
       (org-back-to-heading t)
       (forward-line 1)
       (while (re-search-forward org-heading-regexp subtree-end t)
-        (when (member (org-get-todo-state) my/gtd-active-states)
+        (when (my/gtd--active-state-p (org-get-todo-state))
           (push (point-marker) markers))))
     markers))
 
@@ -254,18 +271,21 @@ Excludes the current heading itself."
   (unless (equal (org-get-todo-state) "DONE")
     (let* ((markers (my/gtd--collect-active-children))
            (count (length markers)))
-      (if (> count 0)
-          (when (y-or-n-p (format "Complete \"%s\" and %d child task%s? "
-                                  (org-get-heading t t t t)
-                                  count
-                                  (if (= count 1) "" "s")))
-            (dolist (m markers)
-              (goto-char m)
-              (org-todo "DONE"))
-            (save-excursion
-              (org-back-to-heading t)
-              (org-todo "DONE")))
-        (org-todo "DONE")))))
+      (unwind-protect
+          (if (> count 0)
+              (when (y-or-n-p (format "Complete \"%s\" and %d child task%s? "
+                                      (org-get-heading t t t t)
+                                      count
+                                      (if (= count 1) "" "s")))
+                (dolist (m markers)
+                  (goto-char m)
+                  (org-todo "DONE"))
+                (save-excursion
+                  (org-back-to-heading t)
+                  (org-todo "DONE")))
+            (org-todo "DONE"))
+        (dolist (m markers)
+          (set-marker m nil))))))
 
 (defun my/gtd-cancel ()
   "Mark task CANCELLED, handling child tasks with confirmation."
@@ -273,18 +293,21 @@ Excludes the current heading itself."
   (unless (equal (org-get-todo-state) "CANCELLED")
     (let* ((markers (my/gtd--collect-active-children))
            (count (length markers)))
-      (if (> count 0)
-          (when (y-or-n-p (format "Cancel \"%s\" and %d child task%s? "
-                                  (org-get-heading t t t t)
-                                  count
-                                  (if (= count 1) "" "s")))
-            (dolist (m markers)
-              (goto-char m)
-              (org-todo "CANCELLED"))
-            (save-excursion
-              (org-back-to-heading t)
-              (org-todo "CANCELLED")))
-        (org-todo "CANCELLED")))))
+      (unwind-protect
+          (if (> count 0)
+              (when (y-or-n-p (format "Cancel \"%s\" and %d child task%s? "
+                                      (org-get-heading t t t t)
+                                      count
+                                      (if (= count 1) "" "s")))
+                (dolist (m markers)
+                  (goto-char m)
+                  (org-todo "CANCELLED"))
+                (save-excursion
+                  (org-back-to-heading t)
+                  (org-todo "CANCELLED")))
+            (org-todo "CANCELLED"))
+        (dolist (m markers)
+          (set-marker m nil))))))
 
 (defun my/gtd-set-state ()
   "Single-keypress GTD state picker."
@@ -309,13 +332,14 @@ Excludes the current heading itself."
 
 (defun my/org-move-done-to-bottom ()
   "Move DONE/CANCELLED task to bottom among siblings."
-  (when (member org-state my/gtd-closed-states)
-    (condition-case nil
+  (when (my/gtd--closed-state-p (org-get-todo-state))
+    (condition-case err
         (while (save-excursion
                  (and (org-get-next-sibling)
-                      (not (member (org-get-todo-state) my/gtd-closed-states))))
+                      (not (my/gtd--closed-state-p (org-get-todo-state)))))
           (org-move-subtree-down))
-      (error nil))))
+      (error
+       (message "org-seq GTD: failed to move closed task: %s" err)))))
 
 (defvar-local my/gtd--hide-done-active nil
   "Non-nil when the hide-DONE filter is active.")
@@ -415,7 +439,7 @@ Excludes the current heading itself."
             (when (re-search-forward "\\S-" (line-end-position) t)
               (goto-char (match-beginning 0))
               (let ((inhibit-read-only t))
-                (insert "✓ ")))))))
+                (insert "[ok] ")))))))
       (forward-line 1))))
 
 (defun my/org-agenda-empty-state ()
@@ -446,7 +470,14 @@ Excludes the current heading itself."
 (define-derived-mode my/gtd-dashboard-mode special-mode "GTD"
   "Live-count GTD dashboard. RET or click opens the view at point."
   (setq-local mode-line-format nil)
-  (setq-local cursor-type nil))
+  (setq-local cursor-type nil)
+  (add-hook 'kill-buffer-hook #'my/gtd--cleanup-markers nil t)
+  (add-hook 'kill-buffer-hook
+            (lambda ()
+              (when (overlayp my/gtd-dashboard--active-ov)
+                (delete-overlay my/gtd-dashboard--active-ov)
+                (setq my/gtd-dashboard--active-ov nil)))
+            nil t))
 
 (defvar my/gtd-dashboard--active-ov nil
   "Overlay marking the active dashboard row.")
@@ -491,6 +522,32 @@ Excludes the current heading itself."
       (if right
           (with-selected-window right (funcall action))
         (funcall action)))))
+
+(defun my/gtd--display-window ()
+  "Return the best non-side window for displaying the GTD dashboard."
+  (or (and (null (window-parameter (selected-window) 'window-side))
+           (selected-window))
+      (cl-find-if (lambda (window)
+                    (null (window-parameter window 'window-side)))
+                  (window-list nil 'no-minibuffer))))
+
+(defun my/gtd--show-buffer (buffer)
+  "Display BUFFER without flattening the current frame layout."
+  (if-let ((window (get-buffer-window buffer nil)))
+      (progn
+        (select-window window)
+        window)
+    (let ((target (my/gtd--display-window)))
+      (unless target
+        (user-error "org-seq GTD: no non-side window available for dashboard"))
+      (select-window target)
+      (set-window-buffer target buffer)
+      (unless (window-in-direction 'right target)
+        (let ((right (split-window target (floor (* 0.7 (window-total-width target))) 'right)))
+          (set-window-buffer right (or (get-buffer "*dashboard*")
+                                       (get-buffer "*scratch*")
+                                       (get-buffer-create "*scratch*")))))
+      target)))
 
 (defun my/org-dashboard ()
   "Toggle the GTD dashboard. If visible, close it; otherwise open it."
@@ -537,14 +594,14 @@ Uses org-ql for efficient querying across agenda files."
                                           (mark (point-marker))
                                           (subtree-end (save-excursion (org-end-of-subtree t) (point)))
                                           (child-next 0) (child-active 0) (child-total 0))
-                                     (save-excursion
-                                       (while (re-search-forward org-heading-regexp subtree-end t)
-                                         (let ((cs (org-get-todo-state)))
-                                           (when cs (cl-incf child-total))
-                                           (when (member cs my/gtd-active-states) (cl-incf child-active))
-                                           (when (equal cs "NEXT") (cl-incf child-next)))))
-                                     (push mark my/gtd--old-markers)
-                                     (vector htext mark child-active child-total child-next))))))
+                                      (save-excursion
+                                        (while (re-search-forward org-heading-regexp subtree-end t)
+                                          (let ((cs (org-get-todo-state)))
+                                            (when cs (cl-incf child-total))
+                                            (when (my/gtd--active-state-p cs) (cl-incf child-active))
+                                            (when (equal cs "NEXT") (cl-incf child-next)))))
+                                      (push mark my/gtd--old-markers)
+                                      (vector htext mark child-active child-total child-next))))))
     ;; Render dashboard
     (let ((buf (get-buffer-create "*GTD*")))
       (with-current-buffer buf
@@ -581,7 +638,7 @@ Uses org-ql for efficient querying across agenda files."
                      (indicator (cond ((= child-total 0) "?")
                                       ((> has-next 0) " ")
                                       ((> child-active 0) "~")
-                                      (t "●")))
+                                       (t "*")))
                      (max-len (- (min 30 (window-width)) 6))
                      (display (if (> (length name) max-len)
                                   (concat (substring name 0 (1- max-len)) "…")
@@ -591,17 +648,20 @@ Uses org-ql for efficient querying across agenda files."
                               (concat indicator " " display)))
                      (start (point))
                      (action (let ((m mark))
-                               (lambda ()
-                                 (switch-to-buffer (marker-buffer m))
-                                 (widen)
-                                 (goto-char m)
-                                 (org-narrow-to-subtree)
-                                 (goto-char (point-min))))))
-                (insert (format "  %s\n" label))
-                (add-text-properties start (1- (point))
-                                     (list 'gtd-action action
-                                           'mouse-face 'highlight
-                                           'face 'default)))))
+                                (lambda ()
+                                  (if-let ((source-buffer (marker-buffer m)))
+                                      (progn
+                                        (switch-to-buffer source-buffer)
+                                        (widen)
+                                        (goto-char m)
+                                        (org-narrow-to-subtree)
+                                        (goto-char (point-min)))
+                                    (message "org-seq GTD: project source moved; refresh dashboard"))))))
+                 (insert (format "  %s\n" label))
+                 (add-text-properties start (1- (point))
+                                      (list 'gtd-action action
+                                            'mouse-face 'highlight
+                                            'face 'default)))))
 
           ;; Context section
           (when my/gtd-context-tags
@@ -619,15 +679,9 @@ Uses org-ql for efficient querying across agenda files."
 
           (insert "\n")
           (goto-char (point-min))))
-      ;; Display: reuse window if visible, else split
-      (if (get-buffer-window buf)
-          (with-current-buffer buf (goto-char (point-min)))
-        (delete-other-windows)
-        (switch-to-buffer buf)
-        (let ((right (split-window-right (floor (* 0.3 (frame-width))))))
-          (set-window-buffer right (or (get-buffer "*dashboard*")
-                                       (get-buffer "*scratch*")
-                                       (get-buffer-create "*scratch*"))))))))
+      (my/gtd--show-buffer buf)
+      (with-current-buffer buf
+        (goto-char (point-min))))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 11: Auto-refresh
@@ -640,17 +694,22 @@ Uses org-ql for efficient querying across agenda files."
   "Actually refresh visible GTD dashboard and agenda views."
   (setq my/gtd--refresh-timer nil)
   (let ((dash-visible (get-buffer-window "*GTD*"))
-        (agenda-wins '()))
-    (dolist (win (window-list))
-      (with-current-buffer (window-buffer win)
-        (when (derived-mode-p 'org-agenda-mode)
-          (push win agenda-wins))))
+         (agenda-wins '()))
+    (dolist (win (window-list nil 'no-minibuffer))
+      (when (window-live-p win)
+        (let ((buffer (window-buffer win)))
+          (when (and (buffer-live-p buffer)
+                     (with-current-buffer buffer
+                       (derived-mode-p 'org-agenda-mode)))
+            (push win agenda-wins)))))
     (when (or dash-visible agenda-wins)
       (when dash-visible
         (my/org-dashboard--open))
       (dolist (win agenda-wins)
-        (with-selected-window win
-          (org-agenda-redo t))))))
+        (when (window-live-p win)
+          (with-selected-window win
+            (when (derived-mode-p 'org-agenda-mode)
+              (org-agenda-redo t))))))))
 
 (defun my/gtd-auto-refresh ()
   "Schedule a debounced refresh (0.3s idle)."
@@ -733,8 +792,8 @@ Uses org-ql for efficient querying across agenda files."
             (todo "SOMEDAY"
                   ((org-agenda-overriding-header "Someday / Maybe review")))))))
 
-  (my/org-refresh-agenda-files)
   (add-hook 'org-capture-after-finalize-hook #'my/org-invalidate-agenda-cache)
+  (add-hook 'org-capture-after-finalize-hook #'my/gtd-auto-refresh)
 
   ;; Hooks: visual polish + auto-refresh + done-sink
   (add-hook 'org-agenda-finalize-hook #'my/org-agenda-apply-logbook-faces)
