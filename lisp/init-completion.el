@@ -35,11 +35,16 @@
          ("M-s r" . consult-ripgrep)
          ("M-s o" . consult-outline))
   :config
-  ;; Windows: path separator must be / and find.exe conflicts with Unix find
   (when (eq system-type 'windows-nt)
+    ;; Windows: path separator must be / for preview/jump consistency.
     (setq consult-ripgrep-args
-          "rg --null --line-buffered --color=never --max-columns=1000 --path-separator / --smart-case --no-heading --with-filename --line-number --search-zip")
-    (setq consult-find-args "fd --color=never --full-path")))
+          "rg --null --line-buffered --color=never --max-columns=1000 --path-separator / --smart-case --no-heading --with-filename --line-number --search-zip"))
+  ;; Debian/Ubuntu package fd as `fdfind', while Homebrew/Arch/Fedora use `fd'.
+  ;; Consult should follow whichever executable is actually present.
+  (when-let ((fd (or (executable-find "fd")
+                     (executable-find "fdfind"))))
+    (setq consult-find-args
+          (format "%s --color=never --full-path" (shell-quote-argument fd)))))
 
 ;; ---- Marginalia: rich annotations for completion candidates ----
 (use-package marginalia

@@ -4,8 +4,16 @@
 (require 'subr-x)
 
 ;; ---- CJK mixed typesetting ----
+(defvar my/latin-font-candidates
+  '("Cascadia Code" "JetBrains Mono" "SF Mono" "Monaco" "Menlo"
+    "Fira Code" "Source Code Pro" "DejaVu Sans Mono" "Noto Sans Mono"
+    "Ubuntu Mono")
+  "Latin monospace font candidates in preference order.")
+
 (defvar my/cjk-font-candidates
-  '("Sarasa Fixed SC" "LXGW WenKai Mono" "Microsoft YaHei UI" "SimHei")
+  '("Sarasa Fixed SC" "Sarasa Mono SC" "LXGW WenKai Mono"
+    "Noto Sans CJK SC" "Noto Sans Mono CJK SC"
+    "PingFang SC" "Hiragino Sans GB" "Microsoft YaHei UI" "SimHei")
   "CJK font candidates in preference order.")
 
 (defun my/first-available-font (candidates)
@@ -15,9 +23,10 @@
 (defun my/setup-fonts ()
   "Configure mixed CJK/Latin fonts."
   (when (display-graphic-p)
-    (set-face-attribute 'default nil
-                        :family "Cascadia Code"
-                        :height 130)
+    (when-let ((latin (my/first-available-font my/latin-font-candidates)))
+      (set-face-attribute 'default nil
+                          :family latin
+                          :height 130))
 
     (when-let ((cjk (my/first-available-font my/cjk-font-candidates)))
       (dolist (charset '(kana han symbol cjk-misc bopomofo))
@@ -35,6 +44,67 @@
               (lambda (frame)
                 (with-selected-frame frame (my/setup-fonts))))
   (my/setup-fonts))
+
+;; ---- Mouse and scrolling ----
+;; Doom-style principle: mouse support is a first-class fallback, while the
+;; keyboard-centric editing flow keeps its point and window semantics.
+(setq mouse-yank-at-point t
+      mouse-wheel-follow-mouse t
+      mouse-wheel-progressive-speed nil
+      mouse-wheel-scroll-amount '(5 ((shift) . hscroll))
+      mouse-1-click-follows-link 450
+      scroll-conservatively 101
+      scroll-preserve-screen-position t
+      hscroll-margin 2
+      hscroll-step 1
+      auto-window-vscroll nil)
+
+(when (boundp 'fast-but-imprecise-scrolling)
+  (set 'fast-but-imprecise-scrolling t))
+
+(when (fboundp 'pixel-scroll-precision-mode)
+  (when (boundp 'pixel-scroll-precision-use-momentum)
+    (set 'pixel-scroll-precision-use-momentum t))
+  (pixel-scroll-precision-mode 1))
+
+(when (fboundp 'context-menu-mode)
+  (context-menu-mode 1))
+
+(defun my/enable-terminal-mouse (&optional frame)
+  "Enable mouse reporting for terminal FRAMEs."
+  (when (not (display-graphic-p frame))
+    (xterm-mouse-mode 1)))
+
+(my/enable-terminal-mouse)
+(add-hook 'after-make-frame-functions #'my/enable-terminal-mouse)
+
+(defun my/mouse--try-command (command)
+  "Run COMMAND interactively and return non-nil when it succeeds."
+  (when (fboundp command)
+    (condition-case nil
+        (progn
+          (call-interactively command)
+          t)
+      (error nil))))
+
+(defun my/mouse-go-back (event)
+  "Navigate backward from mouse EVENT."
+  (interactive "e")
+  (ignore event)
+  (or (my/mouse--try-command 'xref-go-back)
+      (my/mouse--try-command 'evil-jump-backward)
+      (previous-buffer)))
+
+(defun my/mouse-go-forward (event)
+  "Navigate forward from mouse EVENT."
+  (interactive "e")
+  (ignore event)
+  (or (my/mouse--try-command 'xref-go-forward)
+      (my/mouse--try-command 'evil-jump-forward)
+      (next-buffer)))
+
+(global-set-key [mouse-8] #'my/mouse-go-back)
+(global-set-key [mouse-9] #'my/mouse-go-forward)
 
 ;; ---- modus-themes: accessible, WCAG AAA ----
 (use-package modus-themes

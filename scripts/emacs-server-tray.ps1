@@ -13,8 +13,11 @@
     Requires Emacs 30+ (official GNU build).
     No admin rights needed.
 .EXAMPLE
-    # Run directly:
-    powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File emacs-server-tray.ps1
+    # Preferred: launch via the no-console helper exe built by deploy.ps1:
+    EmacsServerTrayLauncher.exe emacs-server-tray.ps1
+
+    # Fallback: on modern Windows 11 builds, pwsh can also hide the console:
+    pwsh.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File emacs-server-tray.ps1
 
     # Or create a startup shortcut via the tray menu -> "Auto-start".
 #>
@@ -293,6 +296,16 @@ function Get-StartupShortcutPath {
     return Join-Path $startupDir "org-seq Emacs Server.lnk"
 }
 
+function Get-LauncherExePath {
+    return (Join-Path (Split-Path $PSCommandPath) "EmacsServerTrayLauncher\EmacsServerTrayLauncher.exe")
+}
+
+function Find-PreferredPowerShellHost {
+    $pwsh = Get-Command pwsh.exe -ErrorAction SilentlyContinue
+    if ($pwsh) { return $pwsh.Source }
+    return (Get-Command powershell.exe -ErrorAction SilentlyContinue).Source
+}
+
 function Test-AutoStartEnabled {
     return (Test-Path (Get-StartupShortcutPath))
 }
@@ -304,15 +317,23 @@ function Set-AutoStart {
     if ($Enable) {
         $wsh = New-Object -ComObject WScript.Shell
         $shortcut = $wsh.CreateShortcut($lnkPath)
-        $shortcut.TargetPath   = "powershell.exe"
         $scriptPath = $PSCommandPath
-        $shortcut.Arguments    = "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$scriptPath`""
+        $launcherExe = Get-LauncherExePath
+        if (Test-Path $launcherExe) {
+            $shortcut.TargetPath = $launcherExe
+            $shortcut.Arguments  = "`"$scriptPath`""
+        }
+        else {
+            $psHost = Find-PreferredPowerShellHost
+            $shortcut.TargetPath = $psHost
+            $shortcut.Arguments  = "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
+        }
         $shortcut.WorkingDirectory = Split-Path $scriptPath
-        $shortcut.WindowStyle  = 7  # Minimized
         $shortcut.Description  = "org-seq Emacs daemon with system tray icon"
         # Use Emacs icon for the shortcut
         $shortcut.IconLocation = "$($script:EmacsExe),0"
         $shortcut.Save()
+        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($shortcut) | Out-Null
         [System.Runtime.InteropServices.Marshal]::ReleaseComObject($wsh) | Out-Null
     }
     else {

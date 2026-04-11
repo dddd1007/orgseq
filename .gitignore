@@ -18,6 +18,10 @@ semanticdb/
 # org-roam database (local state)
 org-roam.db
 
+# Local deploy/runtime state
+.org-seq-version
+server/
+
 # OS
 Thumbs.db
 Desktop.ini
@@ -34,6 +38,16 @@ history
 
 # Debug/test logs
 *.log
+debug-*.el
+qa-*.el
+qa-results.txt
+
+# Generated docs
+doc/*.pdf
+
+# .NET build outputs
+scripts/EmacsServerTrayLauncher/bin/
+scripts/EmacsServerTrayLauncher/obj/
 
 # Backup files
 *~

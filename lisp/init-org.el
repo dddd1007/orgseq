@@ -172,6 +172,7 @@ the sidebar displays them alphabetically."
 
    ""   '(nil :wk "org")
 
+   ","  '(my/node-action :wk "Node actions")
    "r"  '(org-refile :wk "Refile")
    "a"  '(org-archive-subtree :wk "Archive")
    "t"  '(org-set-tags-command :wk "Set tags")

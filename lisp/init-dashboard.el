@@ -1,6 +1,6 @@
 ;;; init-dashboard.el --- Startup dashboard -*- lexical-binding: t; -*-
 
-;; Requires: init-roam (org-roam-dailies-capture-today, org-roam-node-find)
+;; Requires: init-roam (my/org-roam-dailies-open-today, org-roam-node-find)
 
 (require 'cl-lib)
 
@@ -119,9 +119,9 @@
   (setq dashboard-navigator-buttons
         `(((,(my/dashboard-icon "nf-md-notebook_edit")
            " Today " "Open today's daily note  [SPC n d d]"
-           (lambda (&rest _) (org-roam-dailies-capture-today)))
+           (lambda (&rest _) (my/org-roam-dailies-open-today)))
           (,(my/dashboard-icon "nf-md-magnify")
-           " Find " "Search notes with Deft  [SPC n f]"
+           " Find " "Search all NoteHQ notes with Deft  [SPC n f]"
            (lambda (&rest _) (deft)))
           (,(my/dashboard-icon "nf-md-format_list_checks")
            " Tasks " "Open GTD task dashboard  [SPC a n]"

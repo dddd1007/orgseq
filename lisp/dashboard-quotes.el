@@ -98,10 +98,10 @@
     ;; If you change a binding there, update the corresponding tip here.
     "Tip: SPC SPC opens M-x — run any command by name."
     "Tip: SPC / searches the whole project with ripgrep."
-    "Tip: SPC n f to find any org-roam note instantly."
+    "Tip: SPC n f searches all NoteHQ notes with Deft."
     "Tip: SPC a d opens the GTD Dashboard with live task counts."
     "Tip: , q in org buffers opens a single-keypress state picker."
-    "Tip: SPC n d d captures a daily note for today."
+    "Tip: SPC n d d opens today's daily note."
     "Tip: SPC i i sends the current buffer to your LLM."
     "Tip: SPC TAB switches to the last buffer you were in."
     "Tip: SPC l l opens the full three-column workspace layout."

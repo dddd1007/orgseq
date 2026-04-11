@@ -1,5 +1,7 @@
 ;;; init.el --- Main configuration entry point -*- lexical-binding: t; -*-
 
+(require 'cl-lib)
+
 ;; ---- Restore reasonable GC after startup ----
 (add-hook 'emacs-startup-hook
           (lambda ()
@@ -19,6 +21,83 @@
 ;; Large process output buffer — benefits LSP, ripgrep, etc. (Doom/Purcell/Centaur)
 (setq read-process-output-max (* 4 1024 1024))  ; 4MB
 
+;; ---- Cross-platform runtime tuning ----
+
+(defun my/prepend-to-exec-path (dir)
+  "Prepend DIR to `exec-path' and PATH when DIR exists."
+  (let ((expanded (directory-file-name (expand-file-name dir))))
+    (when (file-directory-p expanded)
+      (setq exec-path (cons expanded (delete expanded exec-path)))
+      (let* ((path (or (getenv "PATH") ""))
+             (parts (split-string path path-separator t)))
+        (setenv "PATH"
+                (mapconcat #'identity
+                           (cons expanded (delete expanded parts))
+                           path-separator))))))
+
+(defun my/prepend-platform-exec-paths ()
+  "Make common GUI-only tool paths visible to Emacs on every OS."
+  (let ((dirs (append
+               (when (eq system-type 'windows-nt)
+                 (list (expand-file-name "AppData/Local/Microsoft/WinGet/Links" "~")
+                       (expand-file-name "scoop/shims" "~")
+                       "C:/ProgramData/chocolatey/bin"
+                       "C:/Program Files/Git/usr/bin"))
+               (when (eq system-type 'darwin)
+                 (list "/opt/homebrew/bin"
+                       "/opt/homebrew/sbin"
+                       "/usr/local/bin"
+                       "/usr/local/sbin"
+                       "/Library/TeX/texbin"
+                       (expand-file-name ".local/bin" "~")
+                       (expand-file-name "bin" "~")
+                       (expand-file-name ".cargo/bin" "~")
+                       (expand-file-name ".ghcup/bin" "~")))
+               (when (eq system-type 'gnu/linux)
+                 (list (expand-file-name ".local/bin" "~")
+                       (expand-file-name "bin" "~")
+                       (expand-file-name ".cargo/bin" "~")
+                       (expand-file-name ".nix-profile/bin" "~")
+                       "/run/current-system/sw/bin"
+                       "/snap/bin"
+                       "/usr/local/bin"
+                       "/usr/local/sbin")))))
+    ;; Iterate in reverse because `my/prepend-to-exec-path' prepends; the
+    ;; user-facing order above remains the final priority order.
+    (dolist (dir (reverse dirs))
+      (my/prepend-to-exec-path dir))))
+
+(my/prepend-platform-exec-paths)
+
+(setq frame-resize-pixelwise t
+      window-resize-pixelwise t
+      select-enable-clipboard t
+      delete-by-moving-to-trash t
+      browse-url-browser-function
+      (cond
+       ((eq system-type 'darwin) 'browse-url-default-macosx-browser)
+       ((eq system-type 'windows-nt) 'browse-url-default-windows-browser)
+       (t 'browse-url-default-browser)))
+
+(when (eq system-type 'gnu/linux)
+  ;; PRIMARY selection is Linux/X-specific.  GUI Emacs handles Wayland/X11
+  ;; clipboard integration itself when built with the relevant toolkit.
+  (setq select-enable-primary t))
+
+(when (eq system-type 'darwin)
+  ;; Natural macOS keyboard conventions: Option is Meta, Command remains
+  ;; available for GUI/window-manager shortcuts through the Super modifier.
+  (when (boundp 'mac-option-modifier)
+    (setq mac-option-modifier 'meta))
+  (when (boundp 'mac-command-modifier)
+    (setq mac-command-modifier 'super))
+  (when (boundp 'mac-right-option-modifier)
+    (setq mac-right-option-modifier 'none))
+  (when (boundp 'ns-use-native-fullscreen)
+    (setq ns-use-native-fullscreen nil))
+  (when (boundp 'ns-use-proxy-icon)
+    (setq ns-use-proxy-icon nil)))
+
 ;; ---- Windows performance tuning ----
 (when (eq system-type 'windows-nt)
   (setq w32-pipe-read-delay 0)
@@ -29,15 +108,7 @@
   (setq-default buffer-file-coding-system 'utf-8-unix)
 
   ;; Server: Windows has no Unix domain sockets
-  (setq server-use-tcp t)
-
-  ;; Ensure WinGet/Scoop tool paths are visible to Emacs
-  ;; (GUI Emacs inherits system PATH, not user shell PATH)
-  (dolist (dir (list (expand-file-name "AppData/Local/Microsoft/WinGet/Links" "~")
-                     (expand-file-name "scoop/shims" "~")))
-    (when (file-directory-p dir)
-      (add-to-list 'exec-path dir)
-      (setenv "PATH" (concat dir ";" (getenv "PATH"))))))
+  (setq server-use-tcp t))
 
 ;; ---- Package management ----
 (require 'package)
@@ -154,7 +225,10 @@
 ;; Start server so emacsclient can connect instantly.
 ;; Windows: `server-use-tcp' is set above, so clients must point at the
 ;; TCP auth file (for the named org-seq daemon this is ~/.emacs.d/server/org-seq).
+;; Linux/macOS use the normal local socket and can connect with
+;; `emacsclient -s org-seq`.
 (require 'server)
+(setq server-name "org-seq")
 (unless (server-running-p server-name)
   (server-start))
 

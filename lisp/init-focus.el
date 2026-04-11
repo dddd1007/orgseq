@@ -21,14 +21,15 @@
 ;; the package elsewhere, override `my/focus-timer-path' via
 ;; `M-x customize-group RET org-seq'.
 
-(defcustom my/focus-timer-path
-  (expand-file-name "packages/org-focus-timer" user-emacs-directory)
-  "Filesystem path to the org-focus-timer package source.
+(eval-and-compile
+  (defcustom my/focus-timer-path
+    (expand-file-name "packages/org-focus-timer" user-emacs-directory)
+    "Filesystem path to the org-focus-timer package source.
 Default resolves to `packages/org-focus-timer/' inside
 `user-emacs-directory', which is populated by `deploy.sh' from the
 same directory inside the org-seq repository."
-  :type 'directory
-  :group 'org-seq)
+    :type 'directory
+    :group 'org-seq))
 
 (use-package org-focus-timer
   :if (file-exists-p (expand-file-name "org-focus-timer.el"

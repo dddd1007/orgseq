@@ -302,7 +302,6 @@ The inline marker in the source buffer is left in place but not completed."
   "Finalize the active slice with OUTCOME-INTERNAL (display OUTCOME-DISPLAY)."
   (let* ((state org-focus--current)
          (start (plist-get state :start))
-         (end (plist-get state :end))
          (planned (plist-get state :planned-min))
          (buffer (plist-get state :buffer))
          (marker (plist-get state :marker))

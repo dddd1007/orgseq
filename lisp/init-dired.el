@@ -11,6 +11,17 @@
 (defvar my/library-dir)    ; forward-declare from init-supertag
 (defvar my/archives-dir)   ; forward-declare from init-supertag
 
+(defconst my/dired-use-gnu-ls
+  (or (not (eq system-type 'darwin))
+      (executable-find "gls"))
+  "Non-nil when GNU ls switches are safe for dired.")
+
+(defconst my/dired-listing-switches
+  (if my/dired-use-gnu-ls
+      "-alh --group-directories-first"
+    "-alh")
+  "Cross-platform dired listing switches.")
+
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 0: Global auto-revert — reflect external file changes live
 ;; ═══════════════════════════════════════════════════════════════════════════
@@ -58,7 +69,7 @@
   ;; Long listing, human-readable sizes, dirs first, sort by name (the
   ;; default with -l is name, -v would switch to version-sort; we keep
   ;; name-sort so the sidebar listing is alphabetical).
-  (dired-listing-switches "-alh --group-directories-first")
+  (dired-listing-switches my/dired-listing-switches)
   ;; Smart default target: if two dired windows are open, use the other as target
   (dired-dwim-target t)
   ;; Reuse the current dired buffer instead of piling up new ones
@@ -91,6 +102,14 @@
   (when (eq system-type 'windows-nt)
     (setq ls-lisp-dirs-first t
           ls-lisp-use-insert-directory-program nil))
+
+  ;; macOS ships BSD ls, which does not understand --group-directories-first.
+  ;; If coreutils is installed via Homebrew/MacPorts, prefer `gls'; otherwise
+  ;; use portable -alh switches and keep dired functional.
+  (when (and (eq system-type 'darwin)
+             (executable-find "gls"))
+    (setq insert-directory-program (executable-find "gls")
+          dired-listing-switches "-alh --group-directories-first"))
 
   ;; ---- dired-omit-mode: hide dot-files and CLAUDE.md by default ----
   ;;

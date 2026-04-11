@@ -175,6 +175,8 @@
     ;; ── SPC l — Layout / workspace ──
     "l"   '(:ignore t :wk "layout")
     "ll"  '(my/workspace-setup :wk "Open workspace")
+    "l="  '(my/workspace-rebalance :wk "Rebalance layout")
+    "lF"  '(my/workspace-apply-frame-size :wk "Fit frame")
     "lt"  '(my/workspace-toggle-sidebar :wk "Toggle sidebar (treemacs)")
     "lT"  '(treemacs-follow-mode :wk "Toggle sidebar follow current file")
     "lr"  '(my/workspace-reveal-sidebar :wk "Reveal current file in sidebar")
@@ -190,7 +192,8 @@
 
     ;; ── SPC n — Notes / org-roam ──
     "n"   '(:ignore t :wk "notes")
-    "nf"  '(deft :wk "Search notes")
+    "nn"  '(my/node-action :wk "Node actions")
+    "nf"  '(deft :wk "Search all notes")
     "nF"  '(org-roam-node-find :wk "Find note (roam)")
     "ni"  '(org-roam-node-insert :wk "Insert link")
     "nc"  '(org-roam-capture :wk "New note")
@@ -233,12 +236,13 @@
 
     ;; SPC n d — Dailies
     "nd"  '(:ignore t :wk "dailies")
-    "ndd" '(org-roam-dailies-capture-today :wk "Capture today")
-    "ndt" '(org-roam-dailies-goto-today :wk "Goto today")
+    "ndd" '(my/org-roam-dailies-open-today :wk "Open today")
+    "ndt" '(my/org-roam-dailies-open-today :wk "Open today")
     "ndy" '(org-roam-dailies-goto-yesterday :wk "Yesterday")
     "ndT" '(org-roam-dailies-goto-tomorrow :wk "Tomorrow")
     "ndf" '(org-roam-dailies-find-date :wk "Find date")
-    "ndc" '(org-roam-dailies-capture-date :wk "Capture date")
+    "ndc" '(org-roam-dailies-capture-today :wk "Capture today")
+    "ndC" '(org-roam-dailies-capture-date :wk "Capture date")
     "ndp" '(org-roam-dailies-goto-previous-note :wk "Previous note")
     "ndn" '(org-roam-dailies-goto-next-note :wk "Next note")
 

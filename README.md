@@ -2,7 +2,7 @@
 
 A modular Emacs configuration for personal knowledge management, built on org-roam with Zettelkasten methodology.
 
-Primary target: **Windows** (with Linux/macOS compatibility).
+Primary target: **Windows, Linux, and macOS**.
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ Primary target: **Windows** (with Linux/macOS compatibility).
   - Windows: official GNU build from https://ftp.gnu.org/gnu/emacs/windows/ (native-comp is optional)
   - Verify: `M-: (sqlite-available-p)` must return `t`
 - **ripgrep** (`rg`): recommended for consult-ripgrep
-- **fd**: recommended for consult-find
+- **fd**: recommended for consult-find (`fdfind` on Debian/Ubuntu is also supported)
 - **git**: required for magit
 - **Fonts** (optional but recommended):
   - [Cascadia Code](https://github.com/microsoft/cascadia-code) (Latin)
@@ -40,23 +40,24 @@ Primary target: **Windows** (with Linux/macOS compatibility).
 
 3. Launch Emacs — packages will auto-install on first run (needs internet).
 
-4. Post-install (Windows only):
+4. Post-install:
    ```
    M-x nerd-icons-install-fonts
    ```
-   Then right-click the downloaded `.ttf` files and select "Install".
+   Windows may require right-clicking the downloaded `.ttf` files and selecting "Install".
+   macOS may ask you to confirm the install in Font Book.
 
-## Server Mode (Windows)
+## Server Mode
 
-org-seq uses a named Emacs server (`org-seq`) so you can start the daemon once and open instant client frames. On Windows, clients connect through the TCP auth file at `~/.emacs.d/server/org-seq`.
+org-seq uses a named Emacs server (`org-seq`) so you can start the daemon once and open instant client frames. Windows uses TCP auth files; Linux and macOS use the normal local socket.
 
-### System tray daemon manager
+### Windows tray daemon manager
 
 A PowerShell tray app manages the daemon lifecycle:
 
 ```powershell
-# Launch directly (or let it auto-start on login via the tray menu):
-powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File scripts\emacs-server-tray.ps1
+# Launch directly without leaving a console window
+pwsh.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File scripts\emacs-server-tray.ps1
 ```
 
 The tray icon provides:
@@ -65,14 +66,23 @@ The tray icon provides:
 
 The "Auto-start on login" option creates a shortcut in `shell:startup` so the daemon starts automatically when you log in to Windows.
 
-### Quick client shortcut
+### Quick client shortcuts
 
-`ec.cmd` connects to the running server:
+Windows:
 
 ```cmd
 ec.cmd                 # open a new frame
 ec.cmd path\to\file    # open file in existing server
 ```
+
+Linux/macOS after `./deploy.sh`:
+
+```bash
+~/.emacs.d/ec                 # open a new frame
+~/.emacs.d/ec path/to/file    # open file in existing server
+```
+
+The Unix `ec` helper starts `emacs --daemon=org-seq` if the named server is not already running, then connects with `emacsclient -s org-seq`.
 
 ### Manual server control
 
@@ -84,12 +94,30 @@ M-x server-start
 
 ;; Or from command line:
 emacs --daemon=org-seq
+
+;; Windows:
 emacsclientw -c -n -f ~/.emacs.d/server/org-seq
+
+;; Linux/macOS:
+emacsclient -c -n -s org-seq
 ```
 
 ## Key Bindings
 
 Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` and wait for the which-key popup to see all available keys.
+
+### Mouse
+
+Mouse support follows the same shape as Doom Emacs: keyboard commands remain the main path, but mouse input works as a comfortable fallback.
+
+| Gesture | Action |
+|---------|--------|
+| Wheel | Smooth vertical scroll under pointer |
+| `Shift` + wheel | Horizontal scroll |
+| Right-click | Context menu where Emacs supports it |
+| Mouse side buttons | Back / forward navigation |
+| Middle-click paste | Paste at point instead of moving point |
+| Terminal mouse | Enabled in terminal frames |
 
 ### Top-level
 
@@ -129,7 +157,7 @@ Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` a
 
 | Key | Action |
 |-----|--------|
-| `SPC n f` | Search notes (Deft) |
+| `SPC n f` | Search all NoteHQ notes (Deft) |
 | `SPC n F` | Find note (org-roam) |
 | `SPC n c` | New note (capture) |
 | `SPC n i` | Insert link |
@@ -138,8 +166,11 @@ Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` a
 | `SPC n g` | Graph view |
 | `SPC n a` | Add alias |
 | `SPC n r` | Add ref |
-| `SPC n d d` | Daily note (capture today) |
-| `SPC n d t` | Daily note (goto today) |
+| `SPC n n` | Node action menu |
+| `SPC n d d` | Daily note (open today) |
+| `SPC n d t` | Daily note (open today alias) |
+| `SPC n d c` | Daily capture today |
+| `SPC n d C` | Daily capture date |
 | `SPC n d y` | Yesterday |
 | `SPC n d f` | Find date |
 | `SPC n t a` | Transclusion add |
@@ -214,6 +245,9 @@ Under `SPC l` the most important sidebar controls are:
 
 | Key | Action |
 |-----|--------|
+| `SPC l l` | Open adaptive workspace |
+| `SPC l =` | Rebalance adaptive workspace panes |
+| `SPC l F` | Fit and center frame on current monitor |
 | `SPC l t` | Toggle treemacs sidebar |
 | `SPC l f` | Focus treemacs sidebar |
 | `SPC l h` | Jump treemacs to NoteHQ root |
@@ -284,7 +318,7 @@ Load order is fixed in `init.el` (see [CLAUDE.md](CLAUDE.md)).
 | 2 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
 | 3 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
 | 4 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
-| 5 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft note search, dailies, org-roam-ui, Doom-derived advices |
+| 5 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
 | 6 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
 | 7 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
 | 8 | `init-pkm.el` | org-supertag (install) + org-transclusion + org-ql |

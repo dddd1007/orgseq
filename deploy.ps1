@@ -189,6 +189,16 @@ function Deploy-Config {
         Write-Pass "scripts/$scriptName"
     }
 
+    $launcherSrcDir = Join-Path $scriptsSrc "EmacsServerTrayLauncher"
+    $launcherDstDir = Join-Path $scriptsDst "EmacsServerTrayLauncher-src"
+    if (Test-Path $launcherSrcDir) {
+        if (Test-Path $launcherDstDir) { Remove-Item -Recurse -Force $launcherDstDir }
+        New-Item -ItemType Directory -Force $launcherDstDir | Out-Null
+        Copy-Item -Force (Join-Path $launcherSrcDir "EmacsServerTrayLauncher.csproj") $launcherDstDir
+        Copy-Item -Force (Join-Path $launcherSrcDir "Program.cs") $launcherDstDir
+        Write-Pass "scripts/EmacsServerTrayLauncher-src"
+    }
+
     # Restore custom.el if it was in the target before
     $backups = Get-ChildItem "$Target.backup-*" -Directory -ErrorAction SilentlyContinue | Sort-Object -Descending | Select-Object -First 1
     if ($backups -and (Test-Path "$($backups.FullName)/custom.el") -and (-not (Test-Path "$Target/custom.el"))) {
@@ -210,6 +220,57 @@ function Deploy-Config {
     Write-Pass ".org-seq-version ($version)"
 }
 
+function Build-ServerTrayLauncher {
+    $launcherSourceDir = Join-Path $Target "scripts\EmacsServerTrayLauncher-src"
+    $launcherOutputDir = Join-Path $Target "scripts\EmacsServerTrayLauncher"
+    $launcherProject = Join-Path $launcherSourceDir "EmacsServerTrayLauncher.csproj"
+
+    if (-not (Test-Path $launcherProject)) {
+        Write-Warn "Tray launcher source missing, falling back to PowerShell-host shortcuts"
+        return $null
+    }
+
+    $dotnet = Get-Command dotnet.exe -ErrorAction SilentlyContinue
+    if (-not $dotnet) {
+        Write-Warn "dotnet.exe not found, falling back to PowerShell-host shortcuts"
+        return $null
+    }
+
+    if (Test-Path $launcherOutputDir) { Remove-Item -Recurse -Force $launcherOutputDir }
+
+    try {
+        $publishArgs = @(
+            "publish",
+            $launcherProject,
+            "-c", "Release",
+            "-r", "win-x64",
+            "--self-contained", "false",
+            "-o", $launcherOutputDir
+        )
+        $publishOutput = & $dotnet.Source @publishArgs 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warn "Failed to build tray launcher, falling back to PowerShell-host shortcuts"
+            if ($publishOutput) {
+                $publishOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor Yellow }
+            }
+            return $null
+        }
+
+        $launcherExe = Join-Path $launcherOutputDir "EmacsServerTrayLauncher.exe"
+        if (Test-Path $launcherExe) {
+            Write-Pass "Built no-console tray launcher"
+            return $launcherExe
+        }
+
+        Write-Warn "Tray launcher build finished without exe output; falling back to PowerShell-host shortcuts"
+        return $null
+    }
+    catch {
+        Write-Warn "Failed to build tray launcher: $_"
+        return $null
+    }
+}
+
 function Install-StartMenuShortcuts {
     Write-Section "Installing Start Menu shortcuts"
 
@@ -220,6 +281,9 @@ function Install-StartMenuShortcuts {
     }
 
     $ver = & $emacs --version 2>&1 | Select-Object -First 1
+    $pwsh = Get-Command pwsh.exe -ErrorAction SilentlyContinue
+    $psHost = if ($pwsh) { $pwsh.Source } else { (Get-Command powershell.exe).Source }
+    $launcherExe = Build-ServerTrayLauncher
     $programsDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
     $folderName = "Emacs"
     if ($ver -match "(\d+\.\d+)") {
@@ -236,8 +300,14 @@ function Install-StartMenuShortcuts {
     try {
         $serverShortcutPath = Join-Path $shortcutDir "org-seq Server.lnk"
         $serverShortcut = $wsh.CreateShortcut($serverShortcutPath)
-        $serverShortcut.TargetPath = "powershell.exe"
-        $serverShortcut.Arguments = "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$serverScript`""
+        if ($launcherExe) {
+            $serverShortcut.TargetPath = $launcherExe
+            $serverShortcut.Arguments = "`"$serverScript`""
+        }
+        else {
+            $serverShortcut.TargetPath = $psHost
+            $serverShortcut.Arguments = "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$serverScript`""
+        }
         $serverShortcut.WorkingDirectory = Split-Path $serverScript
         $serverShortcut.Description = "Start org-seq Emacs server tray manager"
         $serverShortcut.IconLocation = $iconLocation
@@ -254,6 +324,25 @@ function Install-StartMenuShortcuts {
         [System.Runtime.InteropServices.Marshal]::ReleaseComObject($clientShortcut) | Out-Null
 
         Write-Pass "Start Menu shortcuts installed in $shortcutDir"
+
+        $startupShortcutPath = Join-Path ([System.Environment]::GetFolderPath('Startup')) "org-seq Emacs Server.lnk"
+        if (Test-Path $startupShortcutPath) {
+            $startupShortcut = $wsh.CreateShortcut($startupShortcutPath)
+            if ($launcherExe) {
+                $startupShortcut.TargetPath = $launcherExe
+                $startupShortcut.Arguments = "`"$serverScript`""
+            }
+            else {
+                $startupShortcut.TargetPath = $psHost
+                $startupShortcut.Arguments = "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$serverScript`""
+            }
+            $startupShortcut.WorkingDirectory = Split-Path $serverScript
+            $startupShortcut.Description = "org-seq Emacs daemon with system tray icon"
+            $startupShortcut.IconLocation = $iconLocation
+            $startupShortcut.Save()
+            [System.Runtime.InteropServices.Marshal]::ReleaseComObject($startupShortcut) | Out-Null
+            Write-Pass "Updated existing Startup shortcut"
+        }
     }
     finally {
         [System.Runtime.InteropServices.Marshal]::ReleaseComObject($wsh) | Out-Null

@@ -4,6 +4,30 @@
 (defvar my/note-home)  ; forward-declare from init-org
 (defvar my/roam-dir)   ; forward-declare from init-org
 
+(defun my/org-roam-dailies--file-for-date (time)
+  "Return the org-seq daily note file path for TIME."
+  (expand-file-name
+   (format-time-string "%Y-%m-%d.org" time)
+   (expand-file-name (if (boundp 'org-roam-dailies-directory)
+                         org-roam-dailies-directory
+                       "daily/")
+                     my/roam-dir)))
+
+(defun my/org-roam-dailies-open-date (time)
+  "Open the daily note for TIME without entering org-roam capture."
+  (let* ((file (my/org-roam-dailies--file-for-date time))
+         (title (format-time-string "%Y-%m-%d" time)))
+    (make-directory (file-name-directory file) t)
+    (unless (file-exists-p file)
+      (with-temp-file file
+        (insert (format "#+title: %s\n#+filetags: :daily:\n\n" title))))
+    (find-file file)))
+
+(defun my/org-roam-dailies-open-today ()
+  "Open today's daily note directly, bypassing org-roam capture."
+  (interactive)
+  (my/org-roam-dailies-open-date (current-time)))
+
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: org-roam — core PKM graph database
 ;; ═══════════════════════════════════════════════════════════════════════════
@@ -29,7 +53,7 @@
          ("C-c n F" . org-roam-node-find)
          ("C-c n i" . org-roam-node-insert)
          ("C-c n c" . org-roam-capture)
-         ("C-c n j" . org-roam-dailies-capture-today))
+         ("C-c n j" . my/org-roam-dailies-open-today))
 
   :config
   ;; Directory creation handled by my/ensure-notehq-structure (init-supertag)
@@ -223,17 +247,22 @@ up front so first startup does not spam avoidable warnings."
 ;; Section 3: Search and visualization
 ;; ═══════════════════════════════════════════════════════════════════════════
 
-;; Deft: fast incremental note search over the Roam layer only.
+;; Deft: fast incremental note search across the whole NoteHQ vault.
 ;; Keep project/content search on Consult; Deft is the primary UI for note
-;; discovery under ~/NoteHQ/00_Roam/.
+;; discovery across Org + Markdown notes under ~/NoteHQ/.
 (use-package deft
   :after org-roam
   :commands (deft deft-find-file deft-refresh)
   :bind (("C-c n f" . deft))
   :custom
-  (deft-directory my/roam-dir)
-  (deft-extensions '("org"))
+  (deft-directory my/note-home)
+  (deft-extensions '("org" "md" "markdown" "txt"))
   (deft-recursive t)
+  (deft-recursive-ignore-dir-regexp
+   (concat "\\(?:"
+           "\\`\\.[^/]*\\'"
+           "\\|\\`dashboards\\'"
+           "\\)"))
   (deft-default-extension "org")
   (deft-org-mode-title-prefix t)
   (deft-use-filename-as-title nil)

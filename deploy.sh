@@ -67,7 +67,8 @@ check_prerequisites() {
     else warn "ripgrep not found. Install via package manager."; fi
 
     if command -v fd &>/dev/null; then pass "fd found"
-    else warn "fd not found. Install via package manager."; fi
+    elif command -v fdfind &>/dev/null; then pass "fdfind found (Debian/Ubuntu fd)"
+    else warn "fd/fdfind not found. Install via package manager."; fi
 
     if command -v git &>/dev/null; then pass "git found"
     else warn "git not found. Magit requires git."; fi
@@ -121,9 +122,10 @@ deploy_config() {
 
     mkdir -p "$TARGET"
 
-    for f in early-init.el init.el; do
+    for f in early-init.el init.el ec; do
         if [[ ! -f "$SCRIPT_DIR/$f" ]]; then fail "Missing source: $SCRIPT_DIR/$f"; exit 1; fi
         cp -f "$SCRIPT_DIR/$f" "$TARGET/"
+        if [[ "$f" == "ec" ]]; then chmod +x "$TARGET/$f"; fi
         pass "$f"
     done
 
@@ -183,6 +185,10 @@ verify_deployment() {
         while IFS= read -r d; do load_paths+=("-L" "$d"); done \
             < <(find "$pkg_dir" -mindepth 1 -maxdepth 1 -type d)
     fi
+    if [[ -d "$TARGET/elpa" ]]; then
+        while IFS= read -r d; do load_paths+=("-L" "$d"); done \
+            < <(find "$TARGET/elpa" -mindepth 1 -maxdepth 1 -type d ! -name archives)
+    fi
 
     local output
     local status
@@ -213,7 +219,9 @@ print_summary() {
     echo "    1. Run:  ./scripts/bootstrap-notes.sh  (creates ~/NoteHQ/ directory structure)"
     echo "    2. Launch Emacs — packages auto-install on first run (needs internet)"
     echo "    3. Run:  M-x nerd-icons-install-fonts"
-    if [[ "$(uname -s)" == *"MINGW"* || "$(uname -s)" == *"MSYS"* ]]; then
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        echo "       On macOS, install the downloaded fonts through Font Book if prompted"
+    elif [[ "$(uname -s)" == *"MINGW"* || "$(uname -s)" == *"MSYS"* ]]; then
         echo "       Then right-click downloaded .ttf files → Install (Windows)"
     fi
     echo "    4. Run:  M-x supertag-sync-full-initialize  (first-time supertag index)"

@@ -10,6 +10,7 @@
 ;;                                         with my/default-capture-templates
 ;;                                         from init-roam.el)
 ;;   - Context-aware quick-action menu    (my/supertag-quick-action, SPC n p p)
+;;   - Tana-style node action menu        (my/node-action, SPC n n / , ,)
 ;;   - Dashboard open/create/find         (my/dashboard-find, my/dashboard-create)
 ;;   - PARA layer navigation              (my/find-in-outputs, my/ripgrep-notehq)
 ;;   - NoteHQ directory bootstrap         (my/ensure-notehq-structure, runs on load)
@@ -211,6 +212,133 @@
          ((string-prefix-p "[-]"    choice) (call-interactively #'org-supertag-tag-remove))
          ((string-prefix-p "[edit]" choice) (call-interactively #'org-supertag-node-edit-field))
          ((string-prefix-p "[goto]" choice) (call-interactively #'org-supertag-node-follow-ref)))))))
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Section 4.5: Tana-style node action menu
+;; ═══════════════════════════════════════════════════════════════════════════
+;;
+;; Tana users expect one fast command menu from any node.  In org-seq the
+;; underlying actions live in org-roam, org-supertag, and dashboard helpers;
+;; this menu gives them one keyboard-first front door without hiding the
+;; native commands.
+
+(defun my/node--ensure-org ()
+  "Signal a user error unless the current buffer is an Org buffer."
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Node actions are available in org-mode buffers only")))
+
+(defun my/node--title ()
+  "Return a display title for the current org node or file."
+  (or (ignore-errors (org-get-heading t t t t))
+      (file-name-base (or buffer-file-name (buffer-name)))))
+
+(defun my/node-copy-id-link ()
+  "Copy an id link to the current org node."
+  (interactive)
+  (my/node--ensure-org)
+  (require 'org-id)
+  (let* ((id (org-id-get-create))
+         (title (my/node--title))
+         (link (format "[[id:%s][%s]]" id title)))
+    (kill-new link)
+    (message "Copied node link: %s" link)))
+
+(defun my/node--supertags ()
+  "Return supertags attached to the current node, or nil."
+  (when (require 'org-supertag nil t)
+    (condition-case err
+        (org-supertag-node-get-tags (org-id-get-create))
+      (error
+       (message "org-seq: failed to read supertags: %s" err)
+       nil))))
+
+(defun my/node--capture-template-text (text)
+  "Escape TEXT for safe use as org-capture template body."
+  (replace-regexp-in-string "%" "%%" text t t))
+
+(defun my/node-capture-region-as-note (title)
+  "Capture the active region as a new org-roam note titled TITLE.
+The new note includes a source link back to the current node."
+  (interactive
+   (progn
+     (unless (use-region-p)
+       (user-error "Select a region first"))
+     (list (read-string "New node title: "))))
+  (my/node--ensure-org)
+  (require 'org-id)
+  (require 'org-roam)
+  (let* ((text (buffer-substring-no-properties (region-beginning) (region-end)))
+         (source-id (org-id-get-create))
+         (source-title (my/node--title))
+         (source-link (format "[[id:%s][%s]]" source-id source-title))
+         (body (concat (my/node--capture-template-text text)
+                       "\n\n* Source\n"
+                       (my/node--capture-template-text source-link)
+                       "\n"))
+         (templates
+          `(("x" "Extracted region" plain ,body
+             :target (file+head "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
+                                "#+title: ${title}\n")
+             :unnarrowed t))))
+    (deactivate-mark)
+    (org-roam-capture-
+     :node (org-roam-node-create :title title)
+     :templates templates
+     :props '(:finalize find-file))))
+
+(defun my/dashboard-create-for-tag (tag)
+  "Create a simple dashboard for supertag TAG, then open it."
+  (let ((file (expand-file-name (concat tag ".org") my/dashboards-dir)))
+    (make-directory my/dashboards-dir t)
+    (unless (file-exists-p file)
+      (with-temp-file file
+        (insert (format "#+title: %s\n#+startup: content\n#+description: Nodes tagged %s\n\n"
+                        tag tag)
+                "* Query\n"
+                (format "#+BEGIN: supertag-query :tag %s :columns (title)\n" tag)
+                "#+END\n")))
+    (my/dashboard-open tag)))
+
+(defun my/node-open-tag-dashboard ()
+  "Open or create a dashboard related to one of the current node's tags."
+  (interactive)
+  (my/node--ensure-org)
+  (let* ((tags (my/node--supertags))
+         (dashboards (when (file-directory-p my/dashboards-dir)
+                       (mapcar #'file-name-sans-extension
+                               (directory-files my/dashboards-dir nil "\\.org\\'"))))
+         (choices (delete-dups (append tags dashboards))))
+    (if (null choices)
+        (call-interactively #'my/dashboard-find)
+      (let* ((name (completing-read "Dashboard/tag: " choices nil nil))
+             (file (expand-file-name (concat name ".org") my/dashboards-dir)))
+        (cond
+         ((file-exists-p file) (my/dashboard-open name))
+         ((y-or-n-p (format "Create dashboard for tag `%s'? " name))
+          (my/dashboard-create-for-tag name)))))))
+
+(defun my/node-action ()
+  "Open a Tana-style action menu for the current Org node."
+  (interactive)
+  (my/node--ensure-org)
+  (let ((actions
+         '(("Supertag quick action" . my/supertag-quick-action)
+           ("Add supertag" . org-supertag-tag-add-tag)
+           ("Edit supertag fields" . org-supertag-node-edit-field)
+           ("Remove supertag" . org-supertag-tag-remove)
+           ("Jump linked field" . org-supertag-node-follow-ref)
+           ("Insert link to another node" . org-roam-node-insert)
+           ("Toggle backlinks panel" . org-roam-buffer-toggle)
+           ("Copy node id link" . my/node-copy-id-link)
+           ("Open dashboard for tag" . my/node-open-tag-dashboard)
+           ("Create new roam note" . org-roam-capture))))
+    (when (use-region-p)
+      (setq actions
+            (append actions
+                    '(("Extract region to new note" . my/node-capture-region-as-note)))))
+    (let* ((choice (completing-read "Node action: " (mapcar #'car actions) nil t))
+           (command (cdr (assoc choice actions))))
+      (call-interactively command))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 5: Dashboard navigation and creation
