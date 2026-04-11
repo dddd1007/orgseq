@@ -152,9 +152,10 @@
 
 ;; ---- Emacs server ----
 ;; Start server so emacsclient can connect instantly.
-;; Windows: server-use-tcp is set above; clients use emacsclient -c -a ""
+;; Windows: `server-use-tcp' is set above, so clients must point at the
+;; TCP auth file (for the named org-seq daemon this is ~/.emacs.d/server/org-seq).
 (require 'server)
-(unless (or (daemonp) (server-running-p))
+(unless (server-running-p server-name)
   (server-start))
 
 (provide 'init)

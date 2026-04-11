@@ -1,15 +1,20 @@
 @echo off
-REM Quick-launch: connect to running Emacs server, or start a new instance.
+REM Quick-launch: connect to the org-seq Emacs server.
 REM
-REM Requires runemacs.exe (or emacs.exe) to be on PATH. The org-seq config
-REM also adds WinGet/Scoop bin paths to exec-path at startup, but ec.cmd
-REM runs before Emacs, so PATH must already include your Emacs install.
+REM The tray app (scripts\emacs-server-tray.ps1) starts the daemon with
+REM --daemon=org-seq.  On Windows with server-use-tcp t, emacsclient must use
+REM the full path to the named TCP auth file via -f.
 REM
-REM Common Emacs install locations to add to PATH manually if needed:
-REM   MSYS2 UCRT64:  C:\msys64\ucrt64\bin
-REM   MSYS2 mingw64: C:\msys64\mingw64\bin
-REM   WinGet:        %LOCALAPPDATA%\Microsoft\WinGet\Links
-REM   Scoop:         %USERPROFILE%\scoop\shims
-REM
-REM If runemacs.exe is in a non-standard path, edit the -a fallback below.
-emacsclient.exe -c -a "runemacs.exe" %*
+REM If Emacs is not on PATH, edit the paths below to match your install.
+REM Common locations:
+REM   Official:  C:\Program Files\Emacs\emacs-30.2\bin
+REM   WinGet:    %LOCALAPPDATA%\Microsoft\WinGet\Links
+REM   Scoop:     %USERPROFILE%\scoop\shims
+
+REM Try PATH first, then fall back to the standard install location.
+where emacsclientw.exe >nul 2>&1
+if %errorlevel% equ 0 (
+    emacsclientw.exe -c -n -f "%USERPROFILE%\.emacs.d\server\org-seq" %*
+) else (
+    "C:\Program Files\Emacs\emacs-30.2\bin\emacsclientw.exe" -c -n -f "%USERPROFILE%\.emacs.d\server\org-seq" %*
+)
