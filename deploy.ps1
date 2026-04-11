@@ -68,15 +68,17 @@ function Test-Prerequisites {
 
     # SQLite
     if ($emacsPath) {
-        $sqlite = & $emacsPath --batch --eval '(message "%s" (sqlite-available-p))' 2>&1 | Select-String -Pattern "^(t|nil)$"
-        if ($sqlite -and $sqlite.ToString().Trim() -eq "t") { Write-Pass "SQLite support available" }
+        $sqliteExpr = '(princ (if (sqlite-available-p) "t" "nil"))'
+        $sqlite = (& $emacsPath --batch --eval $sqliteExpr 2>&1 | Select-Object -Last 1).ToString().Trim()
+        if ($sqlite -eq "t") { Write-Pass "SQLite support available" }
         else { Write-Fail "SQLite not available. org-roam requires Emacs 30+ with SQLite."; $allOk = $false }
     }
 
     # Native-comp (optional)
     if ($emacsPath) {
-        $nc = & $emacsPath --batch --eval '(message "%s" (native-comp-available-p))' 2>&1 | Select-String -Pattern "^(t|nil)$"
-        if ($nc -and $nc.ToString().Trim() -eq "t") { Write-Pass "Native-comp available" }
+        $ncExpr = '(princ (if (native-comp-available-p) "t" "nil"))'
+        $nc = (& $emacsPath --batch --eval $ncExpr 2>&1 | Select-Object -Last 1).ToString().Trim()
+        if ($nc -eq "t") { Write-Pass "Native-comp available" }
         else { Write-Warn "Native-comp not available (optional -- official Windows build omits libgccjit)." }
     }
 
@@ -204,9 +206,16 @@ function Test-Deployment {
 
     $elFiles = Get-ChildItem "$Target/lisp/*.el" | ForEach-Object { $_.FullName }
     $pkgFiles = @()
+    $extraLoadPaths = @()
     if (Test-Path "$Target/packages") {
+        $extraLoadPaths += Get-ChildItem "$Target/packages" -Directory | ForEach-Object { $_.FullName }
         $pkgFiles = Get-ChildItem "$Target/packages" -Recurse -Filter "*.el" |
                     ForEach-Object { $_.FullName }
+    }
+    if (Test-Path "$Target/elpa") {
+        $extraLoadPaths += Get-ChildItem "$Target/elpa" -Directory |
+                           Where-Object { $_.Name -notmatch '^archives$' } |
+                           ForEach-Object { $_.FullName }
     }
     $allFiles = @("$Target/early-init.el", "$Target/init.el") + $elFiles + $pkgFiles
 
@@ -217,7 +226,19 @@ function Test-Deployment {
     }
 
     $lispDir = Join-Path $Target "lisp"
-    $emacsArgs = @("--batch", "-Q", "-L", $Target, "-L", $lispDir, "-f", "batch-byte-compile") + $allFiles
+    $targetForElisp = $Target.Replace('\', '/')
+    $packageInitFile = Join-Path $env:TEMP "org-seq-deploy-package-init.el"
+    @"
+(setq user-emacs-directory "$targetForElisp/")
+(require 'package)
+(setq package-user-dir (expand-file-name "elpa" user-emacs-directory))
+(package-initialize)
+"@ | Set-Content -Path $packageInitFile -Encoding UTF8
+    $emacsArgs = @("--batch", "-Q", "-L", $Target, "-L", $lispDir)
+    foreach ($loadPath in $extraLoadPaths) {
+        $emacsArgs += @("-L", $loadPath)
+    }
+    $emacsArgs += @("-l", $packageInitFile, "-f", "batch-byte-compile") + $allFiles
 
     try {
         $output = & $emacs @emacsArgs 2>&1
@@ -239,6 +260,11 @@ function Test-Deployment {
     }
     catch {
         Write-Warn "Byte-compile check failed: $_"
+    }
+    finally {
+        if (Test-Path $packageInitFile) {
+            Remove-Item $packageInitFile -Force -ErrorAction SilentlyContinue
+        }
     }
 
     # Clean up .elc files from target (we only wanted the check)
