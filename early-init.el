@@ -30,7 +30,8 @@
             (setq load-suffixes my--original-load-suffixes
                   load-prefer-newer t)))
 
-;; 7. Native-comp settings
+;; 7. Native-comp settings (no-op when native-comp is unavailable;
+;;    kept for builds that do ship libgccjit)
 (setq native-comp-async-report-warnings-errors 'silent
       native-comp-jit-compilation t)
 

@@ -4,6 +4,10 @@
 
 (require 'cl-lib)
 
+(defconst my/dashboard-version-file
+  (expand-file-name ".org-seq-version" user-emacs-directory)
+  "File containing the currently deployed org-seq version string.")
+
 ;; ---- recentf: track recently opened files ----
 (require 'recentf)
 (setq recentf-max-saved-items 30
@@ -73,11 +77,35 @@
       (setq dashboard-footer-messages
             (list (my/dashboard--wrap-quote quote width)))))
 
+  (defun my/dashboard--version-string ()
+    "Return a display string for the deployed org-seq version."
+    (let ((version
+           (when (file-readable-p my/dashboard-version-file)
+             (string-trim
+              (with-temp-buffer
+                (insert-file-contents my/dashboard-version-file)
+                (buffer-string))))))
+      (format "Version: %s"
+              (if (and version (not (string-empty-p version)))
+                  version
+                "unversioned"))))
+
+  (defun my/dashboard-insert-version ()
+    "Insert the deployed org-seq version below the dashboard quote footer."
+    (insert "\n")
+    (dashboard-insert-center
+     ""
+     (propertize (my/dashboard--version-string)
+                 'face 'font-lock-comment-face)
+     "\n"))
+
   (my/dashboard--pick-quote)
   (setq dashboard-footer-icon
         (my/dashboard-icon "nf-md-format_quote_open" ""))
 
   (add-hook 'dashboard-before-initialize-hook #'my/dashboard--pick-quote)
+  (advice-remove #'dashboard-insert-footer #'my/dashboard-insert-version)
+  (advice-add #'dashboard-insert-footer :after #'my/dashboard-insert-version)
 
   ;; Compact component ordering (fewer blank lines)
   (setq dashboard-startupify-list
