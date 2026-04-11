@@ -175,9 +175,15 @@
     ;; ── SPC l — Layout / workspace ──
     "l"   '(:ignore t :wk "layout")
     "ll"  '(my/workspace-setup :wk "Open workspace")
-    "lt"  '(my/workspace-toggle-sidebar :wk "Toggle sidebar (dirvish)")
-    "lT"  '(dirvish-side-follow-mode :wk "Toggle sidebar auto-reveal (follow current file)")
-    "lr"  '(my/dirvish-side-reveal :wk "Reveal current file in sidebar (one-shot)")
+    "lt"  '(my/workspace-toggle-sidebar :wk "Toggle sidebar (treemacs)")
+    "lT"  '(treemacs-follow-mode :wk "Toggle sidebar follow current file")
+    "lr"  '(my/workspace-reveal-sidebar :wk "Reveal current file in sidebar")
+    "lR"  '(my/workspace-reveal-and-focus-sidebar :wk "Reveal and focus sidebar")
+    "lf"  '(my/workspace-focus-sidebar :wk "Focus sidebar")
+    "lh"  '(my/workspace-sidebar-jump-to-notehq :wk "Jump to NoteHQ root")
+    "lc"  '(my/workspace-sidebar-collapse-all :wk "Collapse sidebar tree")
+    "lw"  '(my/workspace-sidebar-set-width :wk "Set sidebar width")
+    "lW"  '(my/workspace-sidebar-toggle-width-lock :wk "Toggle width lock")
     "lo"  '(my/workspace-toggle-outline :wk "Toggle outline")
     "le"  '(my/workspace-toggle-terminal :wk "Toggle terminal")
     "ld"  '(my/switch-to-dashboard :wk "Dashboard")
@@ -312,7 +318,8 @@
 
     ;; ── SPC q — Quit ──
     "q"   '(:ignore t :wk "quit")
-    "qq"  '(save-buffers-kill-emacs :wk "Quit Emacs")))
+    "qq"  '(save-buffers-kill-emacs :wk "Quit Emacs")
+    "qu"  '(my/package-update-all :wk "Update packages")))
 
 ;; ---- magit: Git interface ----
 ;; Windows: may be slow on large repos, set magit-git-executable to full path if needed
@@ -320,17 +327,7 @@
   :commands (magit-status magit-blame-addition magit-log-current
              magit-diff-dwim magit-file-dispatch))
 
-;; ---- which-key: key hint popup ----
-;; Built-in on Emacs 30+; install from MELPA on Emacs 29.
-;; The bootstrap-then-use-package pattern lets us keep one declaration
-;; (`:ensure nil') without forcing Emacs 30 users to re-fetch from MELPA.
-(when (< emacs-major-version 30)
-  (unless (package-installed-p 'which-key)
-    (condition-case err
-        (package-install 'which-key)
-      (error
-       (message "WARNING org-seq: failed to install which-key: %s" err)))))
-
+;; ---- which-key: key hint popup (built-in on Emacs 30+) ----
 (use-package which-key
   :ensure nil
   :demand t

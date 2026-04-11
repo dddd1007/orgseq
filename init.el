@@ -93,9 +93,21 @@
   :init (save-place-mode)
   :config
   ;; Recenter after restoring saved position (Doom) — avoids cursor at window edge
-  (advice-add 'save-place-find-file-hook :after
-              (lambda (&rest _)
-                (when buffer-file-name (ignore-errors (recenter))))))
+   (advice-add 'save-place-find-file-hook :after
+               (lambda (&rest _)
+                 (when buffer-file-name (ignore-errors (recenter))))))
+
+;; ---- Centralized backups: keep NoteHQ clean ----
+(let ((backup-dir (expand-file-name "backups/" user-emacs-directory)))
+  (make-directory backup-dir t)
+  (unless backup-directory-alist
+    (setq backup-directory-alist `(("." . ,backup-dir)))))
+
+;; ---- Parenthesis matching ----
+(use-package paren
+  :ensure nil
+  :init
+  (show-paren-mode 1))
 
 ;; ---- Editing polish ----
 (setq set-mark-command-repeat-pop t)           ; C-SPC C-SPC ... pops mark ring (Purcell/Prot)
@@ -116,12 +128,12 @@
   (lambda ()
     (dolist (tool '(("rg" . "ripgrep") ("fd" . "fd-find")))
       (unless (executable-find (car tool))
-        (message "⚠️ org-seq: %s (%s) not found. Install via your package manager%s."
+        (message "WARNING org-seq: %s (%s) not found. Install via your package manager%s."
                  (car tool) (cdr tool)
                  (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
-;; Order: UI -> completion -> markdown -> org -> roam -> gtd -> focus -> pkm -> supertag -> ai -> dashboard -> dired -> workspace -> evil (last)
+;; Order: UI -> completion -> markdown -> org -> roam -> gtd -> focus -> pkm -> supertag -> ai -> dashboard -> dired -> workspace -> update -> evil (last)
 (require 'init-ui)
 (require 'init-completion)
 (require 'init-markdown)
@@ -135,6 +147,7 @@
 (require 'init-dashboard)
 (require 'init-dired)
 (require 'init-workspace)
+(require 'init-update)
 (require 'init-evil)
 
 ;; ---- Emacs server ----
