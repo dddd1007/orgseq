@@ -301,9 +301,20 @@ function Test-Deployment {
     }
     $emacsArgs += @("-l", $packageInitFile, "-f", "batch-byte-compile") + $allFiles
 
+    $stdoutFile = Join-Path $env:TEMP "org-seq-deploy-byte-compile.out"
+    $stderrFile = Join-Path $env:TEMP "org-seq-deploy-byte-compile.err"
+
     try {
-        $output = & $emacs @emacsArgs 2>&1
-        $compileExitCode = $LASTEXITCODE
+        if (Test-Path $stdoutFile) { Remove-Item $stdoutFile -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $stderrFile) { Remove-Item $stderrFile -Force -ErrorAction SilentlyContinue }
+
+        $proc = Start-Process -FilePath $emacs -ArgumentList $emacsArgs -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+
+        $output = @()
+        if (Test-Path $stdoutFile) { $output += Get-Content $stdoutFile }
+        if (Test-Path $stderrFile) { $output += Get-Content $stderrFile }
+
+        $compileExitCode = $proc.ExitCode
         $warnings = $output | Where-Object { $_ -match "Warning|warning" }
         if ($compileExitCode -ne 0) {
             Write-Warn "Byte-compile check failed (exit code $compileExitCode)"
@@ -325,6 +336,12 @@ function Test-Deployment {
     finally {
         if (Test-Path $packageInitFile) {
             Remove-Item $packageInitFile -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path $stdoutFile) {
+            Remove-Item $stdoutFile -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path $stderrFile) {
+            Remove-Item $stderrFile -Force -ErrorAction SilentlyContinue
         }
     }
 
