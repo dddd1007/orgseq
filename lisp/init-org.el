@@ -13,7 +13,8 @@
 ;; Section 1: Core PKM directory
 ;; ═══════════════════════════════════════════════════════════════════════════
 
-(defcustom my/note-home (file-truename "~/NoteHQ/")
+(defcustom my/note-home (let ((dir (expand-file-name "NoteHQ/" "~/")))
+                          (if (file-directory-p dir) (file-truename dir) dir))
   "Root directory for all PKM content (Roam atomic layer + PARA layers).
 Changing this requires restarting Emacs for derived paths
 \(`my/roam-dir', `my/orgseq-dir') to take effect."
@@ -51,19 +52,28 @@ the sidebar displays them alphabetically."
   (setq org-startup-indented t
         org-indent-indentation-per-level 2)
 
+  ;; Visual line wrapping — essential when olivetti narrows the body.
+  ;; Without this, CJK paragraphs get hard-clipped at the fill column.
+  (add-hook 'org-mode-hook #'visual-line-mode)
+
   (setq org-startup-folded 'content)
   (setq org-hide-leading-stars t)
-  (setq org-ellipsis " ⤵")
+  ;; Ellipsis: "…" is the community mainstream choice — compact and unobtrusive.
+  (setq org-ellipsis " …")
 
   (setq org-return-follows-link t
         org-special-ctrl-a/e t
         org-insert-heading-respect-content t
-        org-catch-invisible-edits 'show-and-error
+        org-fold-catch-invisible-edits 'show-and-error
         org-pretty-entities t
         org-hide-emphasis-markers t)
 
-  ;; Highlight LaTeX fragments with native fontification
-  (setq org-highlight-latex-and-related '(native script entities))
+  ;; Highlight LaTeX fragments with native fontification.
+  ;; NOTE: `script' renders sub/superscripts as raised/lowered glyphs,
+  ;; which breaks valign's pixel-width alignment in tables.  Omitted
+  ;; here; once a LaTeX distribution is installed, org-fragtog renders
+  ;; full formulae as images (which valign handles correctly).
+  (setq org-highlight-latex-and-related '(native entities))
 
   (setq org-log-done 'time
         org-log-into-drawer t)
@@ -125,7 +135,20 @@ the sidebar displays them alphabetically."
          (org-agenda-finalize . org-modern-agenda))
   :config
   (setq org-modern-star '("◉" "○" "◈" "◇" "⁕")
-        org-modern-table nil)
+        org-modern-table nil             ; valign handles table alignment
+        org-modern-block-fringe 2        ; subtle fringe marker for src blocks
+        org-modern-keyword t             ; prettify #+KEYWORD lines
+        org-modern-tag t                 ; badge-style inline tags
+        org-modern-label-border 1        ; thin border for tag/priority badges
+        org-modern-priority t            ; styled priority cookies
+        org-modern-todo t                ; styled TODO keywords
+        org-modern-block-name t          ; prettify #+BEGIN_/#+END_ labels
+        org-modern-list '((?- . "•")     ; dash → bullet
+                          (?+ . "◦")     ; plus → open bullet
+                          (?* . "‣"))    ; asterisk → triangle
+        org-modern-horizontal-rule t     ; styled -----  separators
+        org-modern-progress '("○" "◔" "◑" "◕" "●") ; progress cookies [2/5]
+        org-modern-timestamp t)          ; prettify <2025-04-13 Sun> stamps
 
   ;; Doom fix: default ☑ renders too large on many fonts — use a consistent glyph
   (setf (alist-get ?X org-modern-checkbox) #("□x" 0 2 (composition ((2)))))
@@ -138,6 +161,15 @@ the sidebar displays them alphabetically."
               (when (bound-and-true-p org-indent-mode)
                 (setq-local org-modern-hide-stars nil)))))
 
+;; org-modern-indent: better block/heading indentation under org-indent-mode
+;; Enhances how src blocks, drawers, and other multi-line elements render
+;; when org-indent-mode adds virtual indentation.
+;; NOTE: requires org-indent-mode to be enabled (which we do via org-startup-indented).
+(use-package org-modern-indent
+  :vc (:url "https://github.com/jdtsmith/org-modern-indent"
+       :rev :newest)
+  :hook (org-indent-mode . org-modern-indent-mode))
+
 ;; org-appear: reveal hidden markup (emphasis, links, entities) at cursor
 ;; Complements org-modern — pretty when reading, transparent when editing.
 (use-package org-appear
@@ -146,6 +178,70 @@ the sidebar displays them alphabetically."
   (org-appear-autolinks t)
   (org-appear-autoentities t)
   (org-appear-autosubmarkers t))
+
+;; org-fragtog: auto-toggle LaTeX fragment preview at cursor
+;; Requires a LaTeX distribution (MiKTeX or TeX Live) with dvisvgm on PATH.
+;; NOTE: table cells don't support image overlays well — fragments inside
+;; tables are skipped via `org-fragtog-ignore-predicates'.
+(use-package org-fragtog
+  :hook (org-mode . org-fragtog-mode)
+  :custom
+  (org-fragtog-preview-delay 0.2)
+  (org-fragtog-ignore-predicates '(org-at-table-p))
+  :config
+  ;; NOTE(win): MiKTeX bin may not be in PATH when Emacs inherits a stale
+  ;; environment (daemon, pinned shortcut).  Ensure exec-path includes it.
+  (when (eq system-type 'windows-nt)
+    (let ((miktex-bin (expand-file-name
+                       "AppData/Local/Programs/MiKTeX/miktex/bin/x64"
+                       (getenv "USERPROFILE"))))
+      (when (and (file-directory-p miktex-bin)
+                 (not (member miktex-bin exec-path)))
+        (add-to-list 'exec-path miktex-bin)
+        (setenv "PATH" (concat miktex-bin ";" (getenv "PATH"))))))
+  (setq org-preview-latex-default-process 'dvisvgm)
+  ;; Scale 1.0 matches ~13pt body text; adjust if you change :height in init-ui.
+  ;; Foreground 'default inherits the active theme's text color.
+  ;; Background "Transparent" tells org NOT to emit \pagecolor in the LaTeX
+  ;; preamble, so dvisvgm produces genuinely transparent SVGs — no background
+  ;; rectangle at all.  However, Emacs' librsvg renderer still paints a solid
+  ;; background behind transparent SVGs (a known limitation on Windows with
+  ;; the bundled librsvg); there is no config-level fix for this as of Emacs
+  ;; 30.2.  The new org-latex-preview engine (expected in Org 9.8+) handles
+  ;; this correctly.  Until then, "Transparent" is the least-bad option: it
+  ;; avoids baking a fixed color into the SVG (which would break on theme
+  ;; switch) and produces barely-visible artifacts on light themes.
+  (plist-put org-format-latex-options :scale 1.0)
+  (plist-put org-format-latex-options :foreground 'default)
+  (plist-put org-format-latex-options :background "Transparent"))
+
+;; org-cliplink: paste a URL from clipboard and auto-fetch its page title
+;; as the link description.  Saves manual [[][title]] typing.
+(use-package org-cliplink
+  :after org
+  :commands org-cliplink)
+
+;; org-download: drag-and-drop (or paste) images into org buffers.
+;; Images are stored as org-attach attachments alongside the note.
+;; NOTE(win): drag-and-drop from Explorer works; clipboard paste
+;; requires ImageMagick convert.exe or PowerShell fallback.
+(use-package org-download
+  :after org
+  :hook (org-mode . org-download-enable)
+  :custom
+  (org-download-method 'attach)
+  (org-download-heading-lvl nil)
+  (org-download-timestamp "%Y%m%d%H%M%S-"))
+
+;; pangu-spacing: auto-insert thin space between CJK and Latin characters.
+;; Virtual mode (default) — spaces are *displayed* but not saved to file,
+;; keeping the source clean.  Essential for CJK mixed-language writing.
+;; NOTE: real-insert mode (pangu-spacing-real-insert-separtor t) would
+;; break org tables and babel blocks — keep it nil.
+(use-package pangu-spacing
+  :hook (org-mode . pangu-spacing-mode)
+  :config
+  (setq pangu-spacing-real-insert-separtor nil))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 4: Evil integration for org-mode

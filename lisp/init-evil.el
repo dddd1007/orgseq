@@ -202,6 +202,8 @@
     "n/"  '(my/org-roam-rg-search :wk "Search note text")
     "na"  '(org-roam-alias-add :wk "Add alias")
     "nr"  '(org-roam-ref-add :wk "Add ref")
+    "nL"  '(org-cliplink :wk "Paste link (cliplink)")
+    "nI"  '(org-download-clipboard :wk "Paste image")
     "nl"  '(consult-org-roam-forward-links :wk "Forward links")
     "nB"  '(consult-org-roam-backlinks :wk "Backlinks (consult)")
     "n?"  '(consult-org-roam-search :wk "Search (consult)")
@@ -302,6 +304,8 @@
     "to"  '(olivetti-mode :wk "Olivetti")
     "tf"  '(toggle-frame-fullscreen :wk "Fullscreen")
     "ti"  '(org-modern-mode :wk "Org-modern")
+    "tn"  '(org-num-mode :wk "Heading numbers")
+    "tm"  '(mixed-pitch-mode :wk "Mixed pitch")
     "th"  '(dired-omit-mode :wk "Hide dot-files / CLAUDE.md (dired)")
 
     ;; ── SPC w — Window ──

@@ -205,21 +205,44 @@
 
 ;; ---- Load modules ----
 ;; Order: UI -> completion -> markdown -> org -> roam -> gtd -> focus -> pkm -> supertag -> ai -> dashboard -> dired -> workspace -> update -> evil (last)
-(require 'init-ui)
-(require 'init-completion)
-(require 'init-markdown)
-(require 'init-org)
-(require 'init-roam)
-(require 'init-gtd)
-(require 'init-focus)
-(require 'init-pkm)
-(require 'init-supertag)
-(require 'init-ai)
-(require 'init-dashboard)
-(require 'init-dired)
-(require 'init-workspace)
-(require 'init-update)
-(require 'init-evil)
+;; Each require is guarded so a single broken module does not kill the
+;; entire config -- the user gets an actionable warning instead.
+(defvar my/--init-errors nil
+  "List of (MODULE . ERROR) pairs for modules that failed to load.")
+
+(defun my/--require-module (module)
+  "Load MODULE, catching errors and recording failures."
+  (condition-case err
+      (require module)
+    (error
+     (push (cons module err) my/--init-errors)
+     (message "WARNING org-seq: failed to load %s: %s" module (error-message-string err)))))
+
+(dolist (mod '(init-ui
+               init-completion
+               init-markdown
+               init-org
+               init-roam
+               init-gtd
+               init-focus
+               init-pkm
+               init-supertag
+               init-ai
+               init-dashboard
+               init-dired
+               init-workspace
+               init-update
+               init-evil))
+  (my/--require-module mod))
+
+(when my/--init-errors
+  (run-with-idle-timer
+   1 nil
+   (lambda ()
+     (message "org-seq: %d module(s) failed to load: %s"
+              (length my/--init-errors)
+              (mapconcat (lambda (pair) (symbol-name (car pair)))
+                         my/--init-errors ", ")))))
 
 ;; ---- Emacs server ----
 ;; Start server so emacsclient can connect instantly.

@@ -332,7 +332,8 @@ Excludes the current heading itself."
 
 (defun my/org-move-done-to-bottom ()
   "Move DONE/CANCELLED task to bottom among siblings."
-  (when (my/gtd--closed-state-p (org-get-todo-state))
+  (when (and (derived-mode-p 'org-mode)
+             (my/gtd--closed-state-p (org-get-todo-state)))
     (condition-case err
         (while (save-excursion
                  (and (org-get-next-sibling)
@@ -474,6 +475,11 @@ Excludes the current heading itself."
   (add-hook 'kill-buffer-hook #'my/gtd--cleanup-markers nil t)
   (add-hook 'kill-buffer-hook
             (lambda ()
+              ;; Cancel orphaned refresh timer
+              (when (timerp my/gtd--refresh-timer)
+                (cancel-timer my/gtd--refresh-timer)
+                (setq my/gtd--refresh-timer nil))
+              ;; Clean up active row overlay
               (when (overlayp my/gtd-dashboard--active-ov)
                 (delete-overlay my/gtd-dashboard--active-ov)
                 (setq my/gtd-dashboard--active-ov nil)))

@@ -125,6 +125,28 @@
   :init
   (setq markdown-toc-header-toc-title "## Table of Contents"))
 
+(defun my/markdown-convert-to-org ()
+  "Convert current Markdown file to Org via pandoc and switch to it."
+  (interactive)
+  (unless (derived-mode-p 'markdown-mode)
+    (user-error "Current buffer is not a Markdown buffer"))
+  (unless buffer-file-name
+    (user-error "Buffer is not visiting a file"))
+  (unless (executable-find "pandoc")
+    (user-error "pandoc not found on PATH"))
+  (save-buffer)
+  (let* ((md-file buffer-file-name)
+         (org-file (concat (file-name-sans-extension md-file) ".org"))
+         (exit-code (call-process "pandoc" nil nil nil
+                                  "-f" "gfm" "-t" "org"
+                                  "--wrap=preserve"
+                                  "-o" org-file md-file)))
+    (if (zerop exit-code)
+        (progn
+          (find-file org-file)
+          (message "Converted to %s" (file-name-nondirectory org-file)))
+      (user-error "pandoc conversion failed (exit %d)" exit-code))))
+
 ;; ---- Local leader keys for Markdown buffers ----
 (with-eval-after-load 'general
   (general-define-key
@@ -139,7 +161,8 @@
    "t" '(markdown-toc-generate-toc :wk "Insert TOC")
    "r" '(markdown-toc-refresh-toc :wk "Refresh TOC")
    "o" '(markdown-toggle-markup-hiding :wk "Toggle markup")
-   "l" '(markdown-insert-link :wk "Insert link"))
+   "l" '(markdown-insert-link :wk "Insert link")
+   "c" '(my/markdown-convert-to-org :wk "Convert to Org"))
   (with-eval-after-load 'eww
     (general-define-key
      :states '(normal emacs)
