@@ -1,6 +1,27 @@
 ;;; init-update.el --- Periodic silent package auto-update -*- lexical-binding: t; -*-
 
 ;; ═══════════════════════════════════════════════════════════════════════════
+;; compile-angel: keep .elc / .eln outputs current automatically
+;; ═══════════════════════════════════════════════════════════════════════════
+;;
+;; Silently byte-compiles (and native-compiles, when supported) any elisp
+;; file whose compiled artifact is missing or older than the source.  Runs
+;; before load and on save, so freshly upgraded ELPA packages and user
+;; edits alike stay at native-comp speed without manual intervention.
+;;
+;; Complements the PostToolUse byte-compile hook: that hook covers edits
+;; made by Claude Code; compile-angel covers interactive editing and
+;; third-party package loads.
+
+(use-package compile-angel
+  :demand t
+  :custom
+  (compile-angel-verbose nil)
+  :config
+  (compile-angel-on-load-mode)
+  (add-hook 'emacs-lisp-mode-hook #'compile-angel-on-save-local-mode))
+
+;; ═══════════════════════════════════════════════════════════════════════════
 ;; Automatic package updates
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;

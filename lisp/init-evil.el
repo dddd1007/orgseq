@@ -146,11 +146,13 @@
     "gd"  '(magit-diff-dwim :wk "Diff")
     "gf"  '(magit-file-dispatch :wk "File ops")
 
-    ;; ── SPC h — Help ──
+    ;; ── SPC h — Help (helpful-powered where available) ──
     "h"   '(:ignore t :wk "help")
-    "hf"  '(describe-function :wk "Function")
-    "hv"  '(describe-variable :wk "Variable")
-    "hk"  '(describe-key :wk "Key")
+    "hf"  '(helpful-callable :wk "Function")
+    "hv"  '(helpful-variable :wk "Variable")
+    "hk"  '(helpful-key :wk "Key")
+    "hc"  '(helpful-command :wk "Command")
+    "h."  '(helpful-at-point :wk "At point")
     "hm"  '(describe-mode :wk "Mode")
     "hi"  '(info :wk "Info manual")
     "hp"  '(describe-package :wk "Package")
@@ -381,6 +383,17 @@
     (keymap-set calc-mode-map "C-o" #'casual-calc-tmenu))
   (with-eval-after-load 're-builder
     (keymap-set reb-mode-map "C-o" #'casual-re-builder-tmenu)))
+
+;; ---- helpful: richer *Help* buffers (remaps describe-*) ----
+(use-package helpful
+  :commands (helpful-callable helpful-variable helpful-command
+             helpful-key helpful-at-point helpful-symbol)
+  :init
+  (global-set-key [remap describe-function] #'helpful-callable)
+  (global-set-key [remap describe-variable] #'helpful-variable)
+  (global-set-key [remap describe-key]      #'helpful-key)
+  (global-set-key [remap describe-command]  #'helpful-command)
+  (global-set-key [remap describe-symbol]   #'helpful-symbol))
 
 (provide 'init-evil)
 ;;; init-evil.el ends here

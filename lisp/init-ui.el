@@ -166,7 +166,8 @@
 
 ;; ---- spacious-padding: frame/window breathing room ----
 ;; By Protesilaos (modus-themes author): adds internal border and divider
-;; width so content doesn't crowd the frame edges.
+;; width so content doesn't crowd the frame edges.  The divider widths
+;; double as a wide mouse-drag target for resizing splits.
 (use-package spacious-padding
   :demand t
   :config
@@ -175,11 +176,30 @@
            :header-line-width 4
            :mode-line-width 6
            :tab-width 4
-           :right-divider-width 24
+           :right-divider-width 8
+           :bottom-divider-width 8
            :scroll-bar-width 0
            :left-fringe-width 20
            :right-fringe-width 20))
   (spacious-padding-mode 1))
+
+;; Paint the full divider strip with the theme's `mode-line-inactive'
+;; background — the canonical subtle gray every theme tunes for
+;; structural delimiters.  Combined with a narrow 4px divider width,
+;; this reads as a delicate hairline that harmonizes with the theme
+;; rather than a prominent painted band.  Re-applies on theme switch
+;; so dividers track the active palette.
+(defun my/ui-refresh-window-dividers (&rest _)
+  "Paint window dividers with a subtle theme-adaptive delimiter color."
+  (let ((line (face-attribute 'mode-line-inactive :background nil t)))
+    (when (and line (not (eq line 'unspecified)))
+      (dolist (face '(window-divider
+                      window-divider-first-pixel
+                      window-divider-last-pixel))
+        (set-face-attribute face nil :foreground line)))))
+
+(my/ui-refresh-window-dividers)
+(add-hook 'enable-theme-functions #'my/ui-refresh-window-dividers)
 
 ;; ---- ef-themes: colorful & elegant light/dark themes (lazy, for switching) ----
 (use-package ef-themes

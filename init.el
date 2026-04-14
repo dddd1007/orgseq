@@ -204,7 +204,7 @@
                  (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
-;; Order: UI -> completion -> markdown -> org -> roam -> gtd -> focus -> pkm -> supertag -> ai -> dashboard -> dired -> workspace -> update -> evil (last)
+;; Order: UI -> completion -> markdown -> languages -> org -> roam -> gtd -> focus -> pkm -> supertag -> ai -> dashboard -> dired -> workspace -> update -> tty -> evil (last)
 ;; Each require is guarded so a single broken module does not kill the
 ;; entire config -- the user gets an actionable warning instead.
 (defvar my/--init-errors nil
@@ -221,6 +221,7 @@
 (dolist (mod '(init-ui
                init-completion
                init-markdown
+               init-languages
                init-org
                init-roam
                init-gtd
@@ -232,6 +233,7 @@
                init-dired
                init-workspace
                init-update
+               init-tty
                init-evil))
   (my/--require-module mod))
 

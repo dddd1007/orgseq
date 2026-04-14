@@ -10,7 +10,8 @@ This project produces a deployable `~/.emacs.d/` configuration. The output is Em
 - **Editing**: Evil mode (Vim keybindings) + general.el (SPC leader keys)
 - **Org**: org-mode (from GNU ELPA) + org-modern + evil-org + GTD dashboard
 - **Markdown**: markdown-mode + markdown-toc (editing with Obsidian interop, not indexed by org-roam)
-- **Completion**: Vertico + Orderless + Consult + Marginalia + Embark
+- **Completion**: Vertico + Orderless + Consult + Marginalia + Embark (minibuffer) + Corfu + Cape (in-buffer popup)
+- **Languages**: ESS + poly-R (R, primary) / python.el + eglot + pyvenv (Python) / julia-mode + julia-repl (Julia)
 - **PKM Engine**: org-supertag (data layer) + org-roam (graph layer) + org-node/org-mem (performance layer) + org-transclusion + org-ql
 - **AI**: gptel (LLM client, OpenRouter) + ob-gptel (org-babel AI blocks) + purpose/schema context injection + KB overview generation
 - **Menus**: casual (Transient keyboard-driven menus for built-in modes)
@@ -37,18 +38,20 @@ org-seq/
 │   ├── init-ui.el         # Fonts, themes, modeline, olivetti (loaded 1st)
 │   ├── init-completion.el # Vertico stack (loaded 2nd)
 │   ├── init-markdown.el   # Markdown editing with Obsidian interop, not in org-roam (loaded 3rd)
-│   ├── init-org.el        # Org-mode base + org-modern + org-appear + org-tempo + evil-org (loaded 4th)
-│   ├── init-roam.el       # org-roam + org-node acceleration + Deft whole-NoteHQ search + capture + dailies + Doom-derived advices (loaded 5th)
-│   ├── init-gtd.el        # GTD system: dashboard, agenda views, state machine (loaded 6th)
-│   ├── init-focus.el      # org-focus-timer integration (Vitamin-R-style focus slices) (loaded 7th)
-│   ├── init-pkm.el        # org-supertag (install) + org-transclusion + org-ql (loaded 8th)
-│   ├── init-supertag.el   # Supertag schema/dashboard/PARA nav + NoteHQ bootstrap (loaded 9th)
-│   ├── init-ai.el         # gptel + ob-gptel + .orgseq AI config + PKM AI commands + KB overview (loaded 10th)
-│   ├── init-dashboard.el  # Startup dashboard with vertical centering (loaded 11th)
-│   ├── init-dired.el      # Dired + dirvish (sidebar, override-dired, peek, quick-access) (loaded 12th)
-│   ├── init-workspace.el  # Workspace layout: treemacs + imenu-list outline + eshell terminal (loaded 13th)
-│   ├── init-update.el     # Periodic silent package auto-update: ELPA + vc (loaded 14th)
-│   ├── init-evil.el       # Evil + general.el + which-key + magit + casual (loaded last)
+│   ├── init-languages.el  # R (ESS + poly-R) + Python (eglot + pyvenv) + Julia (julia-mode + julia-repl) (loaded 4th)
+│   ├── init-org.el        # Org-mode base + org-modern + org-appear + org-tempo + evil-org (loaded 5th)
+│   ├── init-roam.el       # org-roam + org-node acceleration + Deft whole-NoteHQ search + capture + dailies + Doom-derived advices (loaded 6th)
+│   ├── init-gtd.el        # GTD system: dashboard, agenda views, state machine (loaded 7th)
+│   ├── init-focus.el      # org-focus-timer integration (Vitamin-R-style focus slices) (loaded 8th)
+│   ├── init-pkm.el        # org-supertag (install) + org-transclusion + org-ql (loaded 9th)
+│   ├── init-supertag.el   # Supertag schema/dashboard/PARA nav + NoteHQ bootstrap (loaded 10th)
+│   ├── init-ai.el         # gptel + ob-gptel + .orgseq AI config + PKM AI commands + KB overview (loaded 11th)
+│   ├── init-dashboard.el  # Startup dashboard with vertical centering (loaded 12th)
+│   ├── init-dired.el      # Dired + dirvish (sidebar, override-dired, peek, quick-access) (loaded 13th)
+│   ├── init-workspace.el  # Workspace layout: treemacs + imenu-list outline + eshell terminal (loaded 14th)
+│   ├── init-update.el     # compile-angel (auto byte/native-compile) + periodic silent package auto-update (ELPA + vc) (loaded 15th)
+│   ├── init-tty.el        # Terminal-mode polish: xterm-mouse + corfu-terminal + clipetty + box-drawing border (loaded 16th, gated on TTY)
+│   ├── init-evil.el       # Evil + general.el + which-key + magit + casual + helpful (loaded last)
 │   ├── dashboard-quotes.el # Data-only file: `my/dashboard-quotes' list consumed by init-dashboard.el
 │   └── banner-compact.txt # ASCII art banner for dashboard
 ├── .claude/
@@ -147,8 +150,9 @@ org-seq/
 
 ### Module Load Order (init.el)
 ```
-init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-update -> init-evil
+init-ui -> init-completion -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-update -> init-tty -> init-evil
 ```
+- `init-languages` after `init-markdown` and before `init-org` because all language backends (ESS, eglot, julia-repl) are `:defer t` and depend only on corfu/cape from `init-completion`; placing them between the text-editing layer and the PKM stack keeps the programming stack together and avoids polluting org startup
 - `init-org` before `init-roam` because org-roam depends on org; defines `my/note-home`, `my/orgseq-dir`, `my/roam-dir` used by later modules
 - `init-roam` before `init-gtd` because GTD agenda cache can use org-mem's async file list
 - `init-gtd` before `init-focus` because focus-timer is conceptually adjacent to GTD (both are time/productivity features)
@@ -159,6 +163,7 @@ init-ui -> init-completion -> init-markdown -> init-org -> init-roam -> init-gtd
 - `init-dired` after `init-dashboard` because it depends on `nerd-icons` (loaded in `init-ui`) and `my/roam-dir` (from `init-org`); provides the general dired/dirvish file-manager UI used alongside the sidebar
 - `init-workspace` after `init-dired` because the workspace layout combines the treemacs sidebar with the dirvish-enhanced file-manager workflow
 - `init-update` after `init-workspace` because auto-update is low-priority infrastructure; only needs package.el which is available from init.el
+- `init-tty` after `init-update` because everything it patches (mouse, clipboard, corfu popups, border glyph) must be applied after the GUI-assuming packages have already loaded; the module body is wrapped in `(when (not (display-graphic-p)) ...)` so GUI sessions are unaffected
 - `init-evil` loads last because general.el leader keys reference all other modules
 
 ### NoteHQ Architecture: Roam + PARA (with numeric prefixes)

@@ -58,5 +58,35 @@
 (use-package embark-consult
   :hook (embark-collect-mode . consult-preview-at-point-mode))
 
+;; ---- Corfu: in-buffer completion popup (sibling of vertico) ----
+;; Picks up completion-at-point-functions from eglot, ESS, cape, etc.
+(use-package corfu
+  :demand t
+  :custom
+  (corfu-cycle t)
+  (corfu-auto t)                          ; popup without manual M-TAB
+  (corfu-auto-delay 0.2)
+  (corfu-auto-prefix 2)                   ; start completing after 2 chars
+  (corfu-quit-no-match 'separator)
+  (corfu-preview-current nil)
+  (corfu-popupinfo-delay '(0.4 . 0.2))    ; doc popup timing (show . update)
+  :init
+  (global-corfu-mode)
+  :config
+  (when (fboundp 'corfu-popupinfo-mode)
+    (corfu-popupinfo-mode 1))             ; inline doc for current candidate
+  :bind (:map corfu-map
+         ("C-j"   . corfu-next)
+         ("C-k"   . corfu-previous)
+         ("M-d"   . corfu-popupinfo-toggle)
+         ("TAB"   . corfu-insert)
+         ([tab]   . corfu-insert)))
+
+;; ---- Cape: extra completion-at-point backends (files, dabbrev, ...) ----
+(use-package cape
+  :init
+  (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev))
+
 (provide 'init-completion)
 ;;; init-completion.el ends here
