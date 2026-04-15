@@ -202,7 +202,19 @@
                       window-divider-last-pixel))
         (set-face-attribute face nil :foreground line)))))
 
-(my/ui-refresh-window-dividers)
+;; Ensure window dividers are visible and painted with the theme color.
+;; In daemon mode the initial load has no GUI frame, so re-apply for
+;; every newly created frame.
+(window-divider-mode 1)
+
+(defun my/ui-refresh-window-dividers-for-frame (frame)
+  "Apply `my/ui-refresh-window-dividers' to FRAME."
+  (with-selected-frame frame (my/ui-refresh-window-dividers)))
+
+(if (daemonp)
+    (add-hook 'after-make-frame-functions #'my/ui-refresh-window-dividers-for-frame)
+  (my/ui-refresh-window-dividers))
+
 (add-hook 'enable-theme-functions #'my/ui-refresh-window-dividers)
 
 ;; ---- ef-themes: colorful & elegant light/dark themes (lazy, for switching) ----
