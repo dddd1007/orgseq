@@ -25,12 +25,16 @@
         (dashboard-open)
       (message "dashboard-open unavailable; try M-x dashboard-refresh-buffer"))))
 
+;; Set before either evil or evil-collection loads to suppress the
+;; evil-collection runtime warning.
+(defvar evil-want-keybinding)
+(setq evil-want-keybinding nil)
+
 ;; ---- Evil core ----
 (use-package evil
   :demand t
   :init
   (setq evil-want-integration t
-        evil-want-keybinding nil        ; required by evil-collection
         evil-want-C-u-scroll t
         evil-want-C-i-jump nil          ; free C-i for org-mode TAB
         evil-want-Y-yank-to-eol t

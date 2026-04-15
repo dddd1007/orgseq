@@ -10,6 +10,10 @@
 (defvar my/practice-dir)   ; forward-declare from init-supertag
 (defvar my/library-dir)    ; forward-declare from init-supertag
 (defvar my/archives-dir)   ; forward-declare from init-supertag
+(defvar dired-omit-files)
+(defvar dired-omit-verbose)
+(defvar dirvish-emerge-groups)
+(defvar dirvish-quick-access-entries)
 
 (defconst my/dired-use-gnu-ls
   (or (not (eq system-type 'darwin))

@@ -1,5 +1,10 @@
 ;;; init-org.el --- Org-mode base configuration -*- lexical-binding: t; -*-
 
+(defvar org-indent-indentation-per-level)
+(defvar org-agenda-prefix-format)
+(defvar org-agenda-window-setup)
+(defvar pangu-spacing-real-insert-separator)
+
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 0: org-seq customization group
 ;; ═══════════════════════════════════════════════════════════════════════════

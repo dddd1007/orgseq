@@ -12,37 +12,25 @@
 ;; init.el), so first boot in a terminal downloads them on demand; GUI
 ;; sessions never install them.
 
+(defun my/tty-frame-setup (frame)
+  "Enable TTY-specific packages and settings for FRAME."
+  (with-selected-frame frame
+    (unless (display-graphic-p)
+      (setq mouse-wheel-scroll-amount '(1 ((shift) . 1))
+            mouse-wheel-progressive-speed nil)
+      (set-display-table-slot standard-display-table 'vertical-border ?│)
+      (require 'corfu-terminal nil t)
+      (when (fboundp 'corfu-terminal-mode)
+        (corfu-terminal-mode 1))
+      (require 'clipetty nil t)
+      (when (fboundp 'global-clipetty-mode)
+        (global-clipetty-mode 1)))))
+
+;; Apply to the current frame if it's a TTY, and hook for future frames.
 (when (not (display-graphic-p))
+  (my/tty-frame-setup (selected-frame)))
 
-  ;; ---- Mouse: click, drag, and scroll in terminal ----
-  ;; xterm-mouse-mode is already enabled by `my/enable-terminal-mouse' in
-  ;; init-ui.el (both at startup and via `after-make-frame-functions').
-  ;; We only adjust TTY-specific scrolling parameters here.
-  (setq mouse-wheel-scroll-amount '(1 ((shift) . 1))
-        mouse-wheel-progressive-speed nil)
-
-  ;; ---- Window separators: box-drawing glyph instead of plain `|' ----
-  ;; The default vertical-border char is `|' which looks broken.  U+2502
-  ;; renders as a solid line in any Unicode-capable terminal.
-  (set-display-table-slot standard-display-table 'vertical-border ?│)
-
-  ;; ---- corfu-terminal: overlay popups for in-buffer completion ----
-  ;; Upstream corfu uses child frames, which TTY doesn't have.  This
-  ;; package re-implements the popup with a text overlay so ESS, eglot,
-  ;; and cape all keep working over SSH.
-  (use-package corfu-terminal
-    :after corfu
-    :config
-    (corfu-terminal-mode 1))
-
-  ;; ---- clipetty: system clipboard via OSC 52 (SSH-friendly) ----
-  ;; Every copy/kill is forwarded to the terminal emulator's clipboard
-  ;; using the OSC 52 escape sequence, which is relayed through tmux and
-  ;; SSH without any external helper like xclip/xsel/pbcopy.  Paste still
-  ;; uses the terminal's own paste binding (Ctrl+Shift+V, cmd+v, ...).
-  (use-package clipetty
-    :config
-    (global-clipetty-mode 1)))
+(add-hook 'after-make-frame-functions #'my/tty-frame-setup)
 
 (provide 'init-tty)
 ;;; init-tty.el ends here

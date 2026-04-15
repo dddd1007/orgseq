@@ -3,6 +3,10 @@
 ;; Requires: init-org (my/note-home, my/roam-dir)
 (defvar my/note-home)  ; forward-declare from init-org
 (defvar my/roam-dir)   ; forward-declare from init-org
+(defvar my/default-capture-templates)
+(defvar org-roam-dailies-directory)
+(defvar org-roam-dailies-capture-templates)
+(defvar org-mem-roamy-do-overwrite-real-db)
 
 (defun my/org-roam-dailies--file-for-date (time)
   "Return the org-seq daily note file path for TIME."

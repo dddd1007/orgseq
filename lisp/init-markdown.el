@@ -7,6 +7,10 @@
 ;; PKM graph and backlinks are Org-only.  This module is for editing
 ;; .md files that may be shared with Obsidian or other Markdown tools.
 
+(defvar markdown-live-preview-mode)
+(defvar markdown-live-preview-buffer)
+(defvar markdown-live-preview-source-buffer)
+
 (defcustom my/markdown-body-width-min 84
   "Minimum visual body width for Markdown buffers."
   :type 'integer :group 'org-seq)

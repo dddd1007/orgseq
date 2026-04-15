@@ -402,7 +402,8 @@ same language. Use org-mode list format.")
 
 (defun my/ai--roam-stats ()
   "Collect org-roam statistics for overview generation.
-Returns a plist with :total-nodes, :recent-nodes, :tag-distribution, :recent-titles."
+Returns a plist with :total-nodes, :recent-nodes,
+:tag-distribution and :recent-titles."
   (let* ((all-nodes (org-roam-node-list))
          (total (length all-nodes))
          ;; Get titles of 10 most recently created nodes

@@ -7,6 +7,8 @@
 (require 'cl-lib)
 (require 'subr-x)
 
+(defvar eshell-directory-name)
+
 (defcustom my/workspace-startup-delay 0.3
   "Idle delay (seconds) before opening the startup workspace layout.
 Gives package autoloads (treemacs, dashboard, nerd-icons) time to settle
@@ -254,7 +256,17 @@ Users who prefer a sidebar-first workflow can enable this option."
 
 (my/workspace-install-frame-defaults)
 (add-hook 'window-setup-hook #'my/workspace-apply-frame-size)
-(add-hook 'after-make-frame-functions #'my/workspace-apply-frame-size-later)
+
+;; In daemon mode `after-make-frame-functions' runs for every new frame,
+;; but server-client frames are also handled by `server-after-make-frame-hook'.
+;; Skip client frames here to avoid double layout timer races.
+(defun my/workspace--apply-frame-size-unless-client (frame)
+  "Apply adaptive sizing to FRAME unless it's an emacsclient frame."
+  (unless (frame-parameter frame 'client)
+    (my/workspace-apply-frame-size-later frame)))
+
+(add-hook 'after-make-frame-functions #'my/workspace--apply-frame-size-unless-client)
+
 (with-eval-after-load 'server
   (add-hook 'server-after-make-frame-hook
             #'my/workspace-apply-selected-client-frame-size)

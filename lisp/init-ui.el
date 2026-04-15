@@ -3,6 +3,8 @@
 (require 'cl-lib)
 (require 'subr-x)
 
+(defvar modus-themes-org-blocks)
+
 ;; ---- CJK mixed typesetting ----
 (defvar my/latin-font-candidates
   '("Cascadia Code" "JetBrains Mono" "SF Mono" "Monaco" "Menlo"
@@ -121,7 +123,11 @@
   (when (not (display-graphic-p frame))
     (xterm-mouse-mode 1)))
 
-(my/enable-terminal-mouse)
+;; Only enable for the current frame if it's a TTY; skip in daemon mode
+;; because `after-make-frame-functions' will handle new frames.
+(when (and (not (daemonp)) (not (display-graphic-p)))
+  (my/enable-terminal-mouse))
+
 (add-hook 'after-make-frame-functions #'my/enable-terminal-mouse)
 
 (defun my/mouse--try-command (command)

@@ -31,6 +31,8 @@
 ;; If you are looking for "where does the supertag schema editing
 ;; function live?" the answer is init-supertag.el, not here.
 
+(defvar org-supertag-bridge-enable-ai)
+
 ;; Requires: init-org (my/roam-dir)
 (defvar my/roam-dir)  ; forward-declare from init-org
 

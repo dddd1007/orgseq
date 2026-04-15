@@ -103,7 +103,8 @@
 ;; `my/user-capture-templates'.  Edit with SPC n m c, reload with SPC n m C.
 
 (defvar my/user-capture-templates nil
-  "User-defined org-roam capture templates loaded from .orgseq/capture-templates.el.")
+  "User-defined org-roam capture templates loaded from
+.orgseq/capture-templates.el.")
 
 (defconst my/capture-templates-template
   ";;; capture-templates.el --- User capture templates -*- lexical-binding: t; -*-

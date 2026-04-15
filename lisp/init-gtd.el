@@ -61,6 +61,11 @@
 (require 'cl-lib)
 (require 'subr-x)
 (defvar my/note-home)  ; forward-declare from init-org
+(defvar org-agenda-overriding-header)
+(defvar org-agenda-todo-keyword-format)
+(defvar org-agenda-custom-commands)
+(defvar my/gtd--refresh-timer)
+(defvar my/gtd-dashboard--active-ov)
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: Agenda file cache
@@ -77,8 +82,8 @@
   :type 'integer :group 'org-seq)
 
 (defun my/org-roam-agenda-files (&optional force)
-  "Return .org files under Roam/ + Outputs/ + Practice/, using org-mem when available.
-Library/ and Archives/ are excluded (no actionable tasks).
+  "Return .org files under Roam/, Outputs/ and Practice/.
+Use org-mem when available.  Library/ and Archives/ are excluded.
 With non-nil FORCE (or prefix arg interactively), bypass the cache."
   (interactive "P")
   (let ((now (float-time)))
@@ -489,8 +494,7 @@ Excludes the current heading itself."
                 (setq my/gtd-dashboard--active-ov nil)))
             nil t))
 
-(defvar my/gtd-dashboard--active-ov nil
-  "Overlay marking the active dashboard row.")
+
 
 (defvar my/gtd--old-markers nil
   "Markers from previous dashboard render, freed on rebuild.")
@@ -697,8 +701,7 @@ Uses org-ql for efficient querying across agenda files."
 ;; Section 11: Auto-refresh
 ;; ═══════════════════════════════════════════════════════════════════════════
 
-(defvar my/gtd--refresh-timer nil
-  "Idle timer for debounced dashboard refresh.")
+
 
 (defun my/gtd--do-refresh ()
   "Actually refresh visible GTD dashboard and agenda views."
@@ -815,16 +818,16 @@ Uses org-ql for efficient querying across agenda files."
   (add-hook 'org-after-todo-state-change-hook #'my/gtd-auto-refresh)
   (add-hook 'org-cycle-hook #'my/gtd--reapply-hide-done)
 
-  (defun my/gtd--refresh-after-schedule (&rest _)
-    "Auto-refresh GTD views after scheduling."
-    (my/gtd-auto-refresh))
-
-  (defun my/gtd--refresh-after-deadline (&rest _)
-    "Auto-refresh GTD views after setting a deadline."
-    (my/gtd-auto-refresh))
-
   (advice-add 'org-schedule :after #'my/gtd--refresh-after-schedule)
   (advice-add 'org-deadline :after #'my/gtd--refresh-after-deadline))
+
+(defun my/gtd--refresh-after-schedule (&rest _)
+  "Auto-refresh GTD views after scheduling."
+  (my/gtd-auto-refresh))
+
+(defun my/gtd--refresh-after-deadline (&rest _)
+  "Auto-refresh GTD views after setting a deadline."
+  (my/gtd-auto-refresh))
 
 (provide 'init-gtd)
 ;;; init-gtd.el ends here
