@@ -22,7 +22,7 @@
 ;; 4. Skip mtime checks on bytecode during startup
 (setq load-prefer-newer nil)
 
-;; 6. Reduce load-suffixes (no dynamic modules during init)
+;; 5. Reduce load-suffixes (no dynamic modules during init)
 (defvar my--original-load-suffixes load-suffixes)
 (setq load-suffixes '(".elc" ".el"))
 (add-hook 'emacs-startup-hook

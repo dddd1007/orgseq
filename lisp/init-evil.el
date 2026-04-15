@@ -303,7 +303,6 @@
     "tt"  '(consult-theme :wk "Theme")
     "tl"  '(display-line-numbers-mode :wk "Line numbers")
     "tw"  '(visual-line-mode :wk "Word wrap")
-    "to"  '(olivetti-mode :wk "Olivetti")
     "tf"  '(toggle-frame-fullscreen :wk "Fullscreen")
     "ti"  '(org-modern-mode :wk "Org-modern")
     "tn"  '(org-num-mode :wk "Heading numbers")

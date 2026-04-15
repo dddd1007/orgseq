@@ -39,10 +39,12 @@
       (message "org-seq: CJK font → %s" cjk))))
 
 ;; Handle daemon mode
+(defun my/setup-fonts-for-frame (frame)
+  "Setup fonts for newly created FRAME."
+  (with-selected-frame frame (my/setup-fonts)))
+
 (if (daemonp)
-    (add-hook 'after-make-frame-functions
-              (lambda (frame)
-                (with-selected-frame frame (my/setup-fonts))))
+    (add-hook 'after-make-frame-functions #'my/setup-fonts-for-frame)
   (my/setup-fonts))
 
 ;; ---- mixed-pitch: variable-width prose + monospace code ----
@@ -74,10 +76,12 @@
         (set-fontset-font t charset (font-spec :family cjk-vp) nil 'append))
       (message "org-seq: CJK variable-pitch → %s" cjk-vp))))
 
+(defun my/setup-variable-pitch-fonts-for-frame (frame)
+  "Setup variable-pitch fonts for newly created FRAME."
+  (with-selected-frame frame (my/setup-variable-pitch-fonts)))
+
 (if (daemonp)
-    (add-hook 'after-make-frame-functions
-              (lambda (frame)
-                (with-selected-frame frame (my/setup-variable-pitch-fonts))))
+    (add-hook 'after-make-frame-functions #'my/setup-variable-pitch-fonts-for-frame)
   (my/setup-variable-pitch-fonts))
 
 (use-package mixed-pitch
@@ -235,10 +239,8 @@
   (doom-modeline-project-detection 'project))
 
 ;; ---- valign: pixel-perfect table alignment with variable-width fonts ----
-;; NOTE: valign hooks into jit-lock for pixel alignment.  When olivetti
-;; changes window margins (on enable or resize), valign's cached pixel
-;; widths become stale.  We re-trigger valign after every olivetti
-;; refresh to keep tables aligned.
+;; NOTE: valign hooks into jit-lock for pixel alignment.  The layout helpers
+;; below reuse this for centered prose buffers that adjust margins.
 ;;
 ;; WORKAROUND: org-indent-mode adds `line-prefix' and `wrap-prefix'
 ;; text properties that confuse valign's pixel-width calculations,
@@ -249,8 +251,8 @@
 (use-package valign
   :hook (org-mode . valign-mode)
   :config
-  (defun my/valign-after-olivetti (&optional window)
-    "Re-align valign tables after Olivetti adjusts margins in WINDOW."
+  (defun my/valign-refresh-window (&optional window)
+    "Re-align valign tables after margin changes in WINDOW."
     (let ((window (or window (selected-window))))
       (with-current-buffer (window-buffer window)
         (when (bound-and-true-p valign-mode)
@@ -262,7 +264,7 @@
   ;; rows and schedule a single idle re-align to avoid re-entrancy
   ;; (advice → valign → jit-lock → advice → ...).
 
-  (defvar-local my/valign--dirty-tables nil
+  (defvar my/valign--dirty-tables nil
     "List of (buffer . position) pairs marking tables needing re-alignment.")
 
   (defvar my/valign--idle-timer nil
@@ -332,25 +334,12 @@ timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
               (when (derived-mode-p 'org-mode)
                 (my/org-unindent-tables-for-valign (point-min) (point-max))))))
 
-;; ---- Adaptive centered writing ----
-;; Shared infrastructure for Olivetti (org) and visual-fill-column (markdown).
-;; Both use the same pattern: compute width from window, apply face remaps,
-;; refresh on window resize.
-
-(defcustom my/olivetti-body-width-min 88
-  "Minimum body width for `olivetti-mode'."
-  :type 'integer :group 'org-seq)
-
-(defcustom my/olivetti-body-width-max 140
-  "Maximum body width for `olivetti-mode'."
-  :type 'integer :group 'org-seq)
-
-(defcustom my/olivetti-body-width-scale 0.65
-  "Body width as a fraction of the current window width."
-  :type 'float :group 'org-seq)
+;; ---- Centered writing helpers ----
+;; Shared infrastructure for prose buffers that flatten side areas and compute
+;; adaptive widths from the current window.
 
 (defvar-local my/centered-face-remaps nil
-  "Face remap cookies for flattening side areas.  Shared by olivetti and markdown.")
+  "Face remap cookies for flattening side areas in prose buffers.")
 
 (defun my/centered-compute-width (min-w max-w scale &optional window)
   "Compute adaptive body width for WINDOW given MIN-W, MAX-W, and SCALE."
@@ -372,47 +361,6 @@ timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
     (dolist (cookie my/centered-face-remaps)
       (face-remap-remove-relative cookie))
     (setq-local my/centered-face-remaps nil)))
-
-(defun my/olivetti-refresh-window (&optional window)
-  "Refresh Olivetti layout in WINDOW."
-  (let ((window (or window (selected-window))))
-    (with-current-buffer (window-buffer window)
-      (when (bound-and-true-p olivetti-mode)
-        (my/centered-apply-face-remaps)
-        (setq-local olivetti-body-width
-                    (my/centered-compute-width
-                     my/olivetti-body-width-min
-                     my/olivetti-body-width-max
-                     my/olivetti-body-width-scale window))
-        (setq-local fringes-outside-margins nil)
-        (set-window-fringes window 0 0)
-        (olivetti-set-width olivetti-body-width)
-        ;; Re-align valign tables after margin change
-        (my/valign-after-olivetti window)))))
-
-(defun my/olivetti-refresh-all-windows (&optional frame)
-  "Refresh Olivetti layout in all live windows on FRAME."
-  (dolist (window (window-list frame 'no-minibuffer))
-    (my/olivetti-refresh-window window)))
-
-(defun my/olivetti-setup ()
-  "Enable adaptive Olivetti layout for the current buffer."
-  (olivetti-mode 1)
-  (my/olivetti-refresh-window))
-
-(defun my/olivetti-mode-hook-fn ()
-  "Handle Olivetti mode toggle: apply remaps on enable, clean up on disable."
-  (if olivetti-mode
-      (my/olivetti-refresh-window)
-    (my/centered-remove-face-remaps)))
-
-(use-package olivetti
-  :hook ((org-mode . my/olivetti-setup)
-         (olivetti-mode . my/olivetti-mode-hook-fn))
-  :custom
-  (olivetti-style nil)
-  :config
-  (add-hook 'window-size-change-functions #'my/olivetti-refresh-all-windows))
 
 ;; ---- Breathing room: line spacing ----
 ;; Daniel Mendler (org-modern author) recommends 0.1–0.4 for readability.

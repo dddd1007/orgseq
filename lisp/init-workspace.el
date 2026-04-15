@@ -542,6 +542,13 @@ of a half-built layout."
 
         ;; Step 1: treemacs sidebar on the left (uses Emacs side-window slot).
         (my/workspace-open-sidebar)
+        ;; Briefly wait for the side-window parameter to settle so that
+        ;; `my/workspace--non-sidebar-windows' does not misclassify the sidebar
+        ;; as the main editor area.
+        (let ((n 0))
+          (while (and (< n 20) (not (my/workspace-sidebar-visible-p)))
+            (sit-for 0.01)
+            (cl-incf n)))
 
         ;; Step 2: create a right outline column only when the editor area is
         ;; wide enough to keep the center column useful.

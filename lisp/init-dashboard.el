@@ -181,16 +181,18 @@
 
   (add-hook 'window-size-change-functions #'my/dashboard-recenter-on-resize)
 
+  (defun my/dashboard--kill-cleanup ()
+    "Cancel orphaned resize timer when the dashboard buffer is killed."
+    (when (timerp my/dashboard--resize-timer)
+      (cancel-timer my/dashboard--resize-timer)
+      (setq my/dashboard--resize-timer nil)))
+
   ;; Cancel orphaned resize timer when dashboard buffer is killed
   (add-hook 'dashboard-after-initialize-hook
             (lambda ()
               (with-current-buffer (get-buffer dashboard-buffer-name)
-                (add-hook 'kill-buffer-hook
-                          (lambda ()
-                            (when (timerp my/dashboard--resize-timer)
-                              (cancel-timer my/dashboard--resize-timer)
-                              (setq my/dashboard--resize-timer nil)))
-                          nil t))))
+                (remove-hook 'kill-buffer-hook #'my/dashboard--kill-cleanup t)
+                (add-hook 'kill-buffer-hook #'my/dashboard--kill-cleanup nil t))))
 
   (setq initial-buffer-choice
         (lambda () (get-buffer-create dashboard-buffer-name)))

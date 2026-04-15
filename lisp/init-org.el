@@ -52,8 +52,8 @@ the sidebar displays them alphabetically."
   (setq org-startup-indented t
         org-indent-indentation-per-level 2)
 
-  ;; Visual line wrapping — essential when olivetti narrows the body.
-  ;; Without this, CJK paragraphs get hard-clipped at the fill column.
+  ;; Visual line wrapping keeps prose buffers readable without hard-wrapping.
+  ;; Without this, CJK paragraphs get hard-clipped at the window edge.
   (add-hook 'org-mode-hook #'visual-line-mode)
 
   (setq org-startup-folded 'content)
@@ -241,7 +241,7 @@ the sidebar displays them alphabetically."
 (use-package pangu-spacing
   :hook (org-mode . pangu-spacing-mode)
   :config
-  (setq pangu-spacing-real-insert-separtor nil))
+  (setq pangu-spacing-real-insert-separator nil))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 4: Evil integration for org-mode

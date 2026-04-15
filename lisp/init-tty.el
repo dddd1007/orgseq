@@ -15,10 +15,9 @@
 (when (not (display-graphic-p))
 
   ;; ---- Mouse: click, drag, and scroll in terminal ----
-  ;; xterm-mouse-mode translates xterm escape sequences into Emacs mouse
-  ;; events.  Works in every modern terminal emulator (WezTerm, Alacritty,
-  ;; Windows Terminal, iTerm2, tmux, ...).
-  (xterm-mouse-mode 1)
+  ;; xterm-mouse-mode is already enabled by `my/enable-terminal-mouse' in
+  ;; init-ui.el (both at startup and via `after-make-frame-functions').
+  ;; We only adjust TTY-specific scrolling parameters here.
   (setq mouse-wheel-scroll-amount '(1 ((shift) . 1))
         mouse-wheel-progressive-speed nil)
 

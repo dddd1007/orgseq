@@ -278,8 +278,10 @@ Excludes the current heading itself."
                                       count
                                       (if (= count 1) "" "s")))
                 (dolist (m markers)
-                  (goto-char m)
-                  (org-todo "DONE"))
+                  (when (marker-buffer m)
+                    (with-current-buffer (marker-buffer m)
+                      (goto-char m)
+                      (org-todo "DONE"))))
                 (save-excursion
                   (org-back-to-heading t)
                   (org-todo "DONE")))
@@ -300,8 +302,10 @@ Excludes the current heading itself."
                                       count
                                       (if (= count 1) "" "s")))
                 (dolist (m markers)
-                  (goto-char m)
-                  (org-todo "CANCELLED"))
+                  (when (marker-buffer m)
+                    (with-current-buffer (marker-buffer m)
+                      (goto-char m)
+                      (org-todo "CANCELLED"))))
                 (save-excursion
                   (org-back-to-heading t)
                   (org-todo "CANCELLED")))
@@ -811,8 +815,16 @@ Uses org-ql for efficient querying across agenda files."
   (add-hook 'org-after-todo-state-change-hook #'my/gtd-auto-refresh)
   (add-hook 'org-cycle-hook #'my/gtd--reapply-hide-done)
 
-  (advice-add 'org-schedule :after (lambda (&rest _) (my/gtd-auto-refresh)))
-  (advice-add 'org-deadline :after (lambda (&rest _) (my/gtd-auto-refresh))))
+  (defun my/gtd--refresh-after-schedule (&rest _)
+    "Auto-refresh GTD views after scheduling."
+    (my/gtd-auto-refresh))
+
+  (defun my/gtd--refresh-after-deadline (&rest _)
+    "Auto-refresh GTD views after setting a deadline."
+    (my/gtd-auto-refresh))
+
+  (advice-add 'org-schedule :after #'my/gtd--refresh-after-schedule)
+  (advice-add 'org-deadline :after #'my/gtd--refresh-after-deadline))
 
 (provide 'init-gtd)
 ;;; init-gtd.el ends here
