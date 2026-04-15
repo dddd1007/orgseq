@@ -83,6 +83,18 @@
      (setq my/supertag-install-error err)
      (message "WARNING org-seq: failed to install org-supertag: %s" err))))
 
+;; WORKAROUND for org-supertag recursive load: preload the low-level
+;; modules that the top-level org-supertag.el requires, so they are
+;; already in memory when the main file loads.
+(dolist (lib '("supertag-core-notify"
+               "supertag-core-store"
+               "supertag-ops-node"
+               "supertag-ui-search"))
+  (when (locate-library lib)
+    (condition-case err
+        (require (intern lib) nil t)
+      (error (message "org-seq: preloading %s failed: %s" lib err)))))
+
 (use-package org-supertag
   :if (locate-library "org-supertag")
   :after org
