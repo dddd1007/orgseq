@@ -119,6 +119,15 @@
 ;; Allow package.el to upgrade built-in packages (Transient, Org, etc.)
 ;; Set BEFORE any potential package-install / use-package activation.
 (setq package-install-upgrade-built-in t)
+
+;; NOTE(win): The bundled GPG in the official Windows Emacs build constructs
+;; a malformed GNUPGHOME path (e.g. /c/Program Files/Emacs/c:/Users/...),
+;; which makes ELPA signature verification fail even for legitimately signed
+;; packages (the key exists but GPG cannot find its keyring).  Disable
+;; signature checking entirely on Windows to avoid blocking package installs.
+(when (eq system-type 'windows-nt)
+  (setq package-check-signature nil))
+
 (package-initialize)
 (unless package-archive-contents
   (condition-case err
@@ -132,6 +141,13 @@
 (setq use-package-always-ensure t
       use-package-expand-minimally t
       use-package-verbose nil)
+
+;; ---- Pre-module variable setup ----
+;; evil-want-keybinding must be nil BEFORE evil or evil-collection loads.
+;; init-evil.el loads last, but byte-compilation of earlier modules can
+;; trigger the evil-collection runtime warning.  Setting it here (before
+;; any module loads) suppresses the warning unconditionally.
+(setq evil-want-keybinding nil)
 
 ;; ---- Module load path ----
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
