@@ -168,10 +168,15 @@
         modus-themes-prompts '(bold)
         modus-themes-completions '((t . (bold)))
         modus-themes-org-blocks 'tinted-background
-        modus-themes-headings '((1 . (variable-pitch overline bold 1.4))
-                                (2 . (overline bold 1.2))
-                                (3 . (bold 1.1))
-                                (t . (semibold 1.0))))
+        ;; Tana-like heading hierarchy: clean graduated sizes, no overline,
+        ;; variable-pitch on all levels for a document-editor feel.
+        ;; Level 0 = #+title: (org-document-title face).
+        modus-themes-headings '((0 . (variable-pitch bold 1.6))
+                                (1 . (variable-pitch bold 1.4))
+                                (2 . (variable-pitch semibold 1.25))
+                                (3 . (variable-pitch semibold 1.15))
+                                (4 . (variable-pitch semibold 1.08))
+                                (t . (variable-pitch semibold 1.0))))
   (load-theme 'modus-operandi-tinted t))
 
 ;; ---- spacious-padding: frame/window breathing room ----
