@@ -220,6 +220,7 @@
 
 (dolist (mod '(init-ui
                init-completion
+               init-pyim
                init-markdown
                init-languages
                init-org
