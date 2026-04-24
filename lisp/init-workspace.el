@@ -82,6 +82,14 @@ Users who prefer a sidebar-first workflow can enable this option."
   :type 'boolean
   :group 'org-seq)
 
+(defcustom my/workspace-open-sidebar-when-visiting-file nil
+  "When non-nil, auto-open treemacs even if startup already visits a file.
+
+Keeping this nil makes `emacs file.org' and `emacsclient -c file.org'
+feel faster because the requested file becomes the only initial pane."
+  :type 'boolean
+  :group 'org-seq)
+
 ;; Layout (16:9 display):
 ;;   ┌──────────┬────────────────────────┬────────────┐
 ;;   │ treemacs │                        │  outline   │
@@ -365,6 +373,12 @@ Users who prefer a sidebar-first workflow can enable this option."
      ((get-buffer "*dashboard*"))
      ((buffer-live-p buffer) buffer))))
 
+(defun my/workspace--startup-open-sidebar-p (buffer)
+  "Return non-nil when startup should auto-open treemacs for BUFFER."
+  (or my/workspace-open-sidebar-when-visiting-file
+      (not (buffer-live-p buffer))
+      (null (buffer-file-name buffer))))
+
 (defun my/workspace-sidebar-visible-p ()
   "Return the live treemacs sidebar window in the current frame, or nil."
   (when (and (fboundp 'treemacs-current-visibility)
@@ -605,20 +619,27 @@ does not break other hooks or leave the frame empty."
   (let ((frame (or frame (selected-frame))))
     (condition-case err
         (with-selected-frame frame
-          (let ((target-buffer (my/workspace--startup-target-buffer)))
+          (let* ((target-buffer (my/workspace--startup-target-buffer))
+                 (open-sidebar (my/workspace--startup-open-sidebar-p
+                                target-buffer)))
             (when-let ((editor-win (my/workspace--main-window)))
               (select-window editor-win)
               (delete-other-windows editor-win))
-            (my/workspace-open-sidebar)
-            (let ((editor-win (car (my/workspace--non-sidebar-windows))))
+            (when open-sidebar
+              (my/workspace-open-sidebar))
+            (let ((editor-win (or (car (my/workspace--non-sidebar-windows))
+                                  (selected-window))))
               (when editor-win
                 (select-window editor-win)
                 (when (buffer-live-p target-buffer)
                   (switch-to-buffer target-buffer))))
-            (my/workspace--set-layout-kind 'startup)
-            (my/workspace-rebalance)
-            (when my/workspace-startup-focus-sidebar
-              (my/workspace-focus-sidebar))))
+            (if open-sidebar
+                (progn
+                  (my/workspace--set-layout-kind 'startup)
+                  (my/workspace-rebalance)
+                  (when my/workspace-startup-focus-sidebar
+                    (my/workspace-focus-sidebar)))
+              (set-frame-parameter frame 'my/workspace-layout-kind nil))))
       (error
        (message "WARNING org-seq: workspace startup failed: %s" err)))))
 

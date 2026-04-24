@@ -310,31 +310,34 @@ The GTD Dashboard (`SPC a d`) shows live counts and is the central hub:
 
 ## Module Structure
 
-Load order is fixed in `init.el` (see [CLAUDE.md](CLAUDE.md)).
+Load order is fixed in `init.el` (see [AGENTS.md](AGENTS.md)).
 
 | # | Module | Purpose |
 |---|--------|---------|
 | 1 | `init-ui.el` | Fonts (CJK mixed), modus-themes, doom-modeline, olivetti |
 | 2 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
-| 3 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
-| 4 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
-| 5 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
-| 6 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
-| 7 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
-| 8 | `init-pkm.el` | org-supertag (install) + org-transclusion + org-ql |
-| 9 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
-| 10 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + claude-code + .orgseq AI config + KB overview |
-| 11 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
-| 12 | `init-dired.el` | Dired + dirvish (modern file manager, sidebar, peek, quick-access) |
-| 13 | `init-workspace.el` | Workspace: treemacs sidebar + imenu-list outline + eshell terminal |
-| 14 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
-| 15 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
+| 3 | `init-pyim.el` | pyim + pyim-basedict + sis respect/cursor integration for Chinese input |
+| 4 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
+| 5 | `init-languages.el` | R/ESS + Python/eglot + Julia/Quarto tooling |
+| 6 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
+| 7 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
+| 8 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
+| 9 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
+| 10 | `init-pkm.el` | org-supertag (install) + org-transclusion + org-ql |
+| 11 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
+| 12 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + claude-code + .orgseq AI config + KB overview |
+| 13 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
+| 14 | `init-dired.el` | Dired + dirvish (modern file manager, sidebar, peek, quick-access) |
+| 15 | `init-workspace.el` | Workspace: treemacs sidebar + imenu-list outline + eshell terminal |
+| 16 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
+| 17 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
+| 18 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
 
 ### Bundled subproject: `packages/org-focus-timer/`
 
 `init-focus.el` loads a Vitamin-R-style focus timer that currently lives inside this repository at `packages/org-focus-timer/`. The deploy scripts copy the whole `packages/` tree to `~/.emacs.d/packages/` alongside `lisp/`, and `init-focus.el` resolves the load path relative to `user-emacs-directory`, so no extra configuration is needed — clone the repo, run `deploy.sh` / `deploy.ps1`, and the focus timer is available as `SPC a f` / `SPC a F` / `SPC a X`.
 
-The package has zero dependencies beyond Emacs 29+ and no org-seq-specific code inside it, which means it stays portable. When it matures, it will graduate into its own repository and `init-focus.el` will switch to referencing it via `:vc`. Until then, the source lives next to the config that calls it so iteration is fast — edit the file, `M-x eval-buffer`, and changes take effect immediately.
+The package has no external dependencies beyond stock Emacs Lisp features and no org-seq-specific code inside it, which keeps it portable. When it matures, it will graduate into its own repository and `init-focus.el` will switch to referencing it via `:vc`. Until then, the source lives next to the config that calls it so iteration is fast — edit the file, `M-x eval-buffer`, and changes take effect immediately.
 
 See `packages/org-focus-timer/README.md` for the package-level documentation.
 
@@ -367,7 +370,7 @@ The graph is **Org-only** (no md-roam). First-time supertag index: `M-x supertag
 - [doc/GUIDE.md](doc/GUIDE.md) — long-form architecture and rationale
 - [doc/WORKFLOW.md](doc/WORKFLOW.md) — day-to-day GTD / roam habits
 - [doc/NOTES_ARCHITECTURE.md](doc/NOTES_ARCHITECTURE.md) — Roam + PARA design
-- [CLAUDE.md](CLAUDE.md) — development guidelines (for contributors / Claude Code)
+- [AGENTS.md](AGENTS.md) — development guidelines (for contributors / Codex)
 
 ## License
 

@@ -3,6 +3,7 @@
 ;; Requires: init-org (my/note-home, my/orgseq-dir, my/roam-dir)
 (defvar my/orgseq-dir)  ; forward-declare from init-org
 (defvar my/roam-dir)    ; forward-declare from init-org
+(declare-function package-installed-p "package")
 
 ;; ---- API key retrieval via auth-source ----
 ;; Store your key in ~/.authinfo (or ~/.authinfo.gpg for encryption):
@@ -491,10 +492,12 @@ and discover unexpected connections.")
 ;; Not on MELPA; install from GitHub via package-vc-install (Emacs 29+).
 
 (unless (package-installed-p 'ob-gptel)
-  (condition-case err
-      (package-vc-install "https://github.com/jwiegley/ob-gptel")
-    (error
-     (message "WARNING org-seq: failed to install ob-gptel: %s" err))))
+  (if noninteractive
+      (message "org-seq: skipping ob-gptel bootstrap in noninteractive session")
+    (condition-case err
+        (package-vc-install "https://github.com/jwiegley/ob-gptel")
+      (error
+       (message "WARNING org-seq: failed to install ob-gptel: %s" err)))))
 
 (use-package ob-gptel
   :if (locate-library "ob-gptel")
@@ -518,10 +521,12 @@ and discover unexpected connections.")
 ;; Bootstrap claude-code from GitHub (not on MELPA).  Works on Emacs 29+
 ;; via package-vc-install.
 (unless (package-installed-p 'claude-code)
-  (condition-case err
-      (package-vc-install "https://github.com/stevemolitor/claude-code.el")
-    (error
-     (message "WARNING org-seq: failed to install claude-code: %s" err))))
+  (if noninteractive
+      (message "org-seq: skipping claude-code bootstrap in noninteractive session")
+    (condition-case err
+        (package-vc-install "https://github.com/stevemolitor/claude-code.el")
+      (error
+       (message "WARNING org-seq: failed to install claude-code: %s" err)))))
 
 (use-package claude-code
   :if (locate-library "claude-code")

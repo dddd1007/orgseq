@@ -10,6 +10,7 @@ transient/
 bookmarks
 recentf
 places
+projects
 eshell/
 url/
 srecode-map.el
@@ -21,14 +22,21 @@ org-roam.db
 # Local deploy/runtime state
 .org-seq-version
 server/
+.cache/
+.last-package-update
+.org-id-locations
+
+# Local agent config
+.claude/settings.local.json
+
+# Local package/cache checkouts
+org-supertag/
+pyim/
 
 # OS
 Thumbs.db
 Desktop.ini
 .DS_Store
-
-# Local Claude Code config
-.claude/settings.local.json
 
 # Cursor IDE state
 .cursor/

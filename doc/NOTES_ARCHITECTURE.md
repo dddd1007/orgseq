@@ -12,8 +12,8 @@
 > - `lisp/init-supertag.el` — supertag schema/capture templates/dashboard/PARA 导航（函数前缀统一为 `my/`）
 > - `lisp/init-dired.el` — dired + dirvish（文件管理与侧边栏）
 > - `lisp/init-evil.el` — 所有 `SPC` leader key 绑定的唯一真相源
-> - `scripts/bootstrap-notes.{sh,ps1}` — 笔记目录初始化与 Claude Code 脚手架部署脚本（支持 `--update` 增量刷新）
-> - `CLAUDE.md` — 项目开发指南（模块加载顺序、设计决策、troubleshooting）
+> - `scripts/bootstrap-notes.{sh,ps1}` — 笔记目录初始化与 NoteHQ/Codex 脚手架部署脚本（支持 `--update` 增量刷新）
+> - `AGENTS.md` — 项目开发指南（模块加载顺序、设计决策、验证流程）
 >
 > 本文档中出现的代码片段仅作为**设计意图**说明。凡与源文件不一致之处，以源文件为准。
 
@@ -259,7 +259,7 @@ Capture 模板分两层：
 
 - `SPC n m c`（`my/edit-capture-templates`）— 打开 `~/NoteHQ/.orgseq/capture-templates.el`
 - `SPC n m C`（`my/reload-capture-templates`）— 重载用户模板（无需重启 Emacs）
-- Claude Code `/new-template` skill — 在 NoteHQ 目录里让 Claude 帮你快速生成新模板
+- 在 `~/NoteHQ/` 目录里让 Codex 按 `AGENTS.md` 约定帮你生成新模板
 
 ### 起步建议
 
@@ -295,7 +295,7 @@ Capture 模板分两层：
 
 ### 加载顺序要求
 
-`init-supertag.el` 的加载位置在 `init-pkm.el` 之后、`init-ai.el` 之前。完整链条见 `CLAUDE.md` 的 "Module Load Order" 小节。
+`init-supertag.el` 的加载位置在 `init-pkm.el` 之后、`init-ai.el` 之前。完整链条见 `AGENTS.md` 的 "Load Order" 小节。
 
 ### 函数命名约定
 
@@ -510,21 +510,21 @@ Library 层存放被取用而非被维护的素材:
 
 1. **创建目录骨架**：`00_Roam/daily/` / `00_Roam/capture/` / `00_Roam/dashboards/` / `10_Outputs/_template/` / `20_Practice/_template/` / `30_Library/{bibliography,datasets,snippets,references,pdfs}` / `40_Archives/` / `.orgseq/`。所有目录均幂等创建。
 2. **扁平化历史子目录**：如果从旧版本升级并发现 `00_Roam/lit/` 或 `00_Roam/concepts/`，把里面的 `.org` 文件移动到 `00_Roam/` 根目录，然后删掉空子目录。
-3. **部署 Claude Code 脚手架**：把 `notehq/CLAUDE.md`、`notehq/.claude/rules/*`、`notehq/.claude/skills/*` 拷贝到 `~/NoteHQ/` 对应位置。首次执行时只创建缺失文件，不覆写已有文件。
-4. **增量更新模式**（`--update` / `-Update` flag）：当 org-seq 仓库里的 `notehq/*` 文件升级后，运行 `bash scripts/bootstrap-notes.sh --update` 或 `.\scripts\bootstrap-notes.ps1 -Update`，脚本会按 hash 比较，只覆写实际有变化的文件。用户内容（笔记、`supertag-schema.el`、`capture-templates.el`、`ai-config.org`）**永远不会被触碰**。
+3. **部署 NoteHQ/Codex 脚手架**：把 `notehq/AGENTS.md` 拷贝到 `~/NoteHQ/AGENTS.md`。首次执行时只创建缺失文件，不覆写已有文件。
+4. **增量更新模式**（`--update` / `-Update` flag）：当 org-seq 仓库里的 `notehq/*` 文件升级后，运行 `bash scripts/bootstrap-notes.sh --update` 或 `.\scripts\bootstrap-notes.ps1 -Update`，脚本会按内容比较，只覆写实际有变化的脚手架文件。用户内容（笔记、`supertag-schema.el`、`capture-templates.el`、`ai-config.org`）**永远不会被触碰**。
 
 ### 首次执行后的下一步
 
 脚本本身不会替你写笔记或 schema。跑完之后你需要：
 
-1. 在 `~/NoteHQ/00_Roam/supertag-schema.el` 写第一个 supertag（参考本文档 §4；或用 Claude Code 的 `/new-tag` skill 快速生成）
-2. 在 `~/NoteHQ/00_Roam/dashboards/index.org` 写 dashboard 索引（参考本文档 §7；或用 `SPC n m d` / `/new-dashboard` skill 生成）
+1. 在 `~/NoteHQ/00_Roam/supertag-schema.el` 写第一个 supertag（参考本文档 §4）
+2. 在 `~/NoteHQ/00_Roam/dashboards/index.org` 写 dashboard 索引（参考本文档 §7；或用 `SPC n m d` 打开对应入口）
 3. （可选）`cd ~/NoteHQ && git init && git add . && git commit -m 'initial structure'`——把笔记本身纳入版本控制
 4. 在 Emacs 中运行 `M-x supertag-sync-full-initialize`（或 `SPC n p R`）完成 supertag 首次索引
 
-### 更新部署的 Claude Code 脚手架
+### 更新部署的 NoteHQ/Codex 脚手架
 
-当 org-seq 仓库里的 `notehq/` 下任何文件（CLAUDE.md / rules / skills）有升级时：
+当 org-seq 仓库里的 `notehq/` 下脚手架文件有升级时：
 
 ```bash
 # 从 org-seq 仓库根目录执行

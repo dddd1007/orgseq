@@ -2,10 +2,11 @@
 #
 # Usage:
 #   .\bootstrap-notes.ps1            First-time setup. Existing files are skipped.
-#   .\bootstrap-notes.ps1 -Update    Overwrite Claude Code support files (CLAUDE.md,
-#                                    .claude/rules/*, .claude/skills/*) with the latest
-#                                    versions from the org-seq repo. Notes, schema,
-#                                    capture templates, and ai-config are never touched.
+#   .\bootstrap-notes.ps1 -Update    Overwrite Codex support files (currently
+#                                    AGENTS.md) with the latest versions from
+#                                    the org-seq repo. Notes, schema, capture
+#                                    templates, and ai-config are never touched.
+#                                    Legacy Claude scaffolding is archived.
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
@@ -17,7 +18,7 @@ $NoteHome = Join-Path $HOME "NoteHQ"
 
 Write-Host "=== org-seq: Bootstrap NoteHQ Directory Structure ===" -ForegroundColor Cyan
 if ($Update) {
-    Write-Host "    Mode: UPDATE - Claude Code scaffolding will be overwritten" -ForegroundColor Yellow
+    Write-Host "    Mode: UPDATE - Codex scaffolding will be overwritten" -ForegroundColor Yellow
 }
 Write-Host ""
 
@@ -49,6 +50,36 @@ function Deploy-File {
         Copy-Item $Src $Dest
         Write-Host "  [created] $Label"
     }
+}
+
+function Archive-LegacyClaudeScaffold {
+    if (-not $Update) { return }
+
+    $legacyClaude = Join-Path $NoteHome "CLAUDE.md"
+    $legacyClaudeDir = Join-Path $NoteHome ".claude"
+    $legacyItems = @()
+
+    if (Test-Path $legacyClaude) { $legacyItems += $legacyClaude }
+    if (Test-Path $legacyClaudeDir) { $legacyItems += $legacyClaudeDir }
+    if ($legacyItems.Count -eq 0) { return }
+
+    $archiveRoot = Join-Path $NoteHome ".orgseq"
+    New-Item -ItemType Directory -Force -Path $archiveRoot | Out-Null
+
+    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $archiveDir = Join-Path $archiveRoot "legacy-claude-scaffold-$stamp"
+    $suffix = 1
+    while (Test-Path $archiveDir) {
+        $archiveDir = Join-Path $archiveRoot "legacy-claude-scaffold-$stamp-$suffix"
+        $suffix++
+    }
+    New-Item -ItemType Directory -Force -Path $archiveDir | Out-Null
+
+    foreach ($item in $legacyItems) {
+        Move-Item -Path $item -Destination $archiveDir
+    }
+
+    Write-Host "  [archived] legacy Claude scaffolding -> $archiveDir"
 }
 
 # --- Migrate old layout to numeric-prefixed layout (idempotent) ---
@@ -125,38 +156,18 @@ foreach ($sub in $legacyDirs) {
     }
 }
 
-# --- Copy Claude Code support files (CLAUDE.md + skills + rules) ---
+# --- Copy Codex support files (currently AGENTS.md) ---
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkeletonDir = Join-Path (Split-Path -Parent $ScriptDir) "notehq"
 
 if (Test-Path $SkeletonDir) {
-    Write-Host "  Installing Claude Code support files..."
+    Write-Host "  Installing Codex support files..."
 
-    Deploy-File -Src (Join-Path $SkeletonDir "CLAUDE.md") `
-                -Dest (Join-Path $NoteHome "CLAUDE.md") `
-                -Label "CLAUDE.md"
+    Deploy-File -Src (Join-Path $SkeletonDir "AGENTS.md") `
+                -Dest (Join-Path $NoteHome "AGENTS.md") `
+                -Label "AGENTS.md"
 
-    $skillsDst = Join-Path $NoteHome ".claude\skills"
-    New-Item -ItemType Directory -Force -Path $skillsDst | Out-Null
-    $skillsSrc = Join-Path $SkeletonDir ".claude\skills"
-    if (Test-Path $skillsSrc) {
-        Get-ChildItem -Path $skillsSrc -Filter "*.md" | ForEach-Object {
-            Deploy-File -Src $_.FullName `
-                        -Dest (Join-Path $skillsDst $_.Name) `
-                        -Label ".claude/skills/$($_.Name)"
-        }
-    }
-
-    $rulesDst = Join-Path $NoteHome ".claude\rules"
-    New-Item -ItemType Directory -Force -Path $rulesDst | Out-Null
-    $rulesSrc = Join-Path $SkeletonDir ".claude\rules"
-    if (Test-Path $rulesSrc) {
-        Get-ChildItem -Path $rulesSrc -Filter "*.md" | ForEach-Object {
-            Deploy-File -Src $_.FullName `
-                        -Dest (Join-Path $rulesDst $_.Name) `
-                        -Label ".claude/rules/$($_.Name)"
-        }
-    }
+    Archive-LegacyClaudeScaffold
 }
 
 Write-Host ""
@@ -168,7 +179,7 @@ if ($Update) {
     Write-Host "  1. Deploy config:  cd org-seq; .\deploy.ps1   (or deploy.sh on Linux/macOS)"
     Write-Host "  2. Start Emacs and run:  M-x org-roam-db-sync"
     Write-Host "  3. Run:  M-x supertag-sync-full-initialize"
-    Write-Host "  4. Use Claude Code inside ~/NoteHQ/ — it now has CLAUDE.md and skills"
+    Write-Host "  4. Use Codex inside ~/NoteHQ/ — it now has AGENTS.md guidance"
     Write-Host ""
     Write-Host "  Refresh scaffolding later:  .\bootstrap-notes.ps1 -Update"
 }

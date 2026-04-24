@@ -3,10 +3,11 @@
 #
 # Usage:
 #   bootstrap-notes.sh           First-time setup. Existing files are skipped.
-#   bootstrap-notes.sh --update  Overwrite Claude Code support files (CLAUDE.md,
-#                                .claude/rules/*, .claude/skills/*) with the latest
-#                                versions from the org-seq repo. Notes, schema,
-#                                capture templates, and ai-config are never touched.
+#   bootstrap-notes.sh --update  Overwrite Codex support files (currently
+#                                AGENTS.md) with the latest versions from the
+#                                org-seq repo. Notes, schema, capture templates,
+#                                and ai-config are never touched. Legacy Claude
+#                                scaffolding is archived.
 set -e
 shopt -s nullglob
 
@@ -19,7 +20,7 @@ for arg in "$@"; do
     --help|-h)
       echo "Usage: $0 [--update]"
       echo ""
-      echo "  --update, -u   Overwrite Claude Code scaffolding files (CLAUDE.md, rules, skills)"
+      echo "  --update, -u   Overwrite Codex scaffolding files (currently AGENTS.md)"
       echo "                 with the latest versions from the org-seq repo. User content"
       echo "                 (notes, schema, capture templates, ai-config) is never touched."
       exit 0
@@ -36,7 +37,7 @@ NOTE_HOME="$HOME/NoteHQ"
 
 echo "=== org-seq: Bootstrap NoteHQ Directory Structure ==="
 if [ "$UPDATE_MODE" = "1" ]; then
-  echo "    Mode: UPDATE — Claude Code scaffolding will be overwritten"
+  echo "    Mode: UPDATE — Codex scaffolding will be overwritten"
 fi
 echo ""
 
@@ -64,6 +65,40 @@ deploy_file() {
     cp "$src" "$dest"
     echo "  [created] $label"
   fi
+}
+
+archive_legacy_claude_scaffold() {
+  if [ "$UPDATE_MODE" != "1" ]; then
+    return
+  fi
+
+  local legacy_file="$NOTE_HOME/CLAUDE.md"
+  local legacy_dir="$NOTE_HOME/.claude"
+  if [ ! -e "$legacy_file" ] && [ ! -e "$legacy_dir" ]; then
+    return
+  fi
+
+  local archive_root="$NOTE_HOME/.orgseq"
+  mkdir -p "$archive_root"
+
+  local stamp archive_dir suffix
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  archive_dir="$archive_root/legacy-claude-scaffold-$stamp"
+  suffix=1
+  while [ -e "$archive_dir" ]; do
+    archive_dir="$archive_root/legacy-claude-scaffold-$stamp-$suffix"
+    suffix=$((suffix + 1))
+  done
+  mkdir -p "$archive_dir"
+
+  if [ -e "$legacy_file" ]; then
+    mv "$legacy_file" "$archive_dir/"
+  fi
+  if [ -e "$legacy_dir" ]; then
+    mv "$legacy_dir" "$archive_dir/"
+  fi
+
+  echo "  [archived] legacy Claude scaffolding -> $archive_dir"
 }
 
 # --- Migrate old layout to numeric-prefixed layout (idempotent) ---
@@ -138,26 +173,15 @@ for sub in "${legacy_dirs[@]}"; do
   fi
 done
 
-# --- Copy Claude Code support files (CLAUDE.md + skills + rules) ---
+# --- Copy Codex support files (currently AGENTS.md) ---
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKELETON_DIR="$SCRIPT_DIR/../notehq"
 
 if [ -d "$SKELETON_DIR" ]; then
-  echo "  Installing Claude Code support files..."
+  echo "  Installing Codex support files..."
 
-  deploy_file "$SKELETON_DIR/CLAUDE.md" "$NOTE_HOME/CLAUDE.md" "CLAUDE.md"
-
-  mkdir -p "$NOTE_HOME/.claude/skills"
-  for skill in "$SKELETON_DIR/.claude/skills/"*.md; do
-    base="$(basename "$skill")"
-    deploy_file "$skill" "$NOTE_HOME/.claude/skills/$base" ".claude/skills/$base"
-  done
-
-  mkdir -p "$NOTE_HOME/.claude/rules"
-  for rule in "$SKELETON_DIR/.claude/rules/"*.md; do
-    base="$(basename "$rule")"
-    deploy_file "$rule" "$NOTE_HOME/.claude/rules/$base" ".claude/rules/$base"
-  done
+  deploy_file "$SKELETON_DIR/AGENTS.md" "$NOTE_HOME/AGENTS.md" "AGENTS.md"
+  archive_legacy_claude_scaffold
 fi
 
 echo ""
@@ -169,7 +193,7 @@ else
   echo "  1. Deploy config:  cd org-seq && bash deploy.sh   (or deploy.ps1 on Windows)"
   echo "  2. Start Emacs and run:  M-x org-roam-db-sync"
   echo "  3. Run:  M-x supertag-sync-full-initialize"
-  echo "  4. Use Claude Code inside ~/NoteHQ/ — it now has CLAUDE.md and skills"
+  echo "  4. Use Codex inside ~/NoteHQ/ — it now has AGENTS.md guidance"
   echo ""
   echo "  Refresh scaffolding later:  $0 --update"
 fi

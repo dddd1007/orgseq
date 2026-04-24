@@ -9,6 +9,7 @@
 ;; - posframe tooltip when available, falling back to popup/minibuffer
 ;; - painless Chinese/English switching via probe functions
 ;; - pinyin-aware isearch via pyim-isearch-mode
+;; - conservative sis integration for Evil/minibuffer/prefix-key switching
 ;;
 ;; Toggle input method: C-\
 ;; Force-convert word at point: M-j
@@ -18,7 +19,8 @@
 ;; ═══════════════════════════════════════════════════════════════════════════
 
 (use-package pyim
-  :demand t
+  :defer 1
+  :bind (("M-j" . pyim-convert-string-at-point))
   :init
   ;; Use pyim as the default input method.
   (setq default-input-method "pyim")
@@ -52,9 +54,6 @@
   ;; Enable cloud pinyin (baidu backend) for better phrase prediction.
   (setq pyim-cloudim 'baidu)
 
-  ;; "Golden finger": force-convert the pinyin string before point to Chinese.
-  (global-set-key (kbd "M-j") #'pyim-convert-string-at-point)
-
   ;; Painless Chinese/English auto-switching probes.
   ;; Any probe returning t switches pyim to English temporarily.
   (setq-default pyim-english-input-switch-functions
@@ -68,9 +67,13 @@
                 '(pyim-probe-punctuation-line-beginning
                   pyim-probe-punctuation-after-punctuation))
 
-  ;; Restart pyim after init so dictionaries are fully loaded.
-  (add-hook 'emacs-startup-hook
-            (lambda () (pyim-restart-1 t))))
+  ;; Restart pyim shortly after it loads so dictionaries are fully ready,
+  ;; without blocking the very first frame draw.
+  (run-with-idle-timer
+   0.2 nil
+   (lambda ()
+     (when (featurep 'pyim)
+       (pyim-restart-1 t)))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Dictionary: pyim-basedict (GNU ELPA)
@@ -85,6 +88,42 @@
   :after pyim
   :config
   (pyim-basedict-enable))
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Input source state management: sis
+;; ═══════════════════════════════════════════════════════════════════════════
+;;
+;; Keep pyim as the actual input engine and let sis manage the "when"
+;; around it: leaving Evil insert state, entering the minibuffer,
+;; handling prefix keys, and restoring per-buffer state.
+;;
+;; We intentionally do NOT enable sis context/inline modes here because
+;; pyim already handles context-sensitive English switching with its probe
+;; functions above.  Running both systems aggressively would make the
+;; switching rules harder to reason about.
+
+(defun my/pyim-enable-sis-modes ()
+  "Enable the conservative sis modes after startup."
+  (sis-global-cursor-color-mode 1)
+  (sis-global-respect-mode 1))
+
+(use-package sis
+  :after pyim
+  :ensure t
+  :config
+  ;; Use pyim as sis's "other language" native input method.
+  ;; English remains the nil/native no-input-method state.
+  (sis-ism-lazyman-config nil (or default-input-method "pyim") 'native)
+
+  ;; A stronger cursor color makes the current input state obvious.
+  (setq sis-other-cursor-color "green")
+
+  ;; This module loads before `init-evil', so enable sis's global modes
+  ;; after startup when Evil and the rest of the editor state are present.
+  ;; If this file is re-evaluated after startup, enable them immediately.
+  (if after-init-time
+      (my/pyim-enable-sis-modes)
+    (add-hook 'emacs-startup-hook #'my/pyim-enable-sis-modes)))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Tooltip backend helpers

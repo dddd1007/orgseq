@@ -129,16 +129,47 @@
   (setq package-check-signature nil))
 
 (package-initialize)
+(defconst my/noninteractive-init noninteractive
+  "Non-nil when org-seq is running in a batch/noninteractive session.")
+
+(defun my/package-refresh-contents-maybe ()
+  "Refresh package archives only when startup can afford network I/O."
+  (if my/noninteractive-init
+      (message "org-seq: skipping package archive refresh in noninteractive session")
+    (condition-case err
+        (package-refresh-contents)
+      (error
+       (message "WARNING org-seq: package archive refresh failed (%s).
+  Restart with network connectivity to install missing packages." err)))))
+
 (unless package-archive-contents
-  (condition-case err
-      (package-refresh-contents)
-    (error
-     (message "WARNING org-seq: package archive refresh failed (%s).
-  Restart with network connectivity to install missing packages." err))))
+  (my/package-refresh-contents-maybe))
 
 ;; ---- use-package (Emacs 29+ built-in) ----
 (require 'use-package)
-(setq use-package-always-ensure t
+(defun my/use-package-ensure-or-warn (name ensure state)
+  "Install NAME for `use-package' or warn when ENSURE is skipped.
+
+During noninteractive validation runs, package installation is suppressed
+so byte-compilation and load tests never block on network traffic."
+  (if my/noninteractive-init
+      (progn
+        (dolist (entry ensure)
+          (let ((package (or (and (eq entry t) (if (symbolp name) name (intern name)))
+                             (and (consp entry) (car entry))
+                             entry)))
+            (when (and package
+                       (not (package-installed-p package)))
+              (display-warning
+               'org-seq
+               (format "Skipping package install for %s in noninteractive session"
+                       package)
+               :warning))))
+        t)
+    (use-package-ensure-elpa name ensure state)))
+
+(setq use-package-ensure-function #'my/use-package-ensure-or-warn
+      use-package-always-ensure (not my/noninteractive-init)
       use-package-expand-minimally t
       use-package-verbose nil)
 
@@ -271,8 +302,9 @@
 ;; `emacsclient -s org-seq`.
 (require 'server)
 (setq server-name "org-seq")
-(unless (server-running-p server-name)
-  (server-start))
+(unless my/noninteractive-init
+  (unless (server-running-p server-name)
+    (server-start)))
 
 (provide 'init)
 ;;; init.el ends here

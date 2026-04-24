@@ -32,6 +32,7 @@
 ;; function live?" the answer is init-supertag.el, not here.
 
 (defvar org-supertag-bridge-enable-ai)
+(declare-function package-installed-p "package")
 
 ;; Requires: init-org (my/roam-dir)
 (defvar my/roam-dir)  ; forward-declare from init-org
@@ -77,11 +78,13 @@
 ;; boot from killing init.el; the deferred warning below tells the user
 ;; to retry once they have network.
 (unless (package-installed-p 'org-supertag)
-  (condition-case err
-      (package-vc-install "https://github.com/yibie/org-supertag")
-    (error
-     (setq my/supertag-install-error err)
-     (message "WARNING org-seq: failed to install org-supertag: %s" err))))
+  (if noninteractive
+      (message "org-seq: skipping org-supertag bootstrap in noninteractive session")
+    (condition-case err
+        (package-vc-install "https://github.com/yibie/org-supertag")
+      (error
+       (setq my/supertag-install-error err)
+       (message "WARNING org-seq: failed to install org-supertag: %s" err)))))
 
 ;; WORKAROUND for org-supertag recursive load: preload the low-level
 ;; modules that the top-level org-supertag.el requires, so they are

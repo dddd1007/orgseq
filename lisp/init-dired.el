@@ -115,7 +115,7 @@
     (setq insert-directory-program (executable-find "gls")
           dired-listing-switches "-alh --group-directories-first"))
 
-  ;; ---- dired-omit-mode: hide dot-files and CLAUDE.md by default ----
+  ;; ---- dired-omit-mode: hide dot-files and AGENTS.md by default ----
   ;;
   ;; `dired-x' provides `dired-omit-mode' as a minor mode that filters
   ;; the displayed file list.  We enable it globally via `dired-mode-hook'
@@ -124,14 +124,14 @@
   ;; The regex hides:
   ;;   - Anything starting with a dot (`.git', `.DS_Store', `.orgseq', ...)
   ;;     This also catches the `.' and `..' entries automatically.
-  ;;   - Exactly `CLAUDE.md' files (the Claude Code project-instruction file
+  ;;   - Exactly `AGENTS.md' files (the project-instruction file
   ;;     that lives in many repos and rarely needs to be visible to the user).
   ;;
   ;; Toggle visibility at any time with `M-x dired-omit-mode' or `SPC t h'.
   (require 'dired-x)
   (setq dired-omit-files
         (concat "\\`[.]"                  ; dot-prefixed files/dirs
-                "\\|\\`CLAUDE\\.md\\'"))  ; and CLAUDE.md exactly
+                "\\|\\`AGENTS\\.md\\'"))  ; and AGENTS.md exactly
   (setq dired-omit-verbose nil)
   (add-hook 'dired-mode-hook #'dired-omit-mode)
 
@@ -185,7 +185,7 @@
 ;; the built-in elisp peeker.
 
 (use-package dirvish
-  :demand t
+  :defer 2
   :after (dired nerd-icons)
   :custom
   ;; Main-view attributes: icons + file-size + collapse arrows + VC state.

@@ -40,7 +40,7 @@
 ;; Its expensive SQLite sync is offloaded to org-mem (see Section 2).
 
 (use-package org-roam
-  :demand t
+  :defer 1
   :custom
   (org-roam-directory my/roam-dir)
   (org-roam-db-location (expand-file-name "org-roam.db" my/roam-dir))
@@ -220,11 +220,22 @@ up front so first startup does not spam avoidable warnings."
   (dolist (library '("truename-cache" "org-mem" "org-node"))
     (my/byte-compile-library-if-needed library)))
 
+(defcustom my/org-node-startup-delay 2.0
+  "Idle delay before loading the org-node/org-mem acceleration layer."
+  :type 'number
+  :group 'org-seq)
+
+(defun my/load-org-node-later ()
+  "Compile and load org-node shortly after startup settles."
+  (run-with-idle-timer
+   my/org-node-startup-delay nil
+   (lambda ()
+     (my/ensure-org-mem-compiled)
+     (require 'org-node nil t))))
+
 (use-package org-node
   :after org-roam
-  :demand t
-  :init
-  (my/ensure-org-mem-compiled)
+  :defer t
   :custom
   ;; Delegate node creation to org-roam's capture system
   (org-node-creation-fn #'org-node-new-via-roam-capture)
@@ -246,6 +257,8 @@ up front so first startup does not spam avoidable warnings."
   (org-node-cache-mode 1)
   (org-node-roam-accelerator-mode 1)
   (org-mem-roamy-db-mode 1))
+
+(add-hook 'emacs-startup-hook #'my/load-org-node-later)
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 3: Search and visualization

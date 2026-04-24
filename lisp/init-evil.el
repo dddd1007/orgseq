@@ -311,7 +311,7 @@
     "ti"  '(org-modern-mode :wk "Org-modern")
     "tn"  '(org-num-mode :wk "Heading numbers")
     "tm"  '(mixed-pitch-mode :wk "Mixed pitch")
-    "th"  '(dired-omit-mode :wk "Hide dot-files / CLAUDE.md (dired)")
+    "th"  '(dired-omit-mode :wk "Hide dot-files / AGENTS.md (dired)")
 
     ;; ── SPC w — Window ──
     "w"   '(:ignore t :wk "window")

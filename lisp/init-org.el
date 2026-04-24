@@ -170,9 +170,17 @@ the sidebar displays them alphabetically."
 ;; Enhances how src blocks, drawers, and other multi-line elements render
 ;; when org-indent-mode adds virtual indentation.
 ;; NOTE: requires org-indent-mode to be enabled (which we do via org-startup-indented).
+(unless (or (package-installed-p 'org-modern-indent)
+            (locate-library "org-modern-indent"))
+  (if noninteractive
+      (message "org-seq: skipping org-modern-indent bootstrap in noninteractive session")
+    (condition-case err
+        (package-vc-install "https://github.com/jdtsmith/org-modern-indent")
+      (error
+       (message "WARNING org-seq: failed to install org-modern-indent: %s" err)))))
+
 (use-package org-modern-indent
-  :vc (:url "https://github.com/jdtsmith/org-modern-indent"
-       :rev :newest)
+  :if (locate-library "org-modern-indent")
   :hook (org-indent-mode . org-modern-indent-mode))
 
 ;; org-appear: reveal hidden markup (emphasis, links, entities) at cursor
