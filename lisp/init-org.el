@@ -3,7 +3,28 @@
 (defvar org-indent-indentation-per-level)
 (defvar org-agenda-prefix-format)
 (defvar org-agenda-window-setup)
+(defvar org-refile-targets)
+(defvar org-refile-use-outline-path)
+(defvar org-outline-path-complete-in-steps)
+(defvar org-refile-allow-creating-parent-nodes)
+(defvar org-modern-star)
+(defvar org-modern-table)
+(defvar org-modern-block-fringe)
+(defvar org-modern-keyword)
+(defvar org-modern-tag)
+(defvar org-modern-label-border)
+(defvar org-modern-priority)
+(defvar org-modern-todo)
+(defvar org-modern-block-name)
+(defvar org-modern-list)
+(defvar org-modern-horizontal-rule)
+(defvar org-modern-progress)
+(defvar org-modern-timestamp)
+(defvar org-modern-checkbox)
 (defvar pangu-spacing-real-insert-separator)
+(declare-function evil-org-set-key-theme "evil-org")
+(declare-function evil-org-agenda-set-keys "evil-org-agenda")
+(declare-function general-define-key "general")
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 0: org-seq customization group
@@ -45,6 +66,45 @@ layers sort in workflow priority order (00_Roam first, then
 10_Outputs / 20_Practice / 30_Library / 40_Archives) when the
 the sidebar displays them alphabetically."
   :type 'directory
+  :group 'org-seq)
+
+;; Numeric prefixes (10/20/30/40) ensure the NoteHQ layers sort in
+;; workflow priority order in the sidebar.  Keep these central so GTD,
+;; Dired, dashboards, and SuperTag do not each hard-code PARA paths.
+(defcustom my/outputs-dir (expand-file-name "10_Outputs/" my/note-home)
+  "Active deliverables and project outputs under `my/note-home'."
+  :type 'directory
+  :group 'org-seq)
+
+(defcustom my/practice-dir (expand-file-name "20_Practice/" my/note-home)
+  "Long-term practice areas/domains under `my/note-home'."
+  :type 'directory
+  :group 'org-seq)
+
+(defcustom my/library-dir (expand-file-name "30_Library/" my/note-home)
+  "Reference library under `my/note-home'."
+  :type 'directory
+  :group 'org-seq)
+
+(defcustom my/archives-dir (expand-file-name "40_Archives/" my/note-home)
+  "Completed or paused material under `my/note-home'."
+  :type 'directory
+  :group 'org-seq)
+
+(defcustom my/dashboards-dir (expand-file-name "dashboards/" my/roam-dir)
+  "Directory for query-only dashboard org files."
+  :type 'directory
+  :group 'org-seq)
+
+(defcustom my/schema-file (expand-file-name "supertag-schema.el" my/roam-dir)
+  "User-editable org-supertag schema file."
+  :type 'file
+  :group 'org-seq)
+
+(defcustom my/capture-templates-file
+  (expand-file-name "capture-templates.el" my/orgseq-dir)
+  "User-defined org-roam capture templates file."
+  :type 'file
   :group 'org-seq)
 
 ;; ═══════════════════════════════════════════════════════════════════════════

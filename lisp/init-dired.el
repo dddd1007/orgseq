@@ -1,19 +1,28 @@
 ;;; init-dired.el --- Dired + dirvish modern file manager -*- lexical-binding: t; -*-
 
-;; Requires: init-org       (my/note-home, my/roam-dir)
-;; Requires: init-supertag  (my/outputs-dir, my/practice-dir,
-;;                           my/library-dir, my/archives-dir)
+;; Requires: init-org       (NoteHQ path constants)
 ;; Requires: init-ui        (nerd-icons for file-type icons)
 (defvar my/note-home)      ; forward-declare from init-org
 (defvar my/roam-dir)       ; forward-declare from init-org
-(defvar my/outputs-dir)    ; forward-declare from init-supertag
-(defvar my/practice-dir)   ; forward-declare from init-supertag
-(defvar my/library-dir)    ; forward-declare from init-supertag
-(defvar my/archives-dir)   ; forward-declare from init-supertag
+(defvar my/outputs-dir)    ; forward-declare from init-org
+(defvar my/practice-dir)   ; forward-declare from init-org
+(defvar my/library-dir)    ; forward-declare from init-org
+(defvar my/archives-dir)   ; forward-declare from init-org
+(defvar my/dashboards-dir) ; forward-declare from init-org
 (defvar dired-omit-files)
 (defvar dired-omit-verbose)
 (defvar dirvish-emerge-groups)
 (defvar dirvish-quick-access-entries)
+(defvar dirvish-mode-map)
+
+(require 'seq)
+(require 'dired)
+(require 'dired-x)
+
+(declare-function dirvish-override-dired-mode "dirvish")
+(declare-function dirvish-emerge-mode "dirvish-emerge")
+(declare-function dirvish-peek-mode "dirvish")
+(declare-function dirvish-subtree-toggle "dirvish-subtree")
 
 (defconst my/dired-use-gnu-ls
   (or (not (eq system-type 'darwin))
@@ -184,6 +193,72 @@
 ;; and only matter if you browse media files — PKM text files preview with
 ;; the built-in elisp peeker.
 
+(defun my/dirvish-mouse-click (event)
+  "Handle a mouse click inside a dirvish buffer.
+
+Default dired binds mouse-1 to `mouse-set-point', which only moves
+point without opening anything -- fine for full-window dired, but
+unintuitive for a tree-style file manager where you expect a click to do
+something.
+
+This handler:
+
+  - On a directory, calls `dirvish-subtree-toggle' so the subtree
+    expands or collapses in place, keeping the tree view instead of
+    jumping into the directory.
+
+  - On a regular file, picks the first non-side (main editor)
+    window in the current frame and opens the file there with
+    `find-file'.
+
+Called via `[mouse-1]' in `dirvish-mode-map' (see `:bind' below)."
+  (interactive "e")
+  ;; First, let Emacs resolve the click position exactly as dired expects.
+  ;; This is more reliable than manually decoding `posn-point' when the side
+  ;; buffer contains subtree prefixes, icons, and other overlays.
+  (mouse-set-point event)
+  ;; Then normalize to the clicked entry's filename so subtree toggling and
+  ;; file visits operate on the logical dired target, not the visual prefix.
+  (when (derived-mode-p 'dired-mode)
+    (beginning-of-line)
+    (dired-move-to-filename))
+  ;; Then act on whatever file the point now refers to.
+  (when-let* ((file (ignore-errors (dired-get-file-for-visit)))
+              (basename (file-name-nondirectory (directory-file-name file))))
+    (cond
+     ;; Ignore the `.' and `..' pseudo-entries entirely.
+     ((member basename '("." "..")) nil)
+     ;; Directory -> toggle subtree in place (tree-view behavior).
+     ;; `dirvish-subtree' is explicitly required in :config below so
+     ;; this function is guaranteed to be loaded by the time a click
+     ;; can reach this branch; we call it directly without an
+     ;; fboundp guard on purpose, so a missing-function error would
+     ;; surface loudly instead of silently falling through to some
+     ;; other behavior that looks like a bug.
+     ((file-directory-p file)
+      (dirvish-subtree-toggle))
+     ;; Regular file -> open in the main editor window.
+     (t
+      (let ((editor (or (and (fboundp 'my/workspace--main-window)
+                             (my/workspace--main-window))
+                        (seq-find
+                         (lambda (w) (null (window-parameter w 'window-side)))
+                         (window-list nil 'no-minibuffer)))))
+        (if editor
+            (progn
+              (select-window editor)
+              (let ((previous-buffer (window-buffer editor)))
+                (find-file file)
+                ;; In the intended workspace, the center editor often starts on
+                ;; `*dashboard*'.  Once a real file replaces it, remove the old
+                ;; dashboard buffer instead of leaving it around as an extra
+                ;; transient page.
+                (when (and (buffer-live-p previous-buffer)
+                           (string= (buffer-name previous-buffer) "*dashboard*"))
+                  (kill-buffer previous-buffer))))
+          ;; No non-side window available (rare) -- fall back to other-window.
+          (find-file-other-window file)))))))
+
 (use-package dirvish
   :defer 2
   :after (dired nerd-icons)
@@ -265,7 +340,7 @@
           ("r" ,my/roam-dir                                  "Roam")
           ("c" ,(expand-file-name "capture/" my/roam-dir)    "Captures")
           ("d" ,(expand-file-name "daily/"   my/roam-dir)    "Daily")
-          ("b" ,(expand-file-name "dashboards/" my/roam-dir) "Dashboards")
+          ("b" ,my/dashboards-dir                            "Dashboards")
           ("o" ,my/outputs-dir                               "Outputs")
           ("p" ,my/practice-dir                              "Practice")
           ("l" ,my/library-dir                               "Library")
@@ -310,79 +385,6 @@
          ("M-t" . dirvish-layout-toggle)
          ("M-s" . dirvish-setup-menu)
          ("M-j" . dirvish-fd-jump)))
-
-;; ═══════════════════════════════════════════════════════════════════════════
-;; Section 3: Mouse click behavior inside dirvish buffers
-;; ═══════════════════════════════════════════════════════════════════════════
-;; The left sidebar now comes from treemacs in `init-workspace.el'.
-;; We still keep a modern single-click experience in ordinary dirvish buffers:
-;; files open in the main editor area and directories toggle subtrees in place.
-
-(defun my/dirvish-mouse-click (event)
-  "Handle a mouse click inside a dirvish buffer.
-
-Default dired binds mouse-1 to `mouse-set-point', which only moves
-point without opening anything -- fine for full-window dired, but
-unintuitive for a tree-style file manager where you expect a click to do
-something.
-
-This handler:
-
-  - On a directory, calls `dirvish-subtree-toggle' so the subtree
-    expands or collapses in place, keeping the tree view instead of
-    jumping into the directory.
-
-  - On a regular file, picks the first non-side (main editor)
-    window in the current frame and opens the file there with
-    `find-file'.
-
-Called via `[mouse-1]' in `dirvish-mode-map' (see `:bind' above)."
-  (interactive "e")
-  ;; First, let Emacs resolve the click position exactly as dired expects.
-  ;; This is more reliable than manually decoding `posn-point' when the side
-  ;; buffer contains subtree prefixes, icons, and other overlays.
-  (mouse-set-point event)
-  ;; Then normalize to the clicked entry's filename so subtree toggling and
-  ;; file visits operate on the logical dired target, not the visual prefix.
-  (when (derived-mode-p 'dired-mode)
-    (beginning-of-line)
-    (dired-move-to-filename))
-  ;; Then act on whatever file the point now refers to.
-  (when-let* ((file (ignore-errors (dired-get-file-for-visit)))
-               (basename (file-name-nondirectory (directory-file-name file))))
-    (cond
-     ;; Ignore the `.' and `..' pseudo-entries entirely.
-     ((member basename '("." "..")) nil)
-     ;; Directory -> toggle subtree in place (tree-view behavior).
-     ;; `dirvish-subtree' is explicitly required in :config above so
-     ;; this function is guaranteed to be loaded by the time a click
-     ;; can reach this branch; we call it directly without an
-     ;; fboundp guard on purpose, so a missing-function error would
-     ;; surface loudly instead of silently falling through to some
-     ;; other behavior that looks like a bug.
-     ((file-directory-p file)
-       (dirvish-subtree-toggle))
-     ;; Regular file -> open in the main editor window.
-     (t
-       (let ((editor (or (and (fboundp 'my/workspace--main-window)
-                              (my/workspace--main-window))
-                         (seq-find
-                          (lambda (w) (null (window-parameter w 'window-side)))
-                          (window-list nil 'no-minibuffer)))))
-         (if editor
-             (progn
-               (select-window editor)
-               (let ((previous-buffer (window-buffer editor)))
-                 (find-file file)
-                 ;; In the intended workspace, the center editor often starts on
-                 ;; `*dashboard*'.  Once a real file replaces it, remove the old
-                 ;; dashboard buffer instead of leaving it around as an extra
-                 ;; transient page.
-                 (when (and (buffer-live-p previous-buffer)
-                            (string= (buffer-name previous-buffer) "*dashboard*"))
-                   (kill-buffer previous-buffer))))
-           ;; No non-side window available (rare) — fall back to other-window.
-            (find-file-other-window file)))))))
 
 (provide 'init-dired)
 ;;; init-dired.el ends here

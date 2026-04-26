@@ -4,7 +4,6 @@
 ;; package itself is installed and minimally configured by init-pkm.el;
 ;; this file layers on:
 ;;
-;;   - NoteHQ PARA path constants        (my/outputs-dir, my/practice-dir, ...)
 ;;   - Schema edit/reload                 (my/edit-supertag-schema, SPC n m t/T)
 ;;   - Capture template management        (my/user-capture-templates merged
 ;;                                         with my/default-capture-templates
@@ -27,40 +26,40 @@
 ;; be installed early" and "features that need the install plus downstream
 ;; state" stay separate.
 
-;; Requires: init-org  (my/note-home, my/orgseq-dir, my/roam-dir)
+;; Requires: init-org  (NoteHQ path constants)
 ;; Requires: init-pkm  (org-supertag package installed)
 ;; Requires: init-roam (my/default-capture-templates)
 (defvar my/note-home)
 (defvar my/orgseq-dir)
 (defvar my/roam-dir)
+(defvar my/outputs-dir)
+(defvar my/practice-dir)
+(defvar my/library-dir)
+(defvar my/archives-dir)
+(defvar my/dashboards-dir)
+(defvar my/schema-file)
+(defvar my/capture-templates-file)
 (defvar my/default-capture-templates)
+(defvar org-roam-capture-templates)
+
+(require 'org)
+(require 'org-id)
+
+(declare-function consult-ripgrep "consult")
+(declare-function org-roam-capture- "org-roam-capture")
+(declare-function org-roam-node-create "org-roam")
+(declare-function org-supertag-node-get-tags "org-supertag")
+(declare-function org-supertag-tag-add-tag "org-supertag")
+(declare-function org-supertag-tag-remove "org-supertag")
+(declare-function org-supertag-node-edit-field "org-supertag")
+(declare-function org-supertag-node-follow-ref "org-supertag")
 
 ;; ═══════════════════════════════════════════════════════════════════════════
-;; Section 1: NoteHQ PARA path constants
+;; Section 1: User file loading helpers
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
-;; Physical structure follows Roam (atomic) + PARA (output) separation.
-;; Roam/ is flat except daily/, capture/, dashboards/.
-;; Tag-based classification replaces directory-based classification.
-;;
-;; `my/roam-dir' is defined in init-org.el so init-roam/init-pkm/init-ai
-;; can reference it without depending on this module.
-
-;; Numeric prefixes (10/20/30/40) ensure the NoteHQ layers sort in
-;; workflow priority order in the sidebar: 00_Roam is where
-;; daily writing happens, then 10_Outputs (active deliverables),
-;; 20_Practice (long-term domains), 30_Library (consumed reference),
-;; 40_Archives (completed/paused).  The 10-step gaps leave room to
-;; insert a new layer later (e.g., 15_Inbox) without renumbering.
-(defconst my/outputs-dir    (expand-file-name "10_Outputs/"  my/note-home))
-(defconst my/practice-dir   (expand-file-name "20_Practice/" my/note-home))
-(defconst my/library-dir    (expand-file-name "30_Library/"  my/note-home))
-(defconst my/archives-dir   (expand-file-name "40_Archives/" my/note-home))
-(defconst my/dashboards-dir (expand-file-name "dashboards/" my/roam-dir))
-(defconst my/schema-file    (expand-file-name "supertag-schema.el" my/roam-dir))
-(defconst my/capture-templates-file
-  (expand-file-name "capture-templates.el" my/orgseq-dir)
-  "User-defined capture templates.  Edit with SPC n m c, reload with SPC n m C.")
+;; Physical NoteHQ/PARA path constants live in init-org.el so all modules
+;; share one source of truth regardless of load order.
 
 (defun my/load-user-file-safely (file description)
   "Load FILE and report a clear error tagged with DESCRIPTION on failure."

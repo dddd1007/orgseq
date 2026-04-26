@@ -56,23 +56,30 @@
 ;; │              "0 / 1 / 3 / 4 / 5 / 6 / n / p / w" views           │
 ;; └─────────────────────────────────────────────────────────────────┘
 
-;; Requires: init-org (my/note-home)
+;; Requires: init-org (NoteHQ path constants)
 
 (require 'cl-lib)
 (require 'subr-x)
-(defvar my/note-home)  ; forward-declare from init-org
+(require 'org)
+(require 'org-agenda)
+(defvar my/roam-dir)     ; forward-declare from init-org
+(defvar my/outputs-dir)  ; forward-declare from init-org
+(defvar my/practice-dir) ; forward-declare from init-org
+(defvar org-agenda-files)
 (defvar org-agenda-overriding-header)
 (defvar org-agenda-todo-keyword-format)
 (defvar org-agenda-custom-commands)
 (defvar my/gtd--refresh-timer)
 (defvar my/gtd-dashboard--active-ov)
+(declare-function org-ql-search "org-ql")
+(declare-function org-ql-select "org-ql")
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: Agenda file cache
 ;; ═══════════════════════════════════════════════════════════════════════════
 
 (defvar my/agenda-cache nil
-  "Cached list of .org files under `my/note-home'.")
+  "Cached list of actionable NoteHQ .org files.")
 
 (defvar my/agenda-cache-timestamp 0
   "Time (float seconds) when `my/agenda-cache' was last populated.")
@@ -101,22 +108,15 @@ With non-nil FORCE (or prefix arg interactively), bypass the cache."
                  (cl-remove-if-not
                   (lambda (f) (string-suffix-p ".org" f))
                   (org-mem-all-files))
-                 (let ((dirs (list (expand-file-name "10_Outputs/"  my/note-home)
-                                   (expand-file-name "20_Practice/" my/note-home))))
+                 (let ((dirs (list my/outputs-dir my/practice-dir)))
                    (cl-mapcan (lambda (d)
                                 (when (file-directory-p d)
                                   (directory-files-recursively d "\\.org\\'")))
                               dirs)))))
-             ;; Slow path: scan 00_Roam + 10_Outputs + 20_Practice.
-             ;; The numeric prefixes match the NoteHQ layer convention
-             ;; defined in init-org.el (`my/roam-dir') and init-supertag.el
-             ;; (`my/outputs-dir', `my/practice-dir').  We do not use
-             ;; those variables directly here because init-gtd loads
-             ;; before init-supertag; when the load order changes this
-             ;; can be simplified to reference the defined constants.
-             (t (let ((dirs (list (expand-file-name "00_Roam/"     my/note-home)
-                                  (expand-file-name "10_Outputs/"  my/note-home)
-                                  (expand-file-name "20_Practice/" my/note-home))))
+             ;; Slow path: scan the actionable NoteHQ layers.  Library/ and
+             ;; Archives/ remain excluded so reference material and completed
+             ;; work do not pollute GTD views.
+             (t (let ((dirs (list my/roam-dir my/outputs-dir my/practice-dir)))
                   (cl-mapcan (lambda (d)
                                (when (file-directory-p d)
                                  (directory-files-recursively d "\\.org\\'")))

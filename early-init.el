@@ -1,5 +1,7 @@
 ;;; early-init.el --- Pre-GUI initialization -*- lexical-binding: t; -*-
 
+(defvar native-comp-async-report-warnings-errors)
+
 ;; 1. GC suppression during startup
 (setq gc-cons-threshold most-positive-fixnum
       gc-cons-percentage 0.6)

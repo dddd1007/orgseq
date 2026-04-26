@@ -2,6 +2,8 @@
 
 (require 'cl-lib)
 
+(defvar server-use-tcp)
+
 ;; ---- Restore reasonable GC after startup ----
 (add-hook 'emacs-startup-hook
           (lambda ()
@@ -174,6 +176,12 @@ so byte-compilation and load tests never block on network traffic."
       use-package-verbose nil)
 
 ;; ---- Pre-module variable setup ----
+;; Declare a few early-set variables so byte-compilation catches real issues
+;; instead of reporting expected cross-module/built-in customization points.
+(defvar evil-want-keybinding)
+(defvar ffap-machine-p-known)
+(defvar reb-re-syntax)
+
 ;; evil-want-keybinding must be nil BEFORE evil or evil-collection loads.
 ;; init-evil.el loads last, but byte-compilation of earlier modules can
 ;; trigger the evil-collection runtime warning.  Setting it here (before
@@ -185,7 +193,33 @@ so byte-compilation and load tests never block on network traffic."
 
 ;; ---- Separate custom file ----
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
-(when (file-exists-p custom-file) (load custom-file))
+
+(defun my/load-custom-file ()
+  "Load `custom-file' as explicit user overrides, reporting failures clearly."
+  (interactive)
+  (if (file-exists-p custom-file)
+      (condition-case err
+          (progn
+            ;; Loaded before modules by design: values saved through Customize
+            ;; can affect subsequent `defcustom' defaults and use-package setup.
+            (load custom-file nil 'nomessage)
+            (message "org-seq: loaded user overrides from %s" custom-file)
+            t)
+        (error
+         (display-warning
+          'org-seq
+          (format "Failed to load custom-file %s: %s" custom-file err)
+          :error)
+         nil))
+    (message "org-seq: custom-file does not exist yet: %s" custom-file)
+    nil))
+
+(defun my/open-custom-file ()
+  "Open `custom-file' for inspecting user-level overrides."
+  (interactive)
+  (find-file custom-file))
+
+(my/load-custom-file)
 
 ;; ---- Clipboard sanity (Purcell/Prot/Centaur) ----
 (setq save-interprogram-paste-before-kill t   ; preserve external clipboard before kill
@@ -251,11 +285,32 @@ so byte-compilation and load tests never block on network traffic."
                  (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
-;; Order: UI -> completion -> markdown -> languages -> org -> roam -> gtd -> focus -> pkm -> supertag -> ai -> dashboard -> dired -> workspace -> update -> tty -> evil (last)
+;; Order: UI -> completion -> pyim -> markdown -> languages -> org -> roam
+;; -> gtd -> focus -> pkm -> supertag -> ai -> dashboard -> dired
+;; -> workspace -> update -> tty -> evil (last)
 ;; Each require is guarded so a single broken module does not kill the
-;; entire config -- the user gets an actionable warning instead.
+;; entire config -- the user gets an actionable warning and can inspect
+;; details with `M-x my/init-errors'.
 (defvar my/--init-errors nil
   "List of (MODULE . ERROR) pairs for modules that failed to load.")
+
+(defun my/init-errors ()
+  "Display modules that failed during org-seq startup."
+  (interactive)
+  (let ((buf (get-buffer-create "*org-seq init errors*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (if my/--init-errors
+            (progn
+              (insert (format "%d org-seq module(s) failed to load.\n\n"
+                              (length my/--init-errors)))
+              (dolist (pair (reverse my/--init-errors))
+                (insert (format "* %s\n" (car pair)))
+                (insert (format "  %s\n\n" (error-message-string (cdr pair))))))
+          (insert "No org-seq module load errors recorded.\n"))
+        (special-mode)))
+    (pop-to-buffer buf)))
 
 (defun my/--require-module (module)
   "Load MODULE, catching errors and recording failures."
@@ -263,7 +318,8 @@ so byte-compilation and load tests never block on network traffic."
       (require module)
     (error
      (push (cons module err) my/--init-errors)
-     (message "WARNING org-seq: failed to load %s: %s" module (error-message-string err)))))
+     (message "WARNING org-seq: failed to load %s: %s (inspect with M-x my/init-errors)"
+              module (error-message-string err)))))
 
 (dolist (mod '(init-ui
                init-completion
