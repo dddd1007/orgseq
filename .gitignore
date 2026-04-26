@@ -29,6 +29,15 @@ server/
 # Local agent config
 .claude/settings.local.json
 
+# Craft/pi workspace runtime state
+.claude-plugin/
+config.json
+events.jsonl
+labels/
+sessions/
+statuses/
+views.json
+
 # Local package/cache checkouts
 org-supertag/
 pyim/
