@@ -8,6 +8,16 @@
 (require 'subr-x)
 
 (defvar eshell-directory-name)
+(defvar treemacs-width)
+(defvar imenu-list-buffer-name)
+(defvar imenu-list-focus-after-activation)
+(defvar imenu-list-minor-mode)
+(defvar imenu-list-position)
+(defvar imenu-list-size)
+(declare-function imenu-list-minor-mode "imenu-list" (&optional arg))
+(declare-function imenu-list-noselect "imenu-list" ())
+(declare-function eshell "esh-mode" (&optional arg))
+(declare-function eshell-reset "esh-mode" ())
 
 (defcustom my/workspace-startup-delay 0.3
   "Idle delay (seconds) before opening the startup workspace layout.
@@ -59,8 +69,12 @@ runway.  The frame still gets centered and can be manually maximized."
   :type '(cons integer integer)
   :group 'org-seq)
 
-(defcustom my/workspace-min-width-for-outline 108
-  "Minimum editor-area width before the full outline column is created."
+(defcustom my/workspace-min-width-for-outline 80
+  "Width below which `my/workspace-setup' warns before creating outline.
+
+`SPC l l' is an explicit layout command, so org-seq still attempts to
+create the outline column even below this value.  The threshold is used only
+to emit an actionable message when the frame is probably too narrow."
   :type 'integer
   :group 'org-seq)
 
@@ -90,6 +104,20 @@ feel faster because the requested file becomes the only initial pane."
   :type 'boolean
   :group 'org-seq)
 
+(defcustom my/workspace-auto-reveal-current-file t
+  "When non-nil, keep visible treemacs synced to the main editor file.
+
+When the center editor window visits a file, org-seq asks treemacs to expand
+its tree and select that file.  The selected editor window is preserved, so the
+sidebar follows quietly without stealing focus."
+  :type 'boolean
+  :group 'org-seq)
+
+(defcustom my/workspace-auto-reveal-delay 0.08
+  "Idle debounce delay before revealing the current editor file in treemacs."
+  :type 'number
+  :group 'org-seq)
+
 ;; Layout (16:9 display):
 ;;   ┌──────────┬────────────────────────┬────────────┐
 ;;   │ treemacs │                        │  outline   │
@@ -106,6 +134,12 @@ feel faster because the requested file becomes the only initial pane."
 
 (defvar my/workspace--rebalancing nil
   "Non-nil while org-seq is applying managed workspace sizes.")
+
+(defvar my/workspace--auto-reveal-timer nil
+  "Debounce timer for treemacs auto-reveal updates.")
+
+(defvar my/workspace--last-revealed-file nil
+  "Last file path automatically revealed in treemacs.")
 
 (defun my/workspace--clamp (value min-value max-value)
   "Clamp VALUE between MIN-VALUE and MAX-VALUE."
@@ -470,7 +504,8 @@ the full-window file manager."
        (message "WARNING org-seq: treemacs NoteHQ root invalid: %s" reason))
       (`(invalid-name ,name)
        (message "WARNING org-seq: treemacs NoteHQ project name invalid: %s" name)))
-    (my/workspace--apply-sidebar-width)))
+    (my/workspace--apply-sidebar-width)
+    (my/workspace--schedule-auto-reveal)))
 
 (defun my/workspace-focus-sidebar ()
   "Focus the treemacs sidebar, opening it first if necessary."
@@ -501,6 +536,49 @@ the full-window file manager."
   (interactive)
   (my/workspace-reveal-sidebar)
   (my/workspace-focus-sidebar))
+
+(defun my/workspace--main-editor-file ()
+  "Return the file visited by the current main editor window, or nil."
+  (when-let ((window (my/workspace--main-window)))
+    (with-current-buffer (window-buffer window)
+      (when buffer-file-name
+        (file-truename buffer-file-name)))))
+
+(defun my/workspace--auto-reveal-current-file-now ()
+  "Reveal the current main editor file in treemacs without stealing focus."
+  (when (and my/workspace-auto-reveal-current-file
+             (my/workspace-sidebar-visible-p)
+             (fboundp 'treemacs-find-file))
+    (when-let ((file (my/workspace--main-editor-file)))
+      (unless (equal file my/workspace--last-revealed-file)
+        (let ((origin (selected-window)))
+          (when-let ((editor (my/workspace--main-window)))
+            (select-window editor)
+            (condition-case err
+                (progn
+                  (treemacs-find-file)
+                  (setq my/workspace--last-revealed-file file))
+              (error
+               (message "org-seq: treemacs auto-reveal failed: %s" err))))
+          (when (window-live-p origin)
+            (select-window origin)))))))
+
+(defun my/workspace--schedule-auto-reveal (&rest _ignore)
+  "Schedule a debounced treemacs reveal for the main editor file."
+  (when (and my/workspace-auto-reveal-current-file
+             (display-graphic-p)
+             (my/workspace-sidebar-visible-p))
+    (when my/workspace--auto-reveal-timer
+      (cancel-timer my/workspace--auto-reveal-timer))
+    (setq my/workspace--auto-reveal-timer
+          (run-with-idle-timer
+           my/workspace-auto-reveal-delay nil
+           (lambda ()
+             (setq my/workspace--auto-reveal-timer nil)
+             (my/workspace--auto-reveal-current-file-now))))))
+
+(add-hook 'window-buffer-change-functions #'my/workspace--schedule-auto-reveal)
+(add-hook 'find-file-hook #'my/workspace--schedule-auto-reveal)
 
 (defun my/workspace-sidebar-collapse-all ()
   "Collapse all expanded nodes in treemacs for a clean tree view."
@@ -538,12 +616,74 @@ The chosen width is also persisted via Customize."
         (unless (my/workspace--utility-window-p selected)
           selected))))
 
-(defun my/workspace-open-terminal ()
-  "Open eshell terminal in the selected window, rooted at NoteHQ."
-  (let ((default-directory my/note-home))
+(defun my/workspace--buffer-directory (buffer)
+  "Return a useful working directory for BUFFER."
+  (if (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (file-name-as-directory
+         (file-truename
+          (cond
+           (buffer-file-name
+            (file-name-directory buffer-file-name))
+           ((and default-directory (file-directory-p default-directory))
+            default-directory)
+           (t my/note-home)))))
+    (file-name-as-directory (file-truename my/note-home))))
+
+(defun my/workspace--editor-directory ()
+  "Return the directory of the current main editor buffer."
+  (let ((window (or (my/workspace--main-window) (selected-window))))
+    (my/workspace--buffer-directory (window-buffer window))))
+
+
+(defun my/workspace-open-outline ()
+  "Open the imenu-list outline for the current editor buffer.
+
+This is intentionally stronger than `imenu-list-smart-toggle': `SPC l l'
+means `build my editing layout', so the outline should be present even if
+the frame is narrower than the preferred threshold.  If Emacs cannot split the
+frame, leave a clear message instead of silently skipping the outline."
+  (interactive)
+  (require 'imenu-list)
+  (setq imenu-list-position 'right
+        imenu-list-size (my/workspace--target-outline-width)
+        imenu-list-focus-after-activation nil)
+  (let ((source (current-buffer)))
+    (unless imenu-list-minor-mode
+      (imenu-list-minor-mode 1))
+    (unless (my/workspace--outline-window)
+      (with-current-buffer source
+        (imenu-list-noselect)))
+    (if (my/workspace--outline-window)
+        (my/workspace--apply-outline-width)
+      (message "WARNING org-seq: outline pane could not be created; frame may be too narrow"))))
+
+(defun my/workspace--terminal-set-directory (buffer directory)
+  "Set BUFFER's eshell working directory to DIRECTORY."
+  (let ((target (file-name-as-directory (file-truename directory))))
+    (make-directory target t)
+    (with-current-buffer buffer
+      (unless (string= (file-name-as-directory (file-truename default-directory))
+                       target)
+        (setq default-directory target)
+        (when (fboundp 'eshell/cd)
+          (funcall 'eshell/cd target))
+        (when (fboundp 'eshell-reset)
+          (eshell-reset))))))
+
+(defun my/workspace-open-terminal (&optional directory)
+  "Open eshell terminal in DIRECTORY.
+
+When DIRECTORY is nil, use the directory of the current main editor buffer."
+  (let* ((target-dir (file-name-as-directory
+                      (file-truename (or directory
+                                         (my/workspace--editor-directory)))))
+         (default-directory target-dir))
     (make-directory default-directory t)
     (if-let ((buffer (get-buffer "*NoteHQ-term*")))
-        (switch-to-buffer buffer)
+        (progn
+          (switch-to-buffer buffer)
+          (my/workspace--terminal-set-directory buffer target-dir))
       (let ((buffer (eshell 'new)))
         (with-current-buffer buffer
           (rename-buffer "*NoteHQ-term*" t))))))
@@ -576,33 +716,37 @@ of a half-built layout."
             (sit-for 0.01)
             (cl-incf n)))
 
-        ;; Step 2: create a right outline column only when the editor area is
-        ;; wide enough to keep the center column useful.
+        ;; Step 2: create the right outline column.  Older behavior skipped
+        ;; this when the editor area was below `my/workspace-min-width-for-outline',
+        ;; which made `SPC l l' look broken on moderately narrow frames.
         (let ((editor-win (car (my/workspace--non-sidebar-windows))))
           (when editor-win
             (select-window editor-win)
-            (when (>= (window-total-width editor-win)
-                      my/workspace-min-width-for-outline)
-              (setq imenu-list-size (my/workspace--target-outline-width))
-              (imenu-list-minor-mode 1)
-              (my/workspace--apply-outline-width))))
+            (when (< (window-total-width editor-win)
+                     my/workspace-min-width-for-outline)
+              (message "org-seq: frame is narrow; opening outline anyway"))
+            (my/workspace-open-outline)))
 
-        ;; Step 3: terminal lives under the center editor column, leaving the
-        ;; right column for structure/navigation instead of command output.
-        (let ((editor-win (car (my/workspace--non-sidebar-windows))))
-          (when (and editor-win (>= (window-total-height editor-win) 22))
-            (select-window editor-win)
-            (let* ((term-rows (my/workspace--target-terminal-height editor-win))
-                   (term-win (split-window editor-win
-                                            (- (window-total-height editor-win)
-                                               term-rows)
-                                            'below)))
+        ;; Step 3: terminal lives under the right outline column.  Its working
+        ;; directory follows the current main editor buffer's file directory.
+        (let* ((editor-dir (my/workspace--editor-directory))
+               (outline-win (my/workspace--outline-window))
+               (base-win (or outline-win (car (my/workspace--non-sidebar-windows)))))
+          (when (and base-win (>= (window-total-height base-win) 16))
+            (select-window base-win)
+            (let* ((term-rows (my/workspace--target-terminal-height base-win))
+                   (term-win (let ((window-size-fixed nil))
+                               (split-window base-win
+                                             (- (window-total-height base-win)
+                                                term-rows)
+                                             'below))))
               (select-window term-win)
-              (my/workspace-open-terminal))))
+              (my/workspace-open-terminal editor-dir))))
 
         ;; Step 4: focus back to main editor, show dashboard if no file is open.
         (my/workspace--set-layout-kind 'editing)
         (my/workspace-rebalance)
+        (my/workspace--schedule-auto-reveal)
         (let ((editor-win (car (my/workspace--non-sidebar-windows))))
           (when editor-win
             (select-window editor-win)
@@ -660,20 +804,30 @@ does not break other hooks or leave the frame empty."
   (my/workspace--apply-outline-width))
 
 (defun my/workspace-toggle-terminal ()
-  "Toggle NoteHQ terminal. When opening, split below the current window."
+  "Toggle NoteHQ terminal.
+
+When the outline column is visible, open the terminal below it; otherwise split
+the main editor window.  The terminal working directory follows the current
+main editor buffer's file directory."
   (interactive)
   (let ((term-buf (get-buffer "*NoteHQ-term*")))
     (if (and term-buf (get-buffer-window term-buf))
         (delete-window (get-buffer-window term-buf))
-      (let* ((base-win (or (my/workspace--main-window) (selected-window)))
+      (let* ((editor-dir (my/workspace--editor-directory))
+             (base-win (or (my/workspace--outline-window)
+                           (my/workspace--main-window)
+                           (selected-window)))
              (term-rows (my/workspace--target-terminal-height base-win))
-             (win (split-window base-win
-                                (- (window-total-height base-win) term-rows)
-                                'below)))
+             (win (let ((window-size-fixed nil))
+                    (split-window base-win
+                                  (- (window-total-height base-win) term-rows)
+                                  'below))))
         (select-window win)
         (if term-buf
-            (switch-to-buffer term-buf)
-          (my/workspace-open-terminal))
+            (progn
+              (switch-to-buffer term-buf)
+              (my/workspace--terminal-set-directory term-buf editor-dir))
+          (my/workspace-open-terminal editor-dir))
         (my/workspace--apply-terminal-height)))))
 
 ;; Startup: lightweight layout (treemacs sidebar + dashboard, no terminal)

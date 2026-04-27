@@ -73,6 +73,65 @@
 ;; ht: hash-table library required by org-supertag
 (use-package ht :ensure t)
 
+(defun my/supertag--patch-file (file replacements)
+  "Apply literal REPLACEMENTS to FILE when the old text is present.
+Return non-nil if FILE was changed."
+  (when (file-readable-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (let ((changed nil))
+        (dolist (replacement replacements)
+          (goto-char (point-min))
+          (when (search-forward (car replacement) nil t)
+            (replace-match (cdr replacement) t t)
+            (setq changed t)))
+        (when changed
+          (write-region (point-min) (point-max) file nil 'silent)
+          (let ((elc (concat file "c")))
+            (when (file-exists-p elc)
+              (delete-file elc))))
+        changed))))
+
+(defun my/supertag-apply-compat-patches ()
+  "Patch known org-supertag upstream byte-compile errors.
+The fixes are intentionally tiny and only apply when exact old source
+patterns are still present.  They can be removed once upstream ships the
+same fixes."
+  (when-let* ((main (locate-library "org-supertag"))
+              (dir (file-name-directory main)))
+    (let ((patched nil))
+      (setq patched
+            (or (my/supertag--patch-file
+                 (expand-file-name "supertag-services-capture.el" dir)
+                 '(("(mapconcat (lambda (t) (concat \"#\" t))"
+                    . "(mapconcat (lambda (tag) (concat \"#\" tag))")))
+                patched))
+      (setq patched
+            (or (my/supertag--patch-file
+                 (expand-file-name "supertag-view-framework.el" dir)
+                 '(("(list :type :list :items (\"Task A\" \"Task B\" \"Task C\"))"
+                    . "(list :type :list :items (list \"Task A\" \"Task B\" \"Task C\"))")))
+                patched))
+      (setq patched
+            (or (my/supertag--patch-file
+                 (expand-file-name "supertag-view-effort-distribution.el" dir)
+                 (list
+                  (cons (concat "        (dolist (t node-tags)\n"
+                                "          (when (and (stringp t) (not (equal t tag-name)))\n"
+                                "            (let ((entry (assoc t tag-groups)))\n"
+                                "              (if entry\n"
+                                "                  (setcdr entry (+ (cdr entry) effort))\n"
+                                "                (push (cons t effort) tag-groups)))))))")
+                        (concat "        (dolist (tag node-tags)\n"
+                                "          (when (and (stringp tag) (not (equal tag tag-name)))\n"
+                                "            (let ((entry (assoc tag tag-groups)))\n"
+                                "              (if entry\n"
+                                "                  (setcdr entry (+ (cdr entry) effort))\n"
+                                "                (push (cons tag effort) tag-groups)))))))"))))
+                patched))
+      (when patched
+        (message "org-seq: applied org-supertag Emacs 30 compatibility patches")))))
+
 ;; Bootstrap org-supertag from GitHub (not on MELPA).  Works on Emacs 29+
 ;; via package-vc-install.  The condition-case prevents an offline first
 ;; boot from killing init.el; the deferred warning below tells the user
@@ -85,6 +144,8 @@
       (error
        (setq my/supertag-install-error err)
        (message "WARNING org-seq: failed to install org-supertag: %s" err)))))
+
+(my/supertag-apply-compat-patches)
 
 ;; WORKAROUND for org-supertag recursive load: preload the low-level
 ;; modules that the top-level org-supertag.el requires, so they are

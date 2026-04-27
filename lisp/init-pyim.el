@@ -14,6 +14,37 @@
 ;; Toggle input method: C-\
 ;; Force-convert word at point: M-j
 
+(defvar pyim-cloudim)
+(defvar pyim-default-scheme)
+(defvar pyim-dicts nil)
+(defvar pyim-page-length)
+(defvar pyim-page-tooltip)
+(defvar pyim-pinyin-fuzzy-alist)
+(defvar sis-other-cursor-color)
+
+(declare-function pyim-basedict-enable "pyim-basedict")
+(declare-function pyim-isearch-mode "pyim")
+(declare-function pyim-restart-1 "pyim")
+(declare-function sis-global-cursor-color-mode "sis")
+(declare-function sis-global-respect-mode "sis")
+(declare-function sis-ism-lazyman-config "sis")
+
+(defcustom my/pyim-rime-frost-dict-file
+  (expand-file-name "pyim/rime-frost.pyim" user-emacs-directory)
+  "Converted rime-frost dictionary file used by pyim.
+
+Generate this file with scripts/update-rime-frost-pyim.ps1.  When the
+file is readable, org-seq registers it ahead of pyim-basedict."
+  :type 'file
+  :group 'org-seq)
+
+(defun my/pyim-register-rime-frost-dict ()
+  "Register the converted rime-frost dictionary when it exists."
+  (let* ((dict-file (expand-file-name my/pyim-rime-frost-dict-file))
+         (entry `(:name "rime-frost" :file ,dict-file)))
+    (when (file-readable-p dict-file)
+      (setq pyim-dicts (cons entry (delete entry pyim-dicts))))))
+
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Core package: pyim
 ;; ═══════════════════════════════════════════════════════════════════════════
@@ -48,6 +79,9 @@
               (t                           'minibuffer)))
 
   :config
+  ;; Load the optional converted rime-frost dictionary if it is present.
+  (my/pyim-register-rime-frost-dict)
+
   ;; Enable pinyin-aware isearch so you can search Chinese with pinyin.
   (pyim-isearch-mode 1)
 
@@ -87,7 +121,9 @@
 (use-package pyim-basedict
   :after pyim
   :config
-  (pyim-basedict-enable))
+  (pyim-basedict-enable)
+  ;; Keep rime-frost first if basedict added itself after pyim loaded.
+  (my/pyim-register-rime-frost-dict))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Input source state management: sis

@@ -146,6 +146,12 @@ deploy_config() {
         pass "packages/ ($pkg_count elisp files)"
     fi
 
+    if [[ -f "$SCRIPT_DIR/pyim/rime-frost.pyim" ]]; then
+        mkdir -p "$TARGET/pyim"
+        cp -f "$SCRIPT_DIR/pyim/rime-frost.pyim" "$TARGET/pyim/"
+        pass "pyim/rime-frost.pyim"
+    fi
+
     # Restore custom.el from latest backup if needed
     local latest_backup
     latest_backup="$(ls -dt "${TARGET}.backup-"* 2>/dev/null | head -1)"

@@ -2,6 +2,7 @@
 
 ;; Requires: init-completion (corfu provides the in-buffer popup UI used by
 ;; every language backend registered here).
+;; Requires: init-python (my/python-command)
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; ESS: R as primary, with Julia/SAS/Stata secondary via the same package
@@ -58,15 +59,18 @@
 ;; type-aware).  Install once: `pip install pyright' or `npm i -g pyright'.
 ;; Falls back to pylsp if pyright isn't on PATH.
 
+(defvar my/python-command)
+
 (use-package python
   :ensure nil                              ; built-in
   :mode (("\\.py\\'" . python-mode))
   :custom
   (python-indent-offset 4)
   (python-shell-interpreter
-   (cond ((executable-find "python")  "python")
-         ((executable-find "python3") "python3")
-         (t "python"))))
+   (or my/python-command
+       (cond ((executable-find "python")  "python")
+             ((executable-find "python3") "python3")
+             (t "python")))))
 
 ;; Auto-launch eglot only if an LSP server is actually installed, so users
 ;; without pyright aren't hit with a noisy error on every .py file open.

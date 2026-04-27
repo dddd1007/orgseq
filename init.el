@@ -285,7 +285,7 @@ so byte-compilation and load tests never block on network traffic."
                  (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
-;; Order: UI -> completion -> pyim -> markdown -> languages -> org -> roam
+;; Order: UI -> completion -> pyim -> python -> markdown -> eaf -> languages -> org -> roam
 ;; -> gtd -> focus -> pkm -> supertag -> ai -> dashboard -> dired
 ;; -> workspace -> update -> tty -> evil (last)
 ;; Each require is guarded so a single broken module does not kill the
@@ -324,7 +324,9 @@ so byte-compilation and load tests never block on network traffic."
 (dolist (mod '(init-ui
                init-completion
                init-pyim
+               init-python
                init-markdown
+               init-eaf
                init-languages
                init-org
                init-roam

@@ -51,7 +51,7 @@ These rules apply to `early-init.el`, `init.el`, root helper `.el` files, and `l
 
 The module load order in `init.el` is intentional:
 
-`init-ui -> init-completion -> init-pyim -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-update -> init-tty -> init-evil`
+`init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-eaf -> init-languages -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-update -> init-tty -> init-evil`
 
 When adding a new module:
 
@@ -141,3 +141,4 @@ For `.org` files anywhere in the repo:
 - `review-and-commit`: review `git diff`, stage only intended tracked files, leave local pi/session/untracked state alone unless asked, commit with the existing style, then push.
 - `deploy-config`: prefer `deploy.ps1` or `deploy.sh`.
 - `check-windows-deps`: use the prerequisite checks already implemented in `deploy.ps1`.
+- `update-rime-frost-dict`: run `scripts/update-rime-frost-pyim.ps1`; it requires `git` and Python 3, keeps the upstream checkout in `.cache/rime-frost`, and writes the ignored `pyim/rime-frost.pyim` file that `init-pyim.el` auto-loads when present.

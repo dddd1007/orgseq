@@ -245,7 +245,7 @@ Under `SPC l` the most important sidebar controls are:
 
 | Key | Action |
 |-----|--------|
-| `SPC l l` | Open adaptive workspace |
+| `SPC l l` | Open adaptive workspace: treemacs left, editor center, outline top-right, terminal bottom-right in editor file directory |
 | `SPC l =` | Rebalance adaptive workspace panes |
 | `SPC l F` | Fit and center frame on current monitor |
 | `SPC l t` | Toggle treemacs sidebar |
@@ -254,9 +254,39 @@ Under `SPC l` the most important sidebar controls are:
 | `SPC l r` | Reveal current file in treemacs |
 | `SPC l R` | Reveal current file and focus treemacs |
 | `SPC l T` | Toggle treemacs follow-mode |
+| `SPC l o` | Toggle outline |
+| `SPC l e` | Toggle terminal, preferring bottom-right under outline |
 | `SPC l c` | Collapse all treemacs nodes |
 | `SPC l w` | Set sidebar width |
 | `SPC l W` | Toggle sidebar width lock |
+
+
+### Python runtime selection
+
+`init-python.el` chooses one shared Python for EAF and Python tooling. It prefers a local Anaconda/Miniconda installation (`~/miniconda3`, `~/anaconda3`, common Windows local roots, or `CONDA_PREFIX`). If no conda Python exists and `uv` is available, it creates/uses `~/.emacs.d/.venv/`. As a last fallback it uses `python`/`python3` on PATH. Inspect the choice with `M-x my/python-info`.
+
+### `SPC E` EAF
+
+EAF is optional and installed outside package.el. Run `SPC E i` or `M-x my/eaf-install-or-update` to clone/update EAF and install the configured apps: Markdown Previewer, Browser, PDF Viewer, File Manager, PyQterminal, Image Viewer, Org Previewer, and Video Player. The installer wrapper validates EAF git directories before update, deletes broken app/core directories when git metadata is invalid, installs core Python dependencies with the shared org-seq Python (`my/python-command`), and wraps remaining EAF pip/pip3 calls so dependencies land in conda/uv instead of an unrelated PATH Python.
+
+| Key | Action |
+|-----|--------|
+| `SPC E i` | Install/update EAF and configured apps |
+| `SPC E I` | Show manual install commands |
+| `SPC E c` | Clean broken EAF app directories |
+| `SPC E V` | Validate/delete invalid EAF git directories |
+| `SPC E r` | Reload EAF |
+| `SPC E T` | Re-apply community tuning |
+| `SPC E f` | Open current file with EAF |
+| `SPC E m` | Markdown Previewer |
+| `SPC E o` | Org Previewer |
+| `SPC E b` | Browser |
+| `SPC E p` | PDF Viewer |
+| `SPC E d` | File Manager |
+| `SPC E t` | Terminal (PyQterminal) |
+| `SPC E s` | Stop EAF process |
+
+Community-inspired EAF tuning is applied by `my/eaf-apply-community-tuning`: CJK-aware WebEngine font auto-detection, large-display zoom, browser session restore/autofill, PDF click-to-copy, hidden files off in File Manager, PyQterminal font sizing/theme colors that follow Emacs, 16ms terminal refresh, and LazyCat-style browser/terminal navigation keys.
 
 ### `, ` Local leader (mode-specific)
 
@@ -292,6 +322,7 @@ Under `SPC l` the most important sidebar controls are:
 | Key | Action |
 |-----|--------|
 | `, v` | Toggle live preview |
+| `, V` | EAF Markdown Previewer |
 | `, p` | Preview |
 | `, e` | Export |
 | `, t` | Insert TOC |
@@ -316,22 +347,34 @@ Load order is fixed in `init.el` (see [AGENTS.md](AGENTS.md)).
 |---|--------|---------|
 | 1 | `init-ui.el` | Fonts (CJK mixed), modus-themes, doom-modeline, olivetti |
 | 2 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
-| 3 | `init-pyim.el` | pyim + pyim-basedict + sis respect/cursor integration for Chinese input |
-| 4 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
-| 5 | `init-languages.el` | R/ESS + Python/eglot + Julia/Quarto tooling |
-| 6 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
-| 7 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
-| 8 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
-| 9 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
-| 10 | `init-pkm.el` | org-supertag (install) + org-transclusion + org-ql |
-| 11 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
-| 12 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + claude-code + .orgseq AI config + KB overview |
-| 13 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
-| 14 | `init-dired.el` | Dired + dirvish (modern file manager, sidebar, peek, quick-access) |
-| 15 | `init-workspace.el` | Workspace: treemacs sidebar + imenu-list outline + eshell terminal |
-| 16 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
-| 17 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
-| 18 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
+| 3 | `init-pyim.el` | pyim + pyim-basedict + optional rime-frost import + sis respect/cursor integration for Chinese input |
+| 4 | `init-python.el` | Shared Python runtime selection: local conda first, uv-managed fallback, then PATH |
+| 5 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
+| 6 | `init-eaf.el` | EAF loader/installer + Markdown/Org previewer + browser/file-manager launchers |
+| 7 | `init-languages.el` | R/ESS + Python/eglot + Julia/Quarto tooling |
+| 8 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
+| 9 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
+| 10 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
+| 11 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
+| 12 | `init-pkm.el` | org-supertag (install) + org-transclusion + org-ql |
+| 13 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
+| 14 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + claude-code + .orgseq AI config + KB overview |
+| 15 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
+| 16 | `init-dired.el` | Dired + dirvish (modern file manager, sidebar, peek, quick-access) |
+| 17 | `init-workspace.el` | Workspace: treemacs sidebar + imenu-list outline + eshell terminal |
+| 18 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
+| 19 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
+| 20 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
+
+### Optional pyim rime-frost dictionary
+
+org-seq can use a converted local copy of the rime-frost dictionary as a pyim dictionary. Generate or refresh it with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\update-rime-frost-pyim.ps1
+```
+
+The script requires `git` and Python 3 on `PATH`. It clones or updates `gaboolic/rime-frost` under `.cache/rime-frost`, converts the active Rime dictionary tables into pyim format, and writes `pyim/rime-frost.pyim`. The generated `pyim/` directory is local runtime state and is intentionally ignored by git; `lisp/init-pyim.el` loads the converted dictionary automatically when that file exists. `deploy.ps1` and `deploy.sh` copy this generated dictionary to the deployed `~/.emacs.d/pyim/` when it is present.
 
 ### Bundled subproject: `packages/org-focus-timer/`
 

@@ -178,6 +178,14 @@ function Deploy-Config {
         Write-Pass "packages/ ($pkgCount elisp files)"
     }
 
+    $rimeFrostDict = Join-Path $ScriptDir "pyim\rime-frost.pyim"
+    if (Test-Path $rimeFrostDict) {
+        $pyimDst = Join-Path $Target "pyim"
+        New-Item -ItemType Directory -Force $pyimDst | Out-Null
+        Copy-Item -Force $rimeFrostDict $pyimDst
+        Write-Pass "pyim/rime-frost.pyim"
+    }
+
     $runtimeScripts = @("emacs-server-tray.ps1")
     $scriptsSrc = Join-Path $ScriptDir "scripts"
     $scriptsDst = Join-Path $Target "scripts"

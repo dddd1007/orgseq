@@ -10,6 +10,7 @@
 (defvar markdown-live-preview-mode)
 (defvar markdown-live-preview-buffer)
 (defvar markdown-live-preview-source-buffer)
+(declare-function my/eaf-open-markdown-preview "init-eaf" ())
 
 (defcustom my/markdown-body-width-min 84
   "Minimum visual body width for Markdown buffers."
@@ -160,6 +161,7 @@
    :global-prefix "M-,"
    "" '(nil :wk "markdown")
    "v" '(my/markdown-toggle-live-preview :wk "Toggle live preview")
+   "V" '(my/eaf-open-markdown-preview :wk "EAF preview")
    "p" '(markdown-preview :wk "Preview in browser")
    "e" '(markdown-export :wk "Export")
    "t" '(markdown-toc-generate-toc :wk "Insert TOC")
