@@ -112,7 +112,7 @@ Windows 下载 `.ttf` 文件后右键"安装"即可；macOS 会通过 Font Book 
 git clone <repo-url> ~/CodeProject/org-seq
 cd ~/CodeProject/org-seq
 
-# 2. 运行部署脚本（会备份已有配置）
+# 2. 运行部署脚本（默认会备份已有配置）
 .\deploy.ps1
 
 # 3. 初始化笔记库目录结构
@@ -123,7 +123,19 @@ cd ~/CodeProject/org-seq
 # ./scripts/bootstrap-notes.sh
 ```
 
-部署脚本做的事情不算神秘：检查前置条件是否齐全、把已有的 `~/.emacs.d/` 备份一份（带时间戳，万一你不喜欢随时可以还原）、然后把仓库里的 `early-init.el` / `init.el` / `lisp/` 拷贝到 `~/.emacs.d/` 去。Bootstrap 脚本则负责在你的 home 目录下建出 `~/NoteHQ/` 的完整骨架——Roam 原子笔记层加上 PARA 四层，并同步放入 `AGENTS.md` 这份 NoteHQ/Codex 工作约定。这两个脚本都是幂等的，可以安全地重复运行。
+部署脚本做的事情不算神秘：检查前置条件是否齐全、把已有的 Emacs 配置备份一份（带时间戳，便于回滚）、然后把仓库里的 `early-init.el` / `init.el` / `lisp/` 拷贝到 `~/.emacs.d/` 去。如果你明确不想备份，Windows 使用 `.\deploy.ps1 -NoBackup`，Linux/macOS 使用 `./deploy.sh --no-backup`。Bootstrap 脚本则负责建出 NoteHQ 的完整骨架——Roam 原子笔记层加上 PARA 四层，并同步放入 `AGENTS.md` 这份 NoteHQ/Codex 工作约定。这两个脚本都是幂等的，可以安全地重复运行。
+
+NoteHQ 默认在 `~/NoteHQ/`。如果你想让 Windows、WSL 和 Linux 指向同一个同步目录，请在启动 Emacs 前设置 `ORG_SEQ_NOTE_HOME`：
+
+```bash
+export ORG_SEQ_NOTE_HOME="$HOME/NoteHQ"
+# WSL 使用 Windows 侧目录的例子：
+export ORG_SEQ_NOTE_HOME="/mnt/c/Users/exrld/NoteHQ"
+```
+
+```powershell
+$env:ORG_SEQ_NOTE_HOME = "$HOME\NoteHQ"
+```
 
 ### 2.3 首次启动
 
@@ -1048,15 +1060,15 @@ SPC l l        → 启动完整工作区
 ┌──────────┬────────────────────────┬────────────┐
 │ treemacs │     主编辑区            │  Outline   │
 │ sidebar  │                        │            │
-│          ├────────────────────────┤            │
-│          │      Terminal          │            │
+│          │                        │            │
+│          │                        │            │
 └──────────┴────────────────────────┴────────────┘
 ```
 
 - **treemacs**（左）：稳定的项目/目录树侧边栏。用于浏览 NoteHQ 层级、展开折叠目录、定位当前文件。它负责“树”，而不是完整文件管理。
 - **主编辑区**（中）：你的笔记/代码
 - **Outline**（右）：当前文件的大纲/标题列表，点击可跳转
-- **Terminal**（中下）：内置终端（eshell）
+- **CLI 雷神窗**：按 `SPC '` 从底部唤出终端，`SPC i x` / `SPC i O` / `SPC i K` 分别唤出 Codex、OpenCode、kimi-cli，工作目录固定为 `my/note-home`（默认 `~/NoteHQ/`，可由 `ORG_SEQ_NOTE_HOME` 覆盖）
 
 这个布局会按当前屏幕宽度自动计算比例：小屏优先保住主编辑区，大屏扩大侧栏和 outline 但不会无限铺开。
 
@@ -1068,9 +1080,8 @@ SPC l =        → 按当前窗口尺寸重新平衡比例
 SPC l F        → 让 Emacs frame 适配当前显示器并居中
 SPC l t        → 显示/隐藏 treemacs 侧栏
 SPC l o        → 显示/隐藏 Outline 面板
-SPC l e        → 显示/隐藏终端
 SPC l d        → 切换到 Dashboard
-SPC '          → 快速开关终端（最常用）
+SPC '          → 快速开关终端雷神窗（Windows 使用 pwsh）
 ```
 
 ### 12.4 Dirvish 文件管理
@@ -1080,9 +1091,13 @@ Dirvish 是全屏文件管理器，treemacs 是常驻目录树侧栏。前者适
 ```
 SPC o f        → 全屏 dirvish（当前目录）
 SPC o N        → 全屏 dirvish（NoteHQ 根目录）
+SPC o y        → 底部 yazi 弹窗（当前目录，C-u 从 NoteHQ 开始）
+SPC o Y        → 当前窗口打开 yazi（当前目录，C-u 从 NoteHQ 开始）
 SPC o d        → dired-jump（跳转到当前文件所在目录）
 SPC f j        → 同上（Doom 约定）
 ```
+
+yazi 适合快速浏览和跳转文件。它会使用自己的 `--chooser-file` 和 `--cwd-file` 输出选择结果，所以在 yazi 里确认文件后，Emacs 会直接打开该文件；确认目录后，Emacs 会用 dirvish 打开该目录；只是退出 yazi 时，Emacs 会记住 yazi 最后停留的目录。
 
 在 dirvish / dired buffer 内：
 
@@ -1362,10 +1377,13 @@ org-seq 自动启动名为 `org-seq` 的 Emacs Server。这意味着你可以在
 # Linux/macOS
 ~/.emacs.d/ec                  # 打开新 client frame
 ~/.emacs.d/ec file.org         # 在已运行的 org-seq server 中打开文件
+~/.emacs.d/ec --tty file.org   # 在当前终端里打开 TUI client
+# 或者：ORG_SEQ_CLIENT=tty ~/.emacs.d/ec file.org
 
 # 手动写法
 emacs --daemon=org-seq
 emacsclient -c -n -s org-seq file.org
+emacsclient -t -s org-seq file.org
 ```
 
 Windows 用户可以使用部署后的 `~/.emacs.d/ec.cmd` 或仓库里的 `ec.cmd`。Windows 走 TCP auth 文件：
@@ -1387,7 +1405,7 @@ M-x customize-group RET org-seq RET
 
 | 变量 | 含义 | 默认值 |
 |------|------|--------|
-| `my/note-home` | 笔记总目录 | `~/NoteHQ/` |
+| `my/note-home` | 笔记总目录 | `ORG_SEQ_NOTE_HOME`，未设置时为 `~/NoteHQ/` |
 | `my/roam-dir` | 原子笔记层（org-roam + supertag + AI context 全部指向此处） | `~/NoteHQ/00_Roam/` |
 | `my/orgseq-dir` | 个性化配置目录（.orgseq/） | `~/NoteHQ/.orgseq/` |
 | `my/agenda-cache-ttl` | Agenda 文件缓存过期秒数 | `300` |
@@ -1439,7 +1457,7 @@ M-x customize-group RET org-seq RET
 | `SPC /` | 项目全文搜索 |
 | `SPC TAB` | 切换到上一个 buffer |
 | `SPC RET` | 跳转到书签 |
-| `SPC '` | 开关终端 |
+| `SPC '` | 开关终端雷神窗 |
 
 ### SPC a — 日程与 GTD
 
@@ -1530,6 +1548,9 @@ M-x customize-group RET org-seq RET
 | `SPC i p` | 润色 |
 | `SPC i o` | 知识库概览 |
 | `SPC i g` | 初始化上下文文件 |
+| `SPC i x` | Codex CLI 底部弹窗 |
+| `SPC i O` | OpenCode 底部弹窗 |
+| `SPC i K` | kimi-cli 底部弹窗 |
 | `SPC i C` | Claude Code CLI 菜单 |
 
 ### SPC l — 布局
@@ -1541,7 +1562,6 @@ M-x customize-group RET org-seq RET
 | `SPC l F` | 适配并居中当前 frame |
 | `SPC l t` | 开关 treemacs 侧栏 |
 | `SPC l o` | 开关 Outline |
-| `SPC l e` | 开关终端 |
 | `SPC l d` | Dashboard |
 
 ### SPC n — 笔记
@@ -1629,10 +1649,11 @@ M-x customize-group RET org-seq RET
 
 | 键位 | 功能 |
 |------|------|
-| `SPC o t` | 终端 |
 | `SPC o D` | Dashboard |
 | `SPC o a` | Agenda |
 | `SPC o f` | Dirvish（全屏文件管理） |
+| `SPC o y` | yazi 底部弹窗 |
+| `SPC o Y` | yazi 当前窗口 |
 | `SPC o d` | dired-jump（跳到当前文件目录） |
 | `SPC o j` | dired（选目录打开） |
 | `SPC o N` | Dirvish @ NoteHQ |

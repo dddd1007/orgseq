@@ -6,15 +6,18 @@
     Checks prerequisites, backs up existing config, copies files,
     runs byte-compile verification, and prints post-install steps.
 .PARAMETER Target
-    Target Emacs directory. Defaults to $HOME/.emacs.d
+    Target Emacs directory. Defaults to Emacs' user-emacs-directory.
 .PARAMETER SkipChecks
     Skip prerequisite checks.
+.PARAMETER NoBackup
+    Skip the timestamped backup of the existing target.
 .PARAMETER Force
-    Overwrite without backup prompt.
+    Continue even when required dependency checks fail.
 #>
 param(
-    [string]$Target = "$HOME/.emacs.d",
+    [string]$Target,
     [switch]$SkipChecks,
+    [switch]$NoBackup,
     [switch]$Force
 )
 
@@ -45,6 +48,28 @@ function Find-Emacs {
         }
     }
     return $null
+}
+
+function Resolve-DefaultTarget {
+    $emacsPath = Find-Emacs
+    if ($emacsPath) {
+        try {
+            $expr = '(princ (expand-file-name user-emacs-directory))'
+            $resolved = (& $emacsPath --batch -Q --eval $expr 2>$null | Select-Object -Last 1).ToString().Trim()
+            if ($resolved) {
+                return $resolved
+            }
+        }
+        catch {
+            # Fall through to the platform default below.
+        }
+    }
+
+    if ($env:HOME) {
+        return (Join-Path $env:HOME ".emacs.d")
+    }
+
+    return (Join-Path ([Environment]::GetFolderPath("ApplicationData")) ".emacs.d")
 }
 
 function Test-Prerequisites {
@@ -114,22 +139,15 @@ function Test-Prerequisites {
 function Backup-ExistingConfig {
     if (-not (Test-Path $Target)) { return }
 
-    $hasContent = (Get-ChildItem $Target -File -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0
+    $hasContent = $null -ne (Get-ChildItem $Target -Force -ErrorAction SilentlyContinue | Select-Object -First 1)
     if (-not $hasContent) { return }
 
     Write-Section "Existing config detected"
     Write-Host "  Target: $Target"
 
-    if (-not $Force) {
-        $answer = Read-Host "  Back up existing config before overwriting? [Y/n]"
-        if ($answer -eq "n" -or $answer -eq "N") {
-            $skip = Read-Host "  Continue WITHOUT backup? This will overwrite files. [y/N]"
-            if ($skip -ne "y" -and $skip -ne "Y") {
-                Write-Host "  Aborted." -ForegroundColor Yellow
-                exit 0
-            }
-            return
-        }
+    if ($NoBackup) {
+        Write-Warn "Skipping backup because -NoBackup was specified."
+        return
     }
 
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -450,14 +468,21 @@ function Test-Deployment {
 
 function Write-PostInstall {
     Write-Section "Deployment complete"
+    $noteHome = if ($env:ORG_SEQ_NOTE_HOME) { $env:ORG_SEQ_NOTE_HOME } else { "~/NoteHQ/" }
     Write-Host ""
     Write-Host "  Next steps:" -ForegroundColor White
-    Write-Host "    1. Run:  .\scripts\bootstrap-notes.ps1  (creates ~/NoteHQ/ directory structure)"
+    Write-Host "    1. Run:  .\scripts\bootstrap-notes.ps1  (creates the NoteHQ directory structure)"
     Write-Host "    2. Launch Emacs — packages auto-install on first run (needs internet)"
     Write-Host "    3. Run:  M-x nerd-icons-install-fonts"
     Write-Host "       Then right-click downloaded .ttf files → Install (Windows)"
     Write-Host "    4. Run:  M-x supertag-sync-full-initialize  (first-time supertag index)"
-    Write-Host "    5. Optional: Point Obsidian at ~/NoteHQ/ as reading client"
+    Write-Host "    5. Optional: Point Obsidian at $noteHome as reading client"
+    Write-Host ""
+    Write-Host "  NoteHQ root:" -ForegroundColor DarkGray
+    Write-Host "    ORG_SEQ_NOTE_HOME = $noteHome" -ForegroundColor DarkGray
+    if (-not $env:ORG_SEQ_NOTE_HOME) {
+        Write-Host "    Set ORG_SEQ_NOTE_HOME before launching Emacs to use another notes root." -ForegroundColor DarkGray
+    }
     Write-Host ""
     Write-Host "  Key bindings:" -ForegroundColor DarkGray
     Write-Host "    SPC         → leader menu         SPC a d  → GTD dashboard" -ForegroundColor DarkGray
@@ -469,6 +494,9 @@ function Write-PostInstall {
 # ── Main ──
 
 Write-Host "org-seq deploy" -ForegroundColor White
+if (-not $Target) {
+    $Target = Resolve-DefaultTarget
+}
 Write-Host "Source: $ScriptDir"
 Write-Host "Target: $Target"
 

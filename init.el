@@ -40,25 +40,30 @@
 (defun my/prepend-platform-exec-paths ()
   "Make common GUI-only tool paths visible to Emacs on every OS."
   (let ((dirs (append
-               (when (eq system-type 'windows-nt)
-                 (list (expand-file-name "AppData/Local/Microsoft/WinGet/Links" "~")
-                       (expand-file-name "scoop/shims" "~")
-                       "C:/ProgramData/chocolatey/bin"
-                       "C:/Program Files/Git/usr/bin"))
-               (when (eq system-type 'darwin)
-                 (list "/opt/homebrew/bin"
-                       "/opt/homebrew/sbin"
-                       "/usr/local/bin"
-                       "/usr/local/sbin"
+                (when (eq system-type 'windows-nt)
+                 (list (expand-file-name ".bun/bin" "~")
+                        (expand-file-name ".local/bin" "~")
+                        (expand-file-name "AppData/Roaming/npm" "~")
+                        (expand-file-name "AppData/Local/Microsoft/WinGet/Links" "~")
+                        (expand-file-name "scoop/shims" "~")
+                        "C:/ProgramData/chocolatey/bin"
+                        "C:/Program Files/Git/usr/bin"))
+                (when (eq system-type 'darwin)
+                  (list (expand-file-name ".bun/bin" "~")
+                        "/opt/homebrew/bin"
+                        "/opt/homebrew/sbin"
+                        "/usr/local/bin"
+                        "/usr/local/sbin"
                        "/Library/TeX/texbin"
                        (expand-file-name ".local/bin" "~")
                        (expand-file-name "bin" "~")
                        (expand-file-name ".cargo/bin" "~")
                        (expand-file-name ".ghcup/bin" "~")))
-               (when (eq system-type 'gnu/linux)
-                 (list (expand-file-name ".local/bin" "~")
-                       (expand-file-name "bin" "~")
-                       (expand-file-name ".cargo/bin" "~")
+                (when (eq system-type 'gnu/linux)
+                  (list (expand-file-name ".bun/bin" "~")
+                        (expand-file-name ".local/bin" "~")
+                        (expand-file-name "bin" "~")
+                        (expand-file-name ".cargo/bin" "~")
                        (expand-file-name ".nix-profile/bin" "~")
                        "/run/current-system/sw/bin"
                        "/snap/bin"

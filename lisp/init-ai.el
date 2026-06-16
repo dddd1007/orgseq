@@ -1,9 +1,14 @@
 ;;; init-ai.el --- AI integration via gptel -*- lexical-binding: t; -*-
 
 ;; Requires: init-org (my/note-home, my/orgseq-dir, my/roam-dir)
+(defvar my/note-home)  ; forward-declare from init-org
 (defvar my/orgseq-dir)  ; forward-declare from init-org
 (defvar my/roam-dir)    ; forward-declare from init-org
+(defvar explicit-shell-file-name nil)
 (declare-function package-installed-p "package")
+
+(require 'seq)
+(require 'subr-x)
 
 ;; ---- API key retrieval via auth-source ----
 ;; Store your key in ~/.authinfo (or ~/.authinfo.gpg for encryption):
@@ -514,6 +519,275 @@ and discover unexpected connections.")
 (use-package eat
   :defer t
   :commands (eat-make))
+
+;; ---- CLI popup sessions inside Emacs ----
+;; These are Eat-backed bottom popups, similar to a Linux drop-down terminal.
+;; org-seq owns placement and lifecycle; each CLI owns its TUI behavior.
+
+(define-obsolete-variable-alias
+  'my/opencode-popup-height 'my/cli-popup-height "2026-05-03")
+
+(defcustom my/cli-popup-height 0.38
+  "Height of org-seq's bottom CLI popup windows.
+A float means a fraction of the selected frame height; an integer means rows."
+  :type '(choice (float :tag "Frame fraction")
+                 (integer :tag "Rows"))
+  :group 'org-seq)
+
+(defcustom my/powershell-command "pwsh"
+  "PowerShell executable used by Windows CLI popup wrappers."
+  :type 'string
+  :group 'org-seq)
+
+(defcustom my/powershell-popup-arguments
+  '("-NoLogo" "-NoExit" "-Command")
+  "PowerShell arguments used when wrapping a TUI command in a popup."
+  :type '(repeat string)
+  :group 'org-seq)
+
+(defcustom my/terminal-popup-command
+  (if (eq system-type 'windows-nt)
+      my/powershell-command
+    (or explicit-shell-file-name shell-file-name))
+  "Command used to start the default terminal popup."
+  :type 'string
+  :group 'org-seq)
+
+(defcustom my/terminal-popup-arguments
+  (when (eq system-type 'windows-nt)
+    '("-NoLogo"))
+  "Additional command-line arguments passed to `my/terminal-popup-command'."
+  :type '(repeat string)
+  :group 'org-seq)
+
+(defcustom my/terminal-popup-buffer-name "*NoteHQ-terminal*"
+  "Buffer name for the NoteHQ terminal popup session."
+  :type 'string
+  :group 'org-seq)
+
+(defcustom my/codex-command "codex"
+  "Command used to start the Codex CLI."
+  :type 'string
+  :group 'org-seq)
+
+(defcustom my/codex-arguments nil
+  "Additional command-line arguments passed to `my/codex-command'."
+  :type '(repeat string)
+  :group 'org-seq)
+
+(defcustom my/codex-use-powershell-wrapper (eq system-type 'windows-nt)
+  "When non-nil, launch Codex through PowerShell in org-seq's popup.
+
+This makes the Codex CLI see the same interactive PowerShell PATH and shim
+behavior as a normal local terminal, which is especially helpful for npm
+PowerShell shims such as codex.ps1 on Windows."
+  :type 'boolean
+  :group 'org-seq)
+
+(defcustom my/codex-buffer-name "*NoteHQ-codex*"
+  "Buffer name for the NoteHQ Codex CLI session."
+  :type 'string
+  :group 'org-seq)
+
+(defcustom my/opencode-command "opencode"
+  "Command used to start the OpenCode CLI."
+  :type 'string
+  :group 'org-seq)
+
+(defcustom my/opencode-arguments nil
+  "Additional command-line arguments passed to `my/opencode-command'."
+  :type '(repeat string)
+  :group 'org-seq)
+
+(defcustom my/opencode-buffer-name "*NoteHQ-opencode*"
+  "Buffer name for the NoteHQ OpenCode CLI session."
+  :type 'string
+  :group 'org-seq)
+
+(defcustom my/kimi-cli-command "kimi-cli"
+  "Command used to start kimi-cli."
+  :type 'string
+  :group 'org-seq)
+
+(defcustom my/kimi-cli-arguments nil
+  "Additional command-line arguments passed to `my/kimi-cli-command'."
+  :type '(repeat string)
+  :group 'org-seq)
+
+(defcustom my/kimi-cli-buffer-name "*NoteHQ-kimi*"
+  "Buffer name for the NoteHQ kimi-cli session."
+  :type 'string
+  :group 'org-seq)
+
+(defun my/cli-popup--session-name (buffer-name)
+  "Return the Eat session name derived from BUFFER-NAME."
+  (let ((name (replace-regexp-in-string "\\`\\*+\\|\\*+\\'" ""
+                                        buffer-name)))
+    (if (string-empty-p name) "NoteHQ-cli" name)))
+
+(defun my/cli-popup--buffer-name (buffer-name)
+  "Return the actual Eat buffer name for BUFFER-NAME."
+  (format "*%s*" (my/cli-popup--session-name buffer-name)))
+
+(defun my/cli-popup--resolve-command (command)
+  "Return the executable path for COMMAND."
+  (or (executable-find command)
+      (when (file-executable-p command)
+        command)
+      (user-error "CLI command not found: %s" command)))
+
+(defun my/powershell--quote-argument (argument)
+  "Return ARGUMENT as a single-quoted PowerShell token."
+  (format "'%s'" (replace-regexp-in-string "'" "''" argument t t)))
+
+(defun my/powershell--command-script (command &optional arguments)
+  "Return a PowerShell script that invokes COMMAND with ARGUMENTS."
+  (string-join
+   (cons "&"
+         (mapcar #'my/powershell--quote-argument
+                 (cons (my/cli-popup--resolve-command command) arguments)))
+   " "))
+
+(defun my/codex--popup-command ()
+  "Return the executable used to launch Codex in the popup."
+  (if my/codex-use-powershell-wrapper
+      my/powershell-command
+    my/codex-command))
+
+(defun my/codex--popup-arguments ()
+  "Return the argument list used to launch Codex in the popup."
+  (if my/codex-use-powershell-wrapper
+      (append my/powershell-popup-arguments
+              (list (my/powershell--command-script
+                     my/codex-command my/codex-arguments)))
+    my/codex-arguments))
+
+(defun my/cli-popup--window (buffer-name)
+  "Return the visible CLI popup window for BUFFER-NAME, or nil."
+  (when-let ((buffer (get-buffer (my/cli-popup--buffer-name buffer-name))))
+    (get-buffer-window buffer nil)))
+
+(defun my/cli-popup--directory (&optional directory)
+  "Return DIRECTORY as a truename directory, defaulting to `my/note-home'."
+  (let ((dir (file-name-as-directory
+              (expand-file-name (or directory my/note-home)))))
+    (make-directory dir t)
+    (file-name-as-directory (file-truename dir))))
+
+(defun my/cli-popup--display-buffer (buffer &optional height)
+  "Display BUFFER in a bottom side window and select it.
+HEIGHT defaults to `my/cli-popup-height'."
+  (let ((window (display-buffer
+                 buffer
+                 `((display-buffer-in-side-window)
+                   (side . bottom)
+                   (slot . 1)
+                   (window-height . ,(or height my/cli-popup-height))
+                   (preserve-size . (nil . t))))))
+    (select-window window)
+    window))
+
+(defun my/cli-popup-display-buffer (buffer &optional height)
+  "Display BUFFER in org-seq's bottom CLI popup area.
+HEIGHT defaults to `my/cli-popup-height'."
+  (my/cli-popup--display-buffer buffer height))
+
+(defun my/cli-popup-kill (buffer-name)
+  "Kill the CLI popup session BUFFER-NAME and its running process."
+  (when-let ((buffer (get-buffer (my/cli-popup--buffer-name buffer-name))))
+    (when-let ((process (get-buffer-process buffer)))
+      (delete-process process))
+    (kill-buffer buffer)))
+
+(defun my/cli-popup-open (buffer-name command &optional arguments directory height restart)
+  "Open COMMAND with ARGUMENTS in a bottom popup named BUFFER-NAME.
+DIRECTORY defaults to `my/note-home'.  When RESTART is non-nil, restart the
+existing process first."
+  (require 'eat)
+  (when restart
+    (my/cli-popup-kill buffer-name))
+  (let* ((target-dir (my/cli-popup--directory directory))
+         (resolved-command (my/cli-popup--resolve-command command))
+         (session-name (my/cli-popup--session-name buffer-name))
+         (default-directory target-dir))
+    (let ((buffer (apply #'eat-make session-name resolved-command nil arguments)))
+      (with-current-buffer buffer
+        (setq-local default-directory target-dir))
+      (my/cli-popup--display-buffer buffer height))))
+
+(defun my/cli-popup-toggle (buffer-name command &optional arguments directory height restart)
+  "Toggle a CLI popup named BUFFER-NAME running COMMAND with ARGUMENTS.
+DIRECTORY defaults to `my/note-home'.  When RESTART is non-nil, restart the
+session instead of hiding the visible window."
+  (if-let ((window (and (not restart)
+                       (my/cli-popup--window buffer-name))))
+      (delete-window window)
+    (my/cli-popup-open buffer-name command arguments directory height restart)))
+
+(defun my/terminal-popup-toggle (&optional restart)
+  "Toggle the NoteHQ terminal popup.
+With prefix argument RESTART, kill and recreate the terminal session."
+  (interactive "P")
+  (my/cli-popup-toggle
+   my/terminal-popup-buffer-name
+   my/terminal-popup-command
+   my/terminal-popup-arguments
+   my/note-home
+   my/cli-popup-height
+   restart))
+
+(defun my/codex-popup-toggle (&optional restart)
+  "Toggle the NoteHQ Codex CLI popup.
+With prefix argument RESTART, kill and recreate the Codex session."
+  (interactive "P")
+  (my/cli-popup-toggle
+   my/codex-buffer-name
+   (my/codex--popup-command)
+   (my/codex--popup-arguments)
+   my/note-home
+   my/cli-popup-height
+   restart))
+
+(defun my/opencode-open (&optional restart)
+  "Open OpenCode in a bottom popup rooted at `my/note-home'.
+With prefix argument RESTART, restart the existing OpenCode process first."
+  (interactive "P")
+  (my/cli-popup-open
+   my/opencode-buffer-name
+   my/opencode-command
+   my/opencode-arguments
+   my/note-home
+   my/cli-popup-height
+   restart))
+
+(defun my/opencode-toggle (&optional restart)
+  "Toggle the NoteHQ OpenCode popup.
+With prefix argument RESTART, kill and recreate the OpenCode session."
+  (interactive "P")
+  (my/cli-popup-toggle
+   my/opencode-buffer-name
+   my/opencode-command
+   my/opencode-arguments
+   my/note-home
+   my/cli-popup-height
+   restart))
+
+(defun my/opencode-kill ()
+  "Kill the NoteHQ OpenCode session buffer and its running process."
+  (interactive)
+  (my/cli-popup-kill my/opencode-buffer-name))
+
+(defun my/kimi-cli-popup-toggle (&optional restart)
+  "Toggle the NoteHQ kimi-cli popup.
+With prefix argument RESTART, kill and recreate the kimi-cli session."
+  (interactive "P")
+  (my/cli-popup-toggle
+   my/kimi-cli-buffer-name
+   my/kimi-cli-command
+   my/kimi-cli-arguments
+   my/note-home
+   my/cli-popup-height
+   restart))
 
 ;; inheritenv: required by claude-code, must be installed before it
 (use-package inheritenv :defer t)

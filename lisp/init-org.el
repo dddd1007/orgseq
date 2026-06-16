@@ -39,9 +39,24 @@
 ;; Section 1: Core PKM directory
 ;; ═══════════════════════════════════════════════════════════════════════════
 
-(defcustom my/note-home (let ((dir (expand-file-name "NoteHQ/" "~/")))
-                          (if (file-directory-p dir) (file-truename dir) dir))
+(defun my/note-home--environment-value ()
+  "Return ORG_SEQ_NOTE_HOME when it is set to a non-empty value."
+  (let ((value (getenv "ORG_SEQ_NOTE_HOME")))
+    (when (and value (string-match-p "[^[:space:]]" value))
+      value)))
+
+(defun my/note-home--resolve-default ()
+  "Return the default NoteHQ root for `my/note-home'."
+  (let* ((raw (or (my/note-home--environment-value) "~/NoteHQ/"))
+         (dir (file-name-as-directory
+               (expand-file-name (substitute-in-file-name raw)))))
+    (if (file-directory-p dir) (file-truename dir) dir)))
+
+(defcustom my/note-home (my/note-home--resolve-default)
   "Root directory for all PKM content (Roam atomic layer + PARA layers).
+Defaults to ORG_SEQ_NOTE_HOME when that environment variable is set,
+otherwise `~/NoteHQ/'.
+
 Changing this requires restarting Emacs for derived paths
 \(`my/roam-dir', `my/orgseq-dir') to take effect."
   :type 'directory

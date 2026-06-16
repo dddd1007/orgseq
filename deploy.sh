@@ -4,23 +4,27 @@ set -euo pipefail
 # deploy.sh — Deploy org-seq Emacs configuration to ~/.emacs.d/
 #
 # Usage:
-#   ./deploy.sh                  # interactive deploy
-#   ./deploy.sh --force          # skip backup prompt
+#   ./deploy.sh                  # backup existing config, then deploy
+#   ./deploy.sh --no-backup      # deploy without creating a backup
+#   ./deploy.sh --force          # continue despite failed required checks
 #   ./deploy.sh --skip-checks    # skip prerequisite checks
 #   ./deploy.sh --target DIR     # custom target directory
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET="${HOME}/.emacs.d"
 FORCE=0
+NO_BACKUP=0
 SKIP_CHECKS=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --target)    TARGET="$2"; shift 2 ;;
+        --backup)    NO_BACKUP=0; shift ;;
+        --no-backup) NO_BACKUP=1; shift ;;
         --force)     FORCE=1; shift ;;
         --skip-checks) SKIP_CHECKS=1; shift ;;
         -h|--help)
-            echo "Usage: $0 [--target DIR] [--force] [--skip-checks]"
+            echo "Usage: $0 [--target DIR] [--no-backup] [--force] [--skip-checks]"
             exit 0 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -88,23 +92,16 @@ check_prerequisites() {
 backup_existing() {
     if [[ ! -d "$TARGET" ]]; then return; fi
 
-    local file_count
-    file_count="$(find "$TARGET" -maxdepth 1 -name '*.el' 2>/dev/null | wc -l)"
-    if [[ "$file_count" -eq 0 ]]; then return; fi
+    local first_child
+    first_child="$(find "$TARGET" -mindepth 1 -maxdepth 1 -print -quit)"
+    if [[ -z "$first_child" ]]; then return; fi
 
     section "Existing config detected"
     echo "  Target: $TARGET"
 
-    if [[ "$FORCE" -eq 0 ]]; then
-        read -rp "  Back up existing config before overwriting? [Y/n] " answer
-        if [[ "$answer" == "n" || "$answer" == "N" ]]; then
-            read -rp "  Continue WITHOUT backup? This will overwrite files. [y/N] " skip
-            if [[ "$skip" != "y" && "$skip" != "Y" ]]; then
-                echo "  Aborted."
-                exit 0
-            fi
-            return
-        fi
+    if [[ "$NO_BACKUP" -eq 1 ]]; then
+        warn "Skipping backup because --no-backup was specified."
+        return
     fi
 
     local timestamp
@@ -220,9 +217,10 @@ verify_deployment() {
 
 print_summary() {
     section "Deployment complete"
+    local note_home="${ORG_SEQ_NOTE_HOME:-~/NoteHQ/}"
     echo ""
     echo "  Next steps:"
-    echo "    1. Run:  ./scripts/bootstrap-notes.sh  (creates ~/NoteHQ/ directory structure)"
+    echo "    1. Run:  ./scripts/bootstrap-notes.sh  (creates the NoteHQ directory structure)"
     echo "    2. Launch Emacs — packages auto-install on first run (needs internet)"
     echo "    3. Run:  M-x nerd-icons-install-fonts"
     if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -231,7 +229,13 @@ print_summary() {
         echo "       Then right-click downloaded .ttf files → Install (Windows)"
     fi
     echo "    4. Run:  M-x supertag-sync-full-initialize  (first-time supertag index)"
-    echo "    5. Optional: Point Obsidian at ~/NoteHQ/ as reading client"
+    echo "    5. Optional: Point Obsidian at $note_home as reading client"
+    echo ""
+    echo "  NoteHQ root:"
+    echo "    ORG_SEQ_NOTE_HOME = $note_home"
+    if [[ -z "${ORG_SEQ_NOTE_HOME:-}" ]]; then
+        echo "    Set ORG_SEQ_NOTE_HOME before launching Emacs to use another notes root."
+    fi
     echo ""
     echo "  Key bindings:"
     echo "    SPC         → leader menu         SPC a d  → GTD dashboard"

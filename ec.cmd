@@ -12,9 +12,14 @@ REM   WinGet:    %LOCALAPPDATA%\Microsoft\WinGet\Links
 REM   Scoop:     %USERPROFILE%\scoop\shims
 
 REM Try PATH first, then fall back to the standard install location.
+set "ORG_SEQ_DIR=%~dp0"
+set "ORG_SEQ_SERVER_AUTH=%ORG_SEQ_DIR%server\org-seq"
+if not exist "%ORG_SEQ_SERVER_AUTH%" if exist "%APPDATA%\.emacs.d\server\org-seq" set "ORG_SEQ_SERVER_AUTH=%APPDATA%\.emacs.d\server\org-seq"
+if not exist "%ORG_SEQ_SERVER_AUTH%" set "ORG_SEQ_SERVER_AUTH=%USERPROFILE%\.emacs.d\server\org-seq"
+
 where emacsclientw.exe >nul 2>&1
 if %errorlevel% equ 0 (
-    emacsclientw.exe -c -n -f "%USERPROFILE%\.emacs.d\server\org-seq" %*
+    emacsclientw.exe -c -n -f "%ORG_SEQ_SERVER_AUTH%" %*
 ) else (
-    "C:\Program Files\Emacs\emacs-30.2\bin\emacsclientw.exe" -c -n -f "%USERPROFILE%\.emacs.d\server\org-seq" %*
+    "C:\Program Files\Emacs\emacs-30.2\bin\emacsclientw.exe" -c -n -f "%ORG_SEQ_SERVER_AUTH%" %*
 )

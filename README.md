@@ -12,6 +12,7 @@ Primary target: **Windows, Linux, and macOS**.
 - **ripgrep** (`rg`): recommended for consult-ripgrep
 - **fd**: recommended for consult-find (`fdfind` on Debian/Ubuntu is also supported)
 - **git**: required for magit
+- **yazi**: optional external TUI file picker for `SPC o y` / `SPC o Y`
 - **Fonts** (optional but recommended):
   - [Cascadia Code](https://github.com/microsoft/cascadia-code) (Latin)
   - [LXGW WenKai Mono](https://github.com/lxgw/LxgwWenKai) (CJK)
@@ -36,9 +37,21 @@ Primary target: **Windows, Linux, and macOS**.
    ./deploy.sh
    ```
 
-   Options: `-Force` / `--force`, `-SkipChecks` / `--skip-checks`, `-Target DIR` / `--target DIR`
+   Options: `-NoBackup` / `--no-backup`, `-Force` / `--force`, `-SkipChecks` / `--skip-checks`, `-Target DIR` / `--target DIR`
 
 3. Launch Emacs — packages will auto-install on first run (needs internet).
+
+   NoteHQ defaults to `~/NoteHQ/`. To use a shared or synced directory, set `ORG_SEQ_NOTE_HOME` before launching Emacs:
+
+   ```bash
+   export ORG_SEQ_NOTE_HOME="$HOME/NoteHQ"
+   # WSL example for using a Windows-side directory:
+   export ORG_SEQ_NOTE_HOME="/mnt/c/Users/exrld/NoteHQ"
+   ```
+
+   ```powershell
+   $env:ORG_SEQ_NOTE_HOME = "$HOME\NoteHQ"
+   ```
 
 4. Post-install:
    ```
@@ -80,9 +93,10 @@ Linux/macOS after `./deploy.sh`:
 ```bash
 ~/.emacs.d/ec                 # open a new frame
 ~/.emacs.d/ec path/to/file    # open file in existing server
+~/.emacs.d/ec --tty file.org  # open a terminal client
 ```
 
-The Unix `ec` helper starts `emacs --daemon=org-seq` if the named server is not already running, then connects with `emacsclient -s org-seq`.
+The Unix `ec` helper starts `emacs --daemon=org-seq` if the named server is not already running, then connects with `emacsclient -s org-seq`. Set `ORG_SEQ_CLIENT=tty` to make terminal clients the default for shell aliases.
 
 ### Manual server control
 
@@ -100,6 +114,7 @@ emacsclientw -c -n -f ~/.emacs.d/server/org-seq
 
 ;; Linux/macOS:
 emacsclient -c -n -s org-seq
+emacsclient -t -s org-seq
 ```
 
 ## Key Bindings
@@ -129,7 +144,7 @@ Mouse support follows the same shape as Doom Emacs: keyboard commands remain the
 | `SPC /` | Project-wide search (ripgrep) |
 | `SPC TAB` | Last buffer |
 | `SPC RET` | Jump to bookmark |
-| `SPC '` | Toggle terminal |
+| `SPC '` | Toggle NoteHQ terminal popup |
 
 ### SPC a — Agenda / GTD
 
@@ -218,8 +233,13 @@ Mouse support follows the same shape as Doom Emacs: keyboard commands remain the
 | `SPC i p` | Improve writing |
 | `SPC i o` | Generate KB overview |
 | `SPC i g` | Init AI context files |
+| `SPC i x` | Toggle NoteHQ Codex CLI popup |
+| `SPC i O` | Toggle NoteHQ OpenCode popup |
+| `SPC i K` | Toggle NoteHQ kimi-cli popup |
 
 All AI commands are enriched with your **purpose.org** and **schema.org** context files (stored in `~/NoteHQ/00_Roam/`). Edit these files to customize how the LLM understands your knowledge base — no manual repetition needed.
+
+The CLI popups are Eat-backed bottom windows rooted at `my/note-home` (`~/NoteHQ/` by default, or `ORG_SEQ_NOTE_HOME` when set). `SPC '` opens the default terminal (`pwsh` on Windows), while `SPC i x`, `SPC i O`, and `SPC i K` open Codex, OpenCode, and kimi-cli. On Windows, Codex is launched through `pwsh` by default so PowerShell shims and profile-managed PATH entries behave like a local terminal. Customize `my/cli-popup-height`, `my/powershell-command`, and the relevant `my/*-command` / `my/*-arguments` variables when a machine uses different executable names or options.
 
 ### Other groups
 
@@ -231,8 +251,8 @@ All AI commands are enriched with your **purpose.org** and **schema.org** contex
 | `SPC f` | File (open/recent/save/rename/delete/copy-path) |
 | `SPC g` | Git (status/blame/log/diff) |
 | `SPC h` | Help (function/variable/key/mode/info) |
-| `SPC l` | Layout (workspace/sidebar/outline/terminal/dashboard) |
-| `SPC o` | Open (dirvish/dired/terminal/dashboard/agenda/config) |
+| `SPC l` | Layout (workspace/sidebar/outline/dashboard) |
+| `SPC o` | Open (dirvish/yazi/dired/dashboard/agenda/config) |
 | `SPC f j` | Dired jump (to current file's directory) |
 | `SPC p` | Project (switch/find-file/search/buffer) |
 | `SPC s` | Search (line/ripgrep/imenu/outline/bookmark/replace) |
@@ -245,7 +265,7 @@ Under `SPC l` the most important sidebar controls are:
 
 | Key | Action |
 |-----|--------|
-| `SPC l l` | Open adaptive workspace: treemacs left, editor center, outline top-right, terminal bottom-right in editor file directory |
+| `SPC l l` | Open adaptive workspace: treemacs left, editor center, outline right |
 | `SPC l =` | Rebalance adaptive workspace panes |
 | `SPC l F` | Fit and center frame on current monitor |
 | `SPC l t` | Toggle treemacs sidebar |
@@ -255,10 +275,18 @@ Under `SPC l` the most important sidebar controls are:
 | `SPC l R` | Reveal current file and focus treemacs |
 | `SPC l T` | Toggle treemacs follow-mode |
 | `SPC l o` | Toggle outline |
-| `SPC l e` | Toggle terminal, preferring bottom-right under outline |
 | `SPC l c` | Collapse all treemacs nodes |
 | `SPC l w` | Set sidebar width |
 | `SPC l W` | Toggle sidebar width lock |
+
+Under `SPC o` the file-manager entries are:
+
+| Key | Action |
+|-----|--------|
+| `SPC o f` | Open Dirvish in the current directory |
+| `SPC o N` | Open Dirvish at the NoteHQ root |
+| `SPC o y` | Toggle yazi in a bottom popup |
+| `SPC o Y` | Open yazi in the selected window |
 
 
 ### Python runtime selection
@@ -358,10 +386,10 @@ Load order is fixed in `init.el` (see [AGENTS.md](AGENTS.md)).
 | 11 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
 | 12 | `init-pkm.el` | org-supertag (install) + org-transclusion + org-ql |
 | 13 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
-| 14 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + claude-code + .orgseq AI config + KB overview |
+| 14 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + CLI popups + Claude Code + .orgseq AI config + KB overview |
 | 15 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
-| 16 | `init-dired.el` | Dired + dirvish (modern file manager, sidebar, peek, quick-access) |
-| 17 | `init-workspace.el` | Workspace: treemacs sidebar + imenu-list outline + eshell terminal |
+| 16 | `init-dired.el` | Dired + dirvish + yazi picker (file management, preview, quick-access) |
+| 17 | `init-workspace.el` | Workspace: treemacs sidebar + imenu-list outline |
 | 18 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
 | 19 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
 | 20 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
@@ -386,7 +414,7 @@ See `packages/org-focus-timer/README.md` for the package-level documentation.
 
 ## Notes Directory
 
-Notes live under `~/NoteHQ/`, organized as a Roam + PARA hybrid:
+Notes live under `my/note-home`, which defaults to `~/NoteHQ/` and can be overridden with `ORG_SEQ_NOTE_HOME`. The directory is organized as a Roam + PARA hybrid:
 
 ```
 ~/NoteHQ/

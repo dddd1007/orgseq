@@ -27,6 +27,7 @@ Order is fixed in `init.el` and matters. See `AGENTS.md` for the dependency rati
 - `init-eaf` is optional and sits after Markdown so its Markdown Previewer binding can be added without making Markdown depend on EAF
 - `init-org` defines the path constants and base Org behavior used downstream
 - `init-roam`, `init-gtd`, `init-focus`, `init-pkm`, `init-supertag`, and `init-ai` all build on that foundation
+- `init-ai` defines the CLI popup and Claude Code command entry points before workspace compatibility aliases and leader keys reference them
 - `init-dired` provides the file-manager helpers that `init-workspace` depends on
 - `init-update` runs after the package-config modules it manages
 - `init-evil` loads last because the leader-key map references functions from nearly every earlier module

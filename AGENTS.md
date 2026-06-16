@@ -128,6 +128,8 @@ For `.org` files anywhere in the repo:
 - Keep Org sourced from GNU ELPA rather than relying on the bundled Org.
 - `00_Roam/` is the atomic-note layer; GTD scans `00_Roam/`, `10_Outputs/`, and `20_Practice/`, but not `30_Library/` or `40_Archives/`.
 - Markdown support exists for interoperability, but Markdown files are not part of the org-roam graph.
+- CLI tools such as terminal, Codex, OpenCode, and kimi-cli live in bottom popups rooted at `my/note-home`; do not add them back as permanent workspace panes.
+- Keep yazi as an external TUI picker under `SPC o y` / `SPC o Y`; dirvish remains the native Emacs file manager.
 - `packages/org-focus-timer/` is intentionally bundled for now; keep org-seq-specific behavior in `lisp/init-focus.el`, not inside the package.
 - This is a private, personally operated configuration. Do not spend change budget hardening away intentional personal choices such as automatic package updates, unconfirmed Babel execution, or unpinned GitHub packages unless the user asks.
 - `custom.el` is an explicit user-override layer loaded before modules. Keep loading failures visible, and provide an easy way to inspect the file rather than making its influence implicit.

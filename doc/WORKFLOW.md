@@ -64,7 +64,7 @@ SPC n d c  → 在今日 daily note 中 capture（需要模板时）
 
 ```
 SPC n f    → 找到要编辑的笔记（Deft 全库搜索，最常用的入口）
-SPC l l    → 打开自适应三栏工作区（treemacs 侧栏 + 编辑器 + outline/终端）
+SPC l l    → 打开自适应三栏工作区（treemacs 侧栏 + 编辑器 + outline）
 SPC l =    → 重新按当前窗口尺寸平衡工作区比例
 , s        → 给光标所在任务设置 schedule（计划开始日期）
 , d        → 给光标所在任务设置 deadline（截止日期）
@@ -482,6 +482,10 @@ Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。Zet
 | AI 提问 | `SPC i i` | 发送到 LLM |
 | AI 摘要 | `SPC i s` | 总结笔记 |
 | AI 菜单 | `SPC i m` | 完整 AI 菜单 |
+| 终端雷神窗 | `SPC '` | 从底部唤出 NoteHQ 的终端，Windows 使用 pwsh |
+| Codex CLI | `SPC i x` | 从底部唤出 NoteHQ 的 Codex |
+| OpenCode | `SPC i O` | 从底部唤出 NoteHQ 的 OpenCode |
+| kimi-cli | `SPC i K` | 从底部唤出 NoteHQ 的 kimi-cli |
 
 ### 专注计时器（Vitamin-R 风格）
 
@@ -503,6 +507,8 @@ Dashboard 按天展示彩色时间线（█ flow / ▓ normal / ░ unfocused）
 | 开关侧栏 | `SPC l t` | treemacs（NoteHQ 根目录） |
 | 全屏 dirvish | `SPC o f` | 当前目录 |
 | 打开 NoteHQ | `SPC o N` | 全屏 dirvish 到 NoteHQ 根 |
+| yazi 弹窗 | `SPC o y` | 底部 yazi，适合快速选择文件 |
+| yazi 当前窗口 | `SPC o Y` | 沉浸式 yazi，适合连续浏览目录 |
 | 跳到当前文件目录 | `SPC f j` 或 `SPC o d` | dired-jump |
 | Quick-access 菜单 | 在 dirvish 内按 `a` | 一键跳 00_Roam/capture/daily/dashboards/10_Outputs/20_Practice/30_Library/... |
 | 子目录展开 | 在 dirvish 内按 `TAB` | 在当前行原位展开/折叠 |

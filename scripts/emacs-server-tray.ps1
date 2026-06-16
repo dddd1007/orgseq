@@ -90,7 +90,9 @@ $script:ClientGuiExe  = Join-Path $script:EmacsBinDir "emacsclientw.exe"
 if (-not (Test-Path $script:ClientGuiExe)) {
     $script:ClientGuiExe = $script:ClientExe
 }
-$script:ServerAuthFile = (Join-Path $HOME ".emacs.d/server/$ServerName").Replace('\', '/')
+$script:OrgSeqDir = (Split-Path -Parent $PSScriptRoot)
+$script:OrgSeqDirForEmacs = $script:OrgSeqDir.Replace('\', '/')
+$script:ServerAuthFile = (Join-Path $script:OrgSeqDir "server/$ServerName").Replace('\', '/')
 
 # ── State ──
 
@@ -177,7 +179,7 @@ function Start-EmacsDaemon {
 
     $psi = [System.Diagnostics.ProcessStartInfo]::new()
     $psi.FileName  = $script:EmacsExe
-    $psi.Arguments = "--daemon=$ServerName"
+    $psi.Arguments = "--init-directory=`"$script:OrgSeqDirForEmacs`" --daemon=$ServerName"
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow  = $true
     try {

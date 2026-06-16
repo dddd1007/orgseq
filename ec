@@ -7,6 +7,23 @@
 set -eu
 
 SERVER_NAME="${ORG_SEQ_SERVER_NAME:-org-seq}"
+CLIENT_MODE="${ORG_SEQ_CLIENT:-gui}"
+
+if [ "${1:-}" = "--tty" ]; then
+  CLIENT_MODE="tty"
+  shift
+elif [ "${1:-}" = "--gui" ]; then
+  CLIENT_MODE="gui"
+  shift
+fi
+
+case "$CLIENT_MODE" in
+  gui|tty) ;;
+  *)
+    printf 'org-seq: ORG_SEQ_CLIENT must be "gui" or "tty" (got "%s").\n' "$CLIENT_MODE" >&2
+    exit 1
+    ;;
+esac
 
 find_emacs() {
   if command -v emacs >/dev/null 2>&1; then
@@ -59,6 +76,10 @@ if ! "$EMACSCLIENT" -s "$SERVER_NAME" -e t >/dev/null 2>&1; then
     fi
     sleep 0.1
   done
+fi
+
+if [ "$CLIENT_MODE" = "tty" ]; then
+  exec "$EMACSCLIENT" -t -s "$SERVER_NAME" "$@"
 fi
 
 exec "$EMACSCLIENT" -c -n -s "$SERVER_NAME" "$@"

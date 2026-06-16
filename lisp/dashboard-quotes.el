@@ -121,9 +121,10 @@
     "Tip: SPC b d kills the current buffer. SPC b l opens ibuffer."
     "Tip: winner-mode is on — C-c <left> undoes window layout changes."
     "Tip: SPC e e evals the last sexp. SPC e b evals the whole buffer."
-    "Tip: SPC ' toggles a terminal popup at the bottom."
+    "Tip: SPC ' opens the NoteHQ terminal from the bottom."
     "Tip: SPC a f starts a Vitamin-R-style focus slice at point."
     "Tip: SPC a F opens the focus dashboard with colored timeline bars."
+    "Tip: SPC o y opens yazi as a bottom file picker."
     "Tip: SPC o f opens dirvish, the modern dired-based file manager.")
   "Rotating footer quotes for the startup dashboard.
 Mix of Emacs humor, PKM/GTD sayings, programming aphorisms, classic

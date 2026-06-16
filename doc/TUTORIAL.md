@@ -69,6 +69,18 @@ org-mem 是关键。org-roam 扫描 3000 个节点需要近三分钟，org-mem �
     └── focus-log.org      ← 专注计时历史
 ```
 
+默认根目录是 `~/NoteHQ/`。如果 Windows、WSL 或 Linux 要共用一个同步目录，请在启动 Emacs 前设置 `ORG_SEQ_NOTE_HOME`：
+
+```bash
+export ORG_SEQ_NOTE_HOME="$HOME/NoteHQ"
+# WSL 使用 Windows 侧目录的例子：
+export ORG_SEQ_NOTE_HOME="/mnt/c/Users/exrld/NoteHQ"
+```
+
+```powershell
+$env:ORG_SEQ_NOTE_HOME = "$HOME\NoteHQ"
+```
+
 GTD Agenda 扫描 `00_Roam/`、`10_Outputs/`、`20_Practice/` 三个目录，不扫描 `30_Library/` 和 `40_Archives/`。这个设计有意为之：参考素材和归档内容不应进入任务视图，制造噪音。
 
 ### PARA 的逻辑
@@ -95,9 +107,11 @@ orgseq 以 daemon 模式运行，服务器名称为 `org-seq`。
 
 ```bash
 emacsclient -s org-seq -c
+~/.emacs.d/ec --tty file.org
+ORG_SEQ_CLIENT=tty ~/.emacs.d/ec file.org
 ```
 
-或使用随附的快捷脚本 `~/.emacs.d/ec`，它会在服务器未运行时自动启动 daemon，然后连接。
+或使用随附的快捷脚本 `~/.emacs.d/ec`，它会在服务器未运行时自动启动 daemon，然后连接；`--tty` 或 `ORG_SEQ_CLIENT=tty` 会改用当前终端里的 client。
 
 ### 启动 Dashboard
 
@@ -121,9 +135,8 @@ emacsclient -s org-seq -c
 ┌──────────┬────────────────────────┬────────────┐
 │ treemacs │                        │  outline   │
 │ sidebar  │     主编辑区            │   (~20%)   │
-│ (~15%)   │       (~65%)           ├────────────┤
-│          │                        │  terminal  │
-│          │                        │   (~20%)   │
+│ (~15%)   │       (~65%)           │            │
+│          │                        │            │
 └──────────┴────────────────────────┴────────────┘
 ```
 
@@ -136,12 +149,12 @@ emacsclient -s org-seq -c
 | `SPC l h` | 侧栏聚焦并跳转到 NoteHQ 根目录 |
 | `SPC l r` | 在 treemacs 中定位当前文件 |
 | `SPC l o` | 切换 imenu-list 大纲侧栏 |
-| `SPC l e` 或 `SPC '` | 切换底部 eshell 终端 |
+| `SPC '` | 从底部唤出 NoteHQ 的终端（Windows 使用 pwsh） |
 | `SPC l =` | 重新平衡各栏比例 |
 
-treemacs 侧栏的根目录是 `~/NoteHQ/`。在 treemacs 内，`TAB` 展开/折叠目录节点。
+treemacs 侧栏的根目录是 `my/note-home`（默认 `~/NoteHQ/`，可由 `ORG_SEQ_NOTE_HOME` 覆盖）。在 treemacs 内，`TAB` 展开/折叠目录节点。
 
-如果用 dirvish 浏览文件（`SPC o f` 打开），按 `a` 键弹出快速访问菜单，预设了 NoteHQ 各目录的跳转入口：`n` → NoteHQ 根、`r` → 00_Roam、`c` → capture、`d` → daily、`o` → Outputs、`p` → Practice。
+如果用 dirvish 浏览文件（`SPC o f` 打开），按 `a` 键弹出快速访问菜单，预设了 NoteHQ 各目录的跳转入口：`n` → NoteHQ 根、`r` → 00_Roam、`c` → capture、`d` → daily、`o` → Outputs、`p` → Practice。偏好 yazi 的时候，`SPC o y` 会从底部唤出 yazi，`SPC o Y` 会在当前窗口打开 yazi。
 
 ### 视觉效果
 
@@ -467,6 +480,9 @@ machine openrouter.ai login apikey password sk-or-YOUR-KEY
 | `SPC i c` | 打开独立 AI 对话 buffer |
 | `SPC i a` | 添加文件或 buffer 作为上下文 |
 | `SPC i m` | 打开 gptel 菜单（切换模型、参数、预设） |
+| `SPC i x` | 从底部唤出 NoteHQ 的 Codex CLI |
+| `SPC i O` | 从底部唤出 NoteHQ 的 OpenCode |
+| `SPC i K` | 从底部唤出 NoteHQ 的 kimi-cli |
 | `SPC i C` | 打开 Claude Code CLI Transient 菜单 |
 
 `SPC i o`（知识库概览）收集 org-roam 的统计数据——总节点数、前 15 个高频 tag、最近 10 条笔记标题——发送给 LLM，生成包含四个部分的分析报告：主要知识领域、欠充分的主题、可能的意外关联、建议探索的方向。结果保存到 `00_Roam/overview.org`，带时间戳，覆盖写入。
@@ -487,6 +503,10 @@ machine openrouter.ai login apikey password sk-or-YOUR-KEY
 ### Claude Code
 
 `SPC i C` 打开 Claude Code Transient 菜单，`M-x claude-code` 在当前目录启动 Claude Code CLI 会话（使用 eat 终端模拟器）。适合需要 Claude 直接读写文件、执行代码的场景。
+
+### CLI 雷神窗
+
+`SPC '` 会在底部打开 `*NoteHQ-terminal*`，Windows 上使用 `pwsh`。`SPC i x`、`SPC i O`、`SPC i K` 分别打开 `*NoteHQ-codex*`、`*NoteHQ-opencode*`、`*NoteHQ-kimi*`。这些会话的工作目录都固定为 `my/note-home`，再次按同一个键会把窗口藏起来，会话本身继续留在 buffer 里。Windows 上 Codex 默认经由 `pwsh` 启动，这样 npm 的 PowerShell shim 和 profile 里补充的 PATH 更容易保持一致。
 
 ---
 
@@ -838,7 +858,6 @@ emacsclient -s org-seq -c    ← 连接 daemon，Dashboard 出现
 | `SPC l h` | 侧栏跳到 NoteHQ 根 |
 | `SPC l r` | 在 treemacs 定位当前文件 |
 | `SPC l o` | 切换大纲侧栏 |
-| `SPC l e` | 切换终端 |
 | `SPC l =` | 重新平衡窗口比例 |
 | `SPC l d` | 切换到 Dashboard |
 
@@ -861,7 +880,9 @@ emacsclient -s org-seq -c    ← 连接 daemon，Dashboard 出现
 | `SPC b s` | 保存 buffer |
 | `SPC b d` | 关闭 buffer |
 | `SPC o f` | 打开 dirvish 文件管理 |
-| `SPC '` | 切换终端 |
+| `SPC o y` | 打开 yazi 底部弹窗 |
+| `SPC o Y` | 在当前窗口打开 yazi |
+| `SPC '` | 切换终端底部弹窗 |
 
 ---
 

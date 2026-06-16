@@ -2,6 +2,7 @@
 
 ;; Requires: init-org       (NoteHQ path constants)
 ;; Requires: init-ui        (nerd-icons for file-type icons)
+;; Requires: init-ai        (CLI popup display helper)
 (defvar my/note-home)      ; forward-declare from init-org
 (defvar my/roam-dir)       ; forward-declare from init-org
 (defvar my/outputs-dir)    ; forward-declare from init-org
@@ -14,11 +15,16 @@
 (defvar dirvish-emerge-groups)
 (defvar dirvish-quick-access-entries)
 (defvar dirvish-mode-map)
+(defvar my/cli-popup-height)
 
 (require 'seq)
+(require 'subr-x)
 (require 'dired)
 (require 'dired-x)
 
+(declare-function eat-make "eat" (name program &optional startfile &rest switches))
+(declare-function my/cli-popup--resolve-command "init-ai" (command))
+(declare-function my/cli-popup-display-buffer "init-ai" (buffer &optional height))
 (declare-function dirvish-override-dired-mode "dirvish")
 (declare-function dirvish-emerge-mode "dirvish-emerge")
 (declare-function dirvish-peek-mode "dirvish")
@@ -174,7 +180,169 @@
   :hook (dired-mode . diredfl-mode))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
-;; Section 2: dirvish — modern file manager UI over dired
+;; Section 2: yazi — external TUI picker for quick file jumps
+;; ═══════════════════════════════════════════════════════════════════════════
+;;
+;; Dirvish remains the native Emacs file manager.  Yazi is added as a fast
+;; external picker for the cases where a terminal-first browsing flow is more
+;; ergonomic.  We use yazi's chooser/cwd files instead of scraping terminal
+;; output, so file opening and directory sync stay deterministic.
+
+(defcustom my/yazi-command "yazi"
+  "Command used to start yazi from Emacs."
+  :type 'string
+  :group 'org-seq)
+
+(defcustom my/yazi-popup-buffer-name "*org-seq-yazi*"
+  "Buffer name for the yazi popup session."
+  :type 'string
+  :group 'org-seq)
+
+(defcustom my/yazi-popup-height 0.55
+  "Height of the yazi bottom popup.
+A float means a fraction of the selected frame height; an integer means rows."
+  :type '(choice (float :tag "Frame fraction")
+                 (integer :tag "Rows"))
+  :group 'org-seq)
+
+(defun my/yazi--session-name ()
+  "Return the Eat session name for the yazi buffer."
+  (let ((name (replace-regexp-in-string "\\`\\*+\\|\\*+\\'" ""
+                                        my/yazi-popup-buffer-name)))
+    (if (string-empty-p name) "org-seq-yazi" name)))
+
+(defun my/yazi--buffer ()
+  "Return the yazi session buffer, or nil."
+  (get-buffer (format "*%s*" (my/yazi--session-name))))
+
+(defun my/yazi--window ()
+  "Return the visible yazi window, or nil."
+  (when-let ((buffer (my/yazi--buffer)))
+    (get-buffer-window buffer nil)))
+
+(defun my/yazi--working-directory (&optional directory)
+  "Return a useful yazi start DIRECTORY."
+  (let ((dir (file-name-as-directory
+              (expand-file-name
+               (or directory
+                   (and (derived-mode-p 'dired-mode)
+                        (ignore-errors (dired-current-directory)))
+                   (and buffer-file-name
+                        (file-name-directory buffer-file-name))
+                   default-directory
+                   my/note-home)))))
+    (make-directory dir t)
+    (file-name-as-directory (file-truename dir))))
+
+(defun my/yazi--read-path-file (file)
+  "Read FILE written by yazi and return the first non-empty path."
+  (when (and file (file-exists-p file))
+    (let ((text (with-temp-buffer
+                  (insert-file-contents file)
+                  (buffer-string))))
+      (setq text (replace-regexp-in-string "\0" "" text t t))
+      (setq text (string-trim text))
+      (car (split-string text "[\r\n]+" t)))))
+
+(defun my/yazi--open-path (path)
+  "Open PATH selected from yazi."
+  (let ((target (substitute-in-file-name path)))
+    (cond
+     ((file-directory-p target)
+      (if (fboundp 'dirvish)
+          (dirvish target)
+        (dired target)))
+     ((file-exists-p target)
+      (find-file target))
+     (t
+      (user-error "Yazi target does not exist: %s" target)))))
+
+(defun my/yazi--apply-cwd (cwd-file source-buffer)
+  "Apply yazi's CWD-FILE to SOURCE-BUFFER when possible."
+  (when-let ((cwd (my/yazi--read-path-file cwd-file)))
+    (when (file-directory-p cwd)
+      (let ((dir (file-name-as-directory (file-truename cwd))))
+        (when (buffer-live-p source-buffer)
+          (with-current-buffer source-buffer
+            (setq-local default-directory dir)))
+        dir))))
+
+(defun my/yazi--cleanup-files (&rest files)
+  "Delete temporary FILES."
+  (dolist (file files)
+    (when (and file (file-exists-p file))
+      (delete-file file))))
+
+(defun my/yazi--install-sentinel (process buffer source-window source-buffer
+                                          chooser-file cwd-file old-sentinel)
+  "Install PROCESS sentinel that consumes yazi chooser and cwd files."
+  (set-process-sentinel
+   process
+   (lambda (proc event)
+     (when old-sentinel
+       (funcall old-sentinel proc event))
+     (unless (process-live-p proc)
+       (unwind-protect
+           (let ((choice (my/yazi--read-path-file chooser-file)))
+             (my/yazi--apply-cwd cwd-file source-buffer)
+             (when (buffer-live-p buffer)
+               (kill-buffer buffer))
+             (when (window-live-p source-window)
+               (select-window source-window))
+             (when choice
+               (my/yazi--open-path choice)))
+         (my/yazi--cleanup-files chooser-file cwd-file))))))
+
+(defun my/yazi--start (&optional directory display-kind)
+  "Start yazi in DIRECTORY using DISPLAY-KIND.
+DISPLAY-KIND is either `popup' or `window'."
+  (require 'eat)
+  (when-let ((buffer (my/yazi--buffer)))
+    (unless (process-live-p (get-buffer-process buffer))
+      (kill-buffer buffer)))
+  (let* ((target-dir (my/yazi--working-directory directory))
+         (chooser-file (make-temp-file "org-seq-yazi-choice-"))
+         (cwd-file (make-temp-file "org-seq-yazi-cwd-"))
+         (resolved-command (my/cli-popup--resolve-command my/yazi-command))
+         (source-window (selected-window))
+         (source-buffer (window-buffer source-window))
+         (default-directory target-dir)
+         (arguments (list (format "--chooser-file=%s" chooser-file)
+                          (format "--cwd-file=%s" cwd-file)))
+         (buffer (apply #'eat-make
+                        (my/yazi--session-name)
+                        resolved-command
+                        nil
+                        arguments))
+         (process (get-buffer-process buffer)))
+    (with-current-buffer buffer
+      (setq-local default-directory target-dir))
+    (when process
+      (my/yazi--install-sentinel
+       process buffer source-window source-buffer chooser-file cwd-file
+       (process-sentinel process)))
+    (pcase display-kind
+      ('window (pop-to-buffer-same-window buffer))
+      (_ (my/cli-popup-display-buffer buffer my/yazi-popup-height)))))
+
+(defun my/yazi-popup-toggle (&optional notehq)
+  "Toggle yazi in a bottom popup.
+With prefix argument NOTEHQ, start from `my/note-home' instead of context."
+  (interactive "P")
+  (if-let ((window (and (not notehq) (my/yazi--window))))
+      (delete-window window)
+    (if-let ((buffer (my/yazi--buffer)))
+        (my/cli-popup-display-buffer buffer my/yazi-popup-height)
+      (my/yazi--start (when notehq my/note-home) 'popup))))
+
+(defun my/yazi-open (&optional notehq)
+  "Open yazi in the selected window.
+With prefix argument NOTEHQ, start from `my/note-home' instead of context."
+  (interactive "P")
+  (my/yazi--start (when notehq my/note-home) 'window))
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Section 3: dirvish — modern file manager UI over dired
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
 ;; dirvish complements the treemacs sidebar as the primary full-window file

@@ -76,7 +76,7 @@
     "/"   '(consult-ripgrep :wk "Project search")
     "TAB" '(evil-switch-to-windows-last-buffer :wk "Last buffer")
     "RET" '(bookmark-jump :wk "Jump to bookmark")
-    "'"   '(my/workspace-toggle-terminal :wk "Terminal popup")
+    "'"   '(my/terminal-popup-toggle :wk "Terminal popup")
 
     ;; ── SPC a — Agenda / GTD / Focus ──
     "a"   '(:ignore t :wk "agenda")
@@ -176,6 +176,9 @@
     "ip"  '(my/ai-improve :wk "Improve writing")
     "io"  '(my/ai-overview :wk "KB overview")
     "ig"  '(my/ai--ensure-context-files :wk "Init AI context")
+    "ix"  '(my/codex-popup-toggle :wk "Codex CLI popup")
+    "iO"  '(my/opencode-toggle :wk "OpenCode popup")
+    "iK"  '(my/kimi-cli-popup-toggle :wk "kimi-cli popup")
     "iC"  '(claude-code-transient :wk "Claude Code")
 
     ;; ── SPC l — Layout / workspace ──
@@ -193,7 +196,6 @@
     "lw"  '(my/workspace-sidebar-set-width :wk "Set sidebar width")
     "lW"  '(my/workspace-sidebar-toggle-width-lock :wk "Toggle width lock")
     "lo"  '(my/workspace-toggle-outline :wk "Toggle outline")
-    "le"  '(my/workspace-toggle-terminal :wk "Toggle terminal")
     "ld"  '(my/switch-to-dashboard :wk "Dashboard")
 
     ;; ── SPC n — Notes / org-roam ──
@@ -268,10 +270,11 @@
 
     ;; ── SPC o — Open ──
     "o"   '(:ignore t :wk "open")
-    "ot"  '(my/workspace-toggle-terminal :wk "Terminal")
     "oD"  '(my/switch-to-dashboard :wk "Dashboard")
     "oa"  '(org-agenda :wk "Agenda")
     "of"  '(dirvish :wk "Dirvish (file manager)")
+    "oy"  '(my/yazi-popup-toggle :wk "Yazi popup")
+    "oY"  '(my/yazi-open :wk "Yazi full window")
     "od"  '(dired-jump :wk "Dired (jump to file)")
     "oj"  '(dired :wk "Dired (pick directory)")
     "oe"  '((lambda () (interactive) (find-file user-emacs-directory)) :wk "Config dir")
