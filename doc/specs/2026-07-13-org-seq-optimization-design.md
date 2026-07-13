@@ -96,6 +96,9 @@ subproject must leave the configuration usable and must receive its own focused
 tests before the next one starts.
 
 ### Subproject 1: Core Diagnostics And Verification
+Status: implemented and verified on 2026-07-13, including explicit module and
+dependency readiness audits.
+
 
 #### Module records
 
@@ -159,6 +162,10 @@ Add `scripts/check.ps1` as the canonical Windows validation entry point. It:
 - returns a non-zero process exit code when a required check fails;
 - emits a concise object-based summary of passed, failed, warnings, and cleanup
   state.
+- serializes guarded module failures and non-passing doctor results for
+  object-first PowerShell inspection;
+- supports strict deployed-readiness gates without turning optional tools into
+  required dependencies.
 
 The Bash deployment path retains equivalent documented commands; a separate
 shell runner is added only if repeated Linux/macOS validation shows a need.

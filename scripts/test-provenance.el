@@ -45,4 +45,14 @@
       (should (string-match-p (regexp-quote order)
                               (my/test-provenance--contents path))))))
 
+(ert-deftest my/popup-policy-is-the-only-display-buffer-registry-owner ()
+  (dolist (file (directory-files (expand-file-name "lisp" my/test-provenance-root)
+                                 t "\\`init-.*\\.el\\'"))
+    (unless (equal (file-name-nondirectory file) "init-popup.el")
+      (should-not
+       (string-match-p
+        "display-buffer-alist"
+        (my/test-provenance--contents
+         (file-relative-name file my/test-provenance-root)))))))
+
 ;;; test-provenance.el ends here

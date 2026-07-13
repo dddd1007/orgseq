@@ -334,6 +334,14 @@ so byte-compilation and load tests never block on network traffic."
   "Return module load results in attempted load order."
   (reverse (copy-sequence my/--init-results)))
 
+(defun my/init-failed-modules ()
+  "Return failed module symbols in attempted load order."
+  (let (failed)
+    (dolist (result (my/init-results))
+      (when (eq (plist-get result :status) 'failed)
+        (push (plist-get result :module) failed)))
+    (nreverse failed)))
+
 (defun my/init-errors ()
   "Display modules that failed during org-seq startup."
   (interactive)

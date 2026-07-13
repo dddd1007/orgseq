@@ -5,7 +5,7 @@
 
 (defvar my/--init-errors nil)
 (defvar my/--init-results nil)
-(defvar my/note-home nil)
+(defvar my/note-home)
 (defvar my/terminal-popup-command)
 (defvar my/codex-command)
 (defvar my/opencode-command)

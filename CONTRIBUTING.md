@@ -79,6 +79,8 @@ For Git-hosted packages, use the central inventory and `my/vc-package-ensure`. B
 ## Testing
 
 - **Canonical Windows validation**: `pwsh -NoLogo -NoProfile -File scripts/check.ps1`. It requires PowerShell 7 and Emacs 30+, runs all ERT files, full byte compilation, and batch startup, then removes generated `.elc` files.
+- **Strict deployed-readiness validation**: add `-RequireAllModules -RequireDependencies`. This fails on guarded module errors and required doctor failures; missing optional tools remain warnings.
+- **Network boundary**: neither validation mode installs packages or downloads Ghostel's native module.
 - **Changed-file validation**: byte-compile every edited `.el` file.
 - **Repo-wide validation**: run the full byte-compile pass before commits or after multi-file changes.
 - **Load test**: `emacs -Q --eval "(setq user-emacs-directory default-directory)" -l early-init.el -l init.el` from the repo root.

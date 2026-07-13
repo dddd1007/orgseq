@@ -7,6 +7,9 @@
  (expand-file-name "../lisp/init-doctor.el"
                    (file-name-directory load-file-name)))
 
+(ert-deftest my/doctor-forward-declaration-does-not-prebind-note-home ()
+  (should-not (boundp 'my/note-home)))
+
 (ert-deftest my/doctor-run-preserves-check-order-and-fields ()
   (let ((my/doctor-checks
          '((:id first :label "First" :check my/test-doctor-pass)
@@ -71,13 +74,21 @@
       (should (string-match-p "init-broken" (plist-get payload :detail))))))
 
 (ert-deftest my/doctor-note-home-check-does-not-create-directories ()
-  (let ((my/note-home (expand-file-name "org-seq-doctor-missing"
-                                        temporary-file-directory)))
-    (when (file-exists-p my/note-home)
-      (delete-directory my/note-home t))
-    (let ((payload (my/doctor--check-note-home)))
-      (should (eq (plist-get payload :status) 'warn))
-      (should-not (file-exists-p my/note-home)))))
+  (let* ((path (expand-file-name "org-seq-doctor-missing"
+                                 temporary-file-directory))
+         (was-bound (boundp 'my/note-home))
+         (previous (and was-bound (symbol-value 'my/note-home))))
+    (when (file-exists-p path)
+      (delete-directory path t))
+    (unwind-protect
+        (progn
+          (set 'my/note-home path)
+          (let ((payload (my/doctor--check-note-home)))
+            (should (eq (plist-get payload :status) 'warn))
+            (should-not (file-exists-p path))))
+      (if was-bound
+          (set 'my/note-home previous)
+        (makunbound 'my/note-home)))))
 
 (ert-deftest my/doctor-vc-package-check-reports-missing-inventory ()
   (cl-letf (((symbol-function 'my/vc-package-statuses)

@@ -8,7 +8,11 @@ param(
 
     [switch]$SkipCompile,
 
-    [switch]$SkipStartup
+    [switch]$SkipStartup,
+
+    [switch]$RequireAllModules,
+
+    [switch]$RequireDependencies
 )
 
 $ErrorActionPreference = 'Stop'
@@ -203,13 +207,73 @@ try {
     }
 
     if (-not $SkipStartup) {
+        $startupAudit = @'
+(progn
+  (require 'json)
+  (let* ((failed-modules
+          (vconcat (mapcar #'symbol-name (my/init-failed-modules))))
+         (doctor-issues
+          (vconcat
+           (mapcar
+            (lambda (result)
+              `((id . ,(symbol-name (plist-get result :id)))
+                (status . ,(symbol-name (plist-get result :status)))
+                (detail . ,(plist-get result :detail))))
+            (seq-remove
+             (lambda (result)
+               (or (eq (plist-get result :status) 'pass)
+                   (eq (plist-get result :id) 'module-loads)))
+             (my/doctor-run))))))
+    (princ
+     (json-encode
+      `((modules . ,failed-modules)
+        (doctor . ,doctor-issues))))))
+'@
         $arguments = @(
             '--batch', '-Q',
             '--eval', ('(setq user-emacs-directory "{0}")' -f $repoForElisp),
-            '-l', (Join-Path $RepoRoot 'init.el')
+            '-l', (Join-Path $RepoRoot 'init.el'),
+            '--eval', $startupAudit
         )
         $result = Invoke-OrgSeqNative -FilePath $emacs -Arguments $arguments -Environment $childEnvironment
-        Add-CheckResult -Name 'Batch startup' -Result $result
+        if ($result.ExitCode -eq 0) {
+            $passed.Add('Batch startup')
+            try {
+                $audit = $result.StdOut.Trim() | ConvertFrom-Json -AsHashtable -ErrorAction Stop
+                $failedModules = @($audit.modules | Where-Object { $_ })
+                if ($failedModules.Count -eq 0) {
+                    $passed.Add('Module load audit')
+                }
+                else {
+                    $detail = "Failed modules: $($failedModules -join ', ')"
+                    $warnings.Add("Module load audit: $detail")
+                    if ($RequireAllModules) {
+                        $failed.Add('Module load audit')
+                    }
+                }
+
+                $doctorIssues = @($audit.doctor | Where-Object { $_ })
+                if ($doctorIssues.Count -eq 0) {
+                    $passed.Add('Dependency audit')
+                }
+                else {
+                    $issueSummary = $doctorIssues |
+                        ForEach-Object { '{0}:{1}' -f $_.status, $_.id }
+                    $warnings.Add("Dependency audit: $($issueSummary -join ', ')")
+                    $requiredFailures = @($doctorIssues | Where-Object { $_.status -eq 'fail' })
+                    if ($RequireDependencies -and $requiredFailures.Count -gt 0) {
+                        $failed.Add('Dependency audit')
+                    }
+                }
+            }
+            catch {
+                $failed.Add('Startup audit serialization')
+                $warnings.Add("Startup audit serialization: $($_.Exception.Message)")
+            }
+        }
+        else {
+            Add-CheckResult -Name 'Batch startup' -Result $result
+        }
     }
 }
 catch {

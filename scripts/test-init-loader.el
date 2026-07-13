@@ -56,4 +56,12 @@
                            (my/init-results))
                    '(init-first init-second)))))
 
+(ert-deftest my/init-failed-modules-returns-attempt-order ()
+  (let ((my/--init-results
+         '((:module init-third :status failed :elapsed 0.3 :error third)
+           (:module init-second :status loaded :elapsed 0.2 :error nil)
+           (:module init-first :status failed :elapsed 0.1 :error first))))
+    (should (equal (my/init-failed-modules)
+                   '(init-first init-third)))))
+
 ;;; test-init-loader.el ends here

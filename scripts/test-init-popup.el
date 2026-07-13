@@ -70,4 +70,13 @@
                      0.6)))
       (kill-buffer buffer))))
 
+(ert-deftest my/popup-rules-own-org-roam-placement ()
+  (let ((spec (seq-find (lambda (rule)
+                          (eq (plist-get rule :id) 'org-roam))
+                        my/popup-rules)))
+    (should spec)
+    (should (string-match-p (plist-get spec :matcher) "*org-roam*"))
+    (should (eq (plist-get spec :side) 'right))
+    (should (= (plist-get spec :width) 0.33))))
+
 ;;; test-init-popup.el ends here

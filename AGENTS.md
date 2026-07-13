@@ -89,6 +89,15 @@ pwsh -NoLogo -NoProfile -File scripts/check.ps1
 It requires PowerShell 7 and Emacs 30+, automatically locates standard Windows
 Emacs installations, runs all ERT files, full byte compilation, and batch
 startup, isolates NoteHQ writes, and removes generated `.elc` files.
+The default check keeps absent runtime and optional dependencies as warnings so
+a clean source checkout remains testable without network access. For a deployed
+or release-readiness check, run:
+
+```powershell
+pwsh -NoLogo -NoProfile -File scripts/check.ps1 -RequireAllModules -RequireDependencies
+```
+
+Strict mode fails on guarded module errors and required doctor failures.
 
 - After editing any `.el` file, byte-compile the changed file.
 - Before a commit or after a multi-file refactor, run a full repo byte-compile pass.
