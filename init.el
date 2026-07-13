@@ -290,7 +290,7 @@ so byte-compilation and load tests never block on network traffic."
                  (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
-;; Order: UI -> completion -> pyim -> python -> markdown -> languages -> org -> roam
+;; Order: doctor -> UI -> completion -> pyim -> python -> markdown -> languages -> org -> roam
 ;; -> gtd -> focus -> pkm -> supertag -> terminal -> ai -> dashboard -> dired
 ;; -> workspace -> update -> tty -> evil (last)
 ;; Each require is guarded so a single broken module does not kill the
@@ -298,6 +298,37 @@ so byte-compilation and load tests never block on network traffic."
 ;; details with `M-x my/init-errors'.
 (defvar my/--init-errors nil
   "List of (MODULE . ERROR) pairs for modules that failed to load.")
+
+(defvar my/--init-results nil
+  "Reverse-ordered module load result plists for the current startup.")
+
+(defvar my/init-modules
+  '(init-doctor
+    init-ui
+    init-completion
+    init-pyim
+    init-python
+    init-markdown
+    init-languages
+    init-org
+    init-roam
+    init-gtd
+    init-focus
+    init-pkm
+    init-supertag
+    init-terminal
+    init-ai
+    init-dashboard
+    init-dired
+    init-workspace
+    init-update
+    init-tty
+    init-evil)
+  "Modules loaded by org-seq in dependency order.")
+
+(defun my/init-results ()
+  "Return module load results in attempted load order."
+  (reverse (copy-sequence my/--init-results)))
 
 (defun my/init-errors ()
   "Display modules that failed during org-seq startup."
@@ -318,35 +349,34 @@ so byte-compilation and load tests never block on network traffic."
     (pop-to-buffer buf)))
 
 (defun my/--require-module (module)
-  "Load MODULE, catching errors and recording failures."
-  (condition-case err
-      (require module)
-    (error
-     (push (cons module err) my/--init-errors)
-     (message "WARNING org-seq: failed to load %s: %s (inspect with M-x my/init-errors)"
-              module (error-message-string err)))))
+  "Load MODULE and record its status, elapsed time, and error.
+Return non-nil when MODULE loads successfully."
+  (let ((started (float-time)))
+    (condition-case err
+        (progn
+          (require module)
+          (push (list :module module
+                      :status 'loaded
+                      :elapsed (- (float-time) started)
+                      :error nil)
+                my/--init-results)
+          t)
+      (error
+       (push (cons module err) my/--init-errors)
+       (push (list :module module
+                   :status 'failed
+                   :elapsed (- (float-time) started)
+                   :error err)
+             my/--init-results)
+       (message "WARNING org-seq: failed to load %s: %s (inspect with M-x my/init-errors)"
+                module (error-message-string err))
+       nil))))
 
-(dolist (mod '(init-ui
-               init-completion
-               init-pyim
-               init-python
-               init-markdown
-               init-languages
-               init-org
-               init-roam
-               init-gtd
-               init-focus
-               init-pkm
-               init-supertag
-               init-terminal
-               init-ai
-               init-dashboard
-               init-dired
-               init-workspace
-               init-update
-               init-tty
-               init-evil))
-  (my/--require-module mod))
+(setq my/--init-errors nil
+      my/--init-results nil)
+
+(dolist (module my/init-modules)
+  (my/--require-module module))
 
 (when my/--init-errors
   (run-with-idle-timer

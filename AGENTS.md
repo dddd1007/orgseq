@@ -51,7 +51,7 @@ These rules apply to `early-init.el`, `init.el`, root helper `.el` files, and `l
 
 The module load order in `init.el` is intentional:
 
-`init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-terminal -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-update -> init-tty -> init-evil`
+`init-doctor -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-terminal -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-update -> init-tty -> init-evil`
 
 When adding a new module:
 
@@ -77,6 +77,16 @@ Startup failure visibility:
 ## Validation
 
 Validation is explicit in this repo. Run the checks yourself while working.
+
+The canonical Windows validation entry point is:
+
+```powershell
+pwsh -NoLogo -NoProfile -File scripts/check.ps1
+```
+
+It requires PowerShell 7 and Emacs 30+, automatically locates standard Windows
+Emacs installations, runs all ERT files, full byte compilation, and batch
+startup, isolates NoteHQ writes, and removes generated `.elc` files.
 
 - After editing any `.el` file, byte-compile the changed file.
 - Before a commit or after a multi-file refactor, run a full repo byte-compile pass.

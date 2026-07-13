@@ -15,7 +15,7 @@ Whether you're sending a PR or returning to the codebase later, this is the orie
 ## Module load order
 
 ```
-init-ui  →  init-completion  →  init-pyim  →  init-python  →  init-markdown
+init-doctor  →  init-ui  →  init-completion  →  init-pyim  →  init-python  →  init-markdown
         →  init-languages  →  init-org  →  init-roam  →  init-gtd  →  init-focus  →  init-pkm
         →  init-supertag  →  init-terminal  →  init-ai  →  init-dashboard  →  init-dired
         →  init-workspace  →  init-update  →  init-tty  →  init-evil
@@ -23,6 +23,7 @@ init-ui  →  init-completion  →  init-pyim  →  init-python  →  init-markd
 
 Order is fixed in `init.el` and matters. See `AGENTS.md` for the dependency rationale. The short version:
 
+- `init-doctor` loads first so diagnostics remain available when a later module fails
 - `init-python` selects the shared Python runtime before language tooling needs one
 - `init-org` defines the path constants and base Org behavior used downstream
 - `init-roam`, `init-gtd`, `init-focus`, `init-pkm`, `init-supertag`, and `init-ai` all build on that foundation
@@ -72,6 +73,7 @@ For GitHub-only packages, follow the existing `package-vc-install` bootstrap pat
 
 ## Testing
 
+- **Canonical Windows validation**: `pwsh -NoLogo -NoProfile -File scripts/check.ps1`. It requires PowerShell 7 and Emacs 30+, runs all ERT files, full byte compilation, and batch startup, then removes generated `.elc` files.
 - **Changed-file validation**: byte-compile every edited `.el` file.
 - **Repo-wide validation**: run the full byte-compile pass before commits or after multi-file changes.
 - **Load test**: `emacs -Q --eval "(setq user-emacs-directory default-directory)" -l early-init.el -l init.el` from the repo root.

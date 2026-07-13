@@ -190,8 +190,9 @@ returns nil so the caller can fall back to hardcoded defaults."
       (message "org-seq: AI config loaded from .orgseq/ai-config.org")
       t)))
 
-;; Ensure config file exists on module load (incremental — no-op if present)
-(my/orgseq--ensure-ai-config)
+;; Ensure config exists on interactive module load (incremental -- no-op if present).
+(unless noninteractive
+  (my/orgseq--ensure-ai-config))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: Purpose + Schema persistent context

@@ -43,6 +43,9 @@
         my/archives-dir (expand-file-name "40_Archives/" root)
         my/dashboards-dir (expand-file-name "dashboards/" my/roam-dir)))
 
+(when (file-directory-p my/orgseq-dir)
+  (delete-directory my/orgseq-dir t))
+
 (load-file (expand-file-name "../lisp/init-terminal.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-ai.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-dired.el" (file-name-directory load-file-name)))
@@ -51,6 +54,9 @@
 (unless (featurep 'ghostel)
   (provide 'ghostel))
 
+(ert-deftest my/ai-config-is-not-created-during-noninteractive-load ()
+  (should noninteractive)
+  (should-not (file-exists-p my/orgseq-ai-config)))
 (ert-deftest my/cli-popup-open-displays-before-ghostel-spawn ()
   (let ((events nil)
         (dir (make-temp-file "org-seq-ghostel-dir" t))
