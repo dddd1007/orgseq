@@ -1,0 +1,48 @@
+;;; test-provenance.el --- Completion and provenance checks -*- lexical-binding: t; -*-
+
+(require 'ert)
+(require 'seq)
+
+(defconst my/test-provenance-root
+  (file-name-as-directory
+   (expand-file-name ".." (file-name-directory load-file-name))))
+
+(defun my/test-provenance--contents (path)
+  "Return repository-relative PATH contents."
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name path my/test-provenance-root))
+    (buffer-string)))
+
+(defun my/test-provenance--runtime-modules ()
+  "Read `my/init-modules' from init.el without loading the configuration."
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name "init.el" my/test-provenance-root))
+    (goto-char (point-min))
+    (re-search-forward "^(defvar my/init-modules")
+    (goto-char (match-beginning 0))
+    (cadr (nth 2 (read (current-buffer))))))
+
+(ert-deftest my/provenance-records-donor-boundaries ()
+  (let ((contents (my/test-provenance--contents "THIRD_PARTY.md")))
+    (dolist (required '("Doom Emacs" "MIT"
+                        "Spacemacs" "GPL-3.0"
+                        "LazyVim" "Apache-2.0"
+                        "design-only" "lisp/init-roam.el"))
+      (should (string-match-p (regexp-quote required) contents)))))
+
+(ert-deftest my/runtime-has-no-eaf-module-or-terminal-residue ()
+  (should-not (file-exists-p
+               (expand-file-name "lisp/init-eaf.el" my/test-provenance-root)))
+  (dolist (path '("init.el" "lisp/init-terminal.el" "lisp/init-evil.el"))
+    (let ((contents (downcase (my/test-provenance--contents path))))
+      (should-not (string-match-p "init-eaf\\|pyqterminal" contents)))))
+
+(ert-deftest my/documented-module-order-matches-runtime ()
+  (let ((order (mapconcat #'symbol-name
+                          (my/test-provenance--runtime-modules)
+                          " -> ")))
+    (dolist (path '("AGENTS.md" "skills/org-seq-elisp-maintenance/SKILL.md"))
+      (should (string-match-p (regexp-quote order)
+                              (my/test-provenance--contents path))))))
+
+;;; test-provenance.el ends here

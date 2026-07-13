@@ -238,6 +238,9 @@ Do not silently ignore old names.
 
 ### Subproject 4: Documentation, Provenance, And Completion Audit
 
+Status: provenance inventory, license boundary, EAF residue audit, and module
+order consistency test implemented and verified on 2026-07-13.
+
 Add `THIRD_PARTY.md` containing every directly reused source fragment, upstream
 URL, original license, local file, and adaptation note. Design-only inspiration
 is listed separately from copied code.

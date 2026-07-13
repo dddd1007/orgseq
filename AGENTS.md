@@ -74,6 +74,7 @@ Startup failure visibility:
 - Put Org local-leader bindings in `lisp/init-org.el`.
 - Register Git-hosted package source, owner, and purpose metadata in `lisp/init-packages.el`; keep feature configuration in the owning module.
 - Use `my/vc-package-ensure` for registered Git packages; do not add split Emacs-29/30 bootstrap branches or batch-time network installation.
+- Record copied or closely adapted upstream fragments in `THIRD_PARTY.md` before committing them.
 
 ## Validation
 

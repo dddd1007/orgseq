@@ -100,6 +100,7 @@ org-seq has unusually extensive docs for a personal config. Keep them in sync wh
 
 - **`README.md`** — user-facing key bindings and module table
 - **`AGENTS.md`** — development guidelines and validation workflow
+- **`THIRD_PARTY.md`** — source-level adaptations, design influences, and license boundaries
 - **`doc/CORE_ARCHITECTURE.md`** — bootstrap, package, popup, keymap, startup-delay, and override contracts
 - **`doc/GUIDE.md`** — long-form beginner guide
 - **`doc/WORKFLOW.md`** — daily PKM/GTD workflows

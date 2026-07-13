@@ -449,3 +449,5 @@ The graph is **Org-only** (no md-roam). First-time supertag index: `M-x supertag
 ## License
 
 [MIT](LICENSE)
+
+Source adaptations and design-only influences are recorded in [THIRD_PARTY.md](THIRD_PARTY.md).
