@@ -15,19 +15,19 @@ Whether you're sending a PR or returning to the codebase later, this is the orie
 ## Module load order
 
 ```
-init-ui  →  init-completion  →  init-pyim  →  init-python  →  init-markdown  →  init-eaf
+init-ui  →  init-completion  →  init-pyim  →  init-python  →  init-markdown
         →  init-languages  →  init-org  →  init-roam  →  init-gtd  →  init-focus  →  init-pkm
-        →  init-supertag  →  init-ai  →  init-dashboard  →  init-dired
+        →  init-supertag  →  init-terminal  →  init-ai  →  init-dashboard  →  init-dired
         →  init-workspace  →  init-update  →  init-tty  →  init-evil
 ```
 
 Order is fixed in `init.el` and matters. See `AGENTS.md` for the dependency rationale. The short version:
 
-- `init-python` selects the shared Python runtime before EAF and language tooling need one
-- `init-eaf` is optional and sits after Markdown so its Markdown Previewer binding can be added without making Markdown depend on EAF
+- `init-python` selects the shared Python runtime before language tooling needs one
 - `init-org` defines the path constants and base Org behavior used downstream
 - `init-roam`, `init-gtd`, `init-focus`, `init-pkm`, `init-supertag`, and `init-ai` all build on that foundation
-- `init-ai` defines the CLI popup and Claude Code command entry points before workspace compatibility aliases and leader keys reference them
+- `init-terminal` owns Ghostel popup placement and lifecycle before AI, yazi, and workspace aliases consume it
+- `init-ai` defines the AI CLI and Claude Code command entry points before leader keys reference them
 - `init-dired` provides the file-manager helpers that `init-workspace` depends on
 - `init-update` runs after the package-config modules it manages
 - `init-evil` loads last because the leader-key map references functions from nearly every earlier module

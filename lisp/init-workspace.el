@@ -1,7 +1,7 @@
 ;;; init-workspace.el --- Three-column workspace layout -*- lexical-binding: t; -*-
 
 ;; Requires: init-org   (my/note-home)
-;; Requires: init-ai    (CLI popup commands, legacy terminal alias)
+;; Requires: init-terminal (legacy terminal alias)
 ;; Requires: init-dired (dirvish as general file manager)
 (defvar my/note-home)
 
@@ -16,7 +16,7 @@
 (defvar imenu-list-size)
 (declare-function imenu-list-minor-mode "imenu-list" (&optional arg))
 (declare-function imenu-list-noselect "imenu-list" ())
-(declare-function my/terminal-popup-toggle "init-ai" (&optional restart))
+(declare-function my/terminal-popup-toggle "init-terminal" (&optional restart))
 
 (defcustom my/workspace-startup-delay 0.3
   "Idle delay (seconds) before opening the startup workspace layout.

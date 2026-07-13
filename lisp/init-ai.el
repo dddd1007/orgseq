@@ -1,10 +1,19 @@
 ;;; init-ai.el --- AI integration via gptel -*- lexical-binding: t; -*-
 
 ;; Requires: init-org (my/note-home, my/orgseq-dir, my/roam-dir)
+;; Requires: init-terminal (Ghostel popup lifecycle)
+(defvar claude-code-terminal-backend)
 (defvar my/note-home)  ; forward-declare from init-org
 (defvar my/orgseq-dir)  ; forward-declare from init-org
 (defvar my/roam-dir)    ; forward-declare from init-org
-(defvar explicit-shell-file-name nil)
+(defvar my/cli-popup-height)
+(defvar my/powershell-command)
+(defvar my/powershell-popup-arguments)
+
+(declare-function my/cli-popup--resolve-command "init-terminal" (command))
+(declare-function my/cli-popup-kill "init-terminal" (buffer-name))
+(declare-function my/cli-popup-open "init-terminal" (&rest arguments))
+(declare-function my/cli-popup-toggle "init-terminal" (&rest arguments))
 (declare-function package-installed-p "package")
 
 (require 'seq)
@@ -512,58 +521,8 @@ and discover unexpected connections.")
   (org-babel-do-load-languages 'org-babel-load-languages
                                org-babel-load-languages))
 
-;; ---- claude-code: Claude Code CLI inside Emacs ----
-;; Runs the Claude Code CLI as an interactive terminal session.
-;; Uses eat (Emulate A Terminal) as backend — pure Elisp, works on Windows.
-
-(use-package eat
-  :defer t
-  :commands (eat-make))
-
-;; ---- CLI popup sessions inside Emacs ----
-;; These are Eat-backed bottom popups, similar to a Linux drop-down terminal.
-;; org-seq owns placement and lifecycle; each CLI owns its TUI behavior.
-
-(define-obsolete-variable-alias
-  'my/opencode-popup-height 'my/cli-popup-height "2026-05-03")
-
-(defcustom my/cli-popup-height 0.38
-  "Height of org-seq's bottom CLI popup windows.
-A float means a fraction of the selected frame height; an integer means rows."
-  :type '(choice (float :tag "Frame fraction")
-                 (integer :tag "Rows"))
-  :group 'org-seq)
-
-(defcustom my/powershell-command "pwsh"
-  "PowerShell executable used by Windows CLI popup wrappers."
-  :type 'string
-  :group 'org-seq)
-
-(defcustom my/powershell-popup-arguments
-  '("-NoLogo" "-NoExit" "-Command")
-  "PowerShell arguments used when wrapping a TUI command in a popup."
-  :type '(repeat string)
-  :group 'org-seq)
-
-(defcustom my/terminal-popup-command
-  (if (eq system-type 'windows-nt)
-      my/powershell-command
-    (or explicit-shell-file-name shell-file-name))
-  "Command used to start the default terminal popup."
-  :type 'string
-  :group 'org-seq)
-
-(defcustom my/terminal-popup-arguments
-  (when (eq system-type 'windows-nt)
-    '("-NoLogo"))
-  "Additional command-line arguments passed to `my/terminal-popup-command'."
-  :type '(repeat string)
-  :group 'org-seq)
-
-(defcustom my/terminal-popup-buffer-name "*NoteHQ-terminal*"
-  "Buffer name for the NoteHQ terminal popup session."
-  :type 'string
-  :group 'org-seq)
+;; ---- AI CLI popup sessions inside Emacs ----
+;; `init-terminal' owns Ghostel placement and lifecycle.
 
 (defcustom my/codex-command "codex"
   "Command used to start the Codex CLI."
@@ -619,23 +578,6 @@ PowerShell shims such as codex.ps1 on Windows."
   :type 'string
   :group 'org-seq)
 
-(defun my/cli-popup--session-name (buffer-name)
-  "Return the Eat session name derived from BUFFER-NAME."
-  (let ((name (replace-regexp-in-string "\\`\\*+\\|\\*+\\'" ""
-                                        buffer-name)))
-    (if (string-empty-p name) "NoteHQ-cli" name)))
-
-(defun my/cli-popup--buffer-name (buffer-name)
-  "Return the actual Eat buffer name for BUFFER-NAME."
-  (format "*%s*" (my/cli-popup--session-name buffer-name)))
-
-(defun my/cli-popup--resolve-command (command)
-  "Return the executable path for COMMAND."
-  (or (executable-find command)
-      (when (file-executable-p command)
-        command)
-      (user-error "CLI command not found: %s" command)))
-
 (defun my/powershell--quote-argument (argument)
   "Return ARGUMENT as a single-quoted PowerShell token."
   (format "'%s'" (replace-regexp-in-string "'" "''" argument t t)))
@@ -661,80 +603,6 @@ PowerShell shims such as codex.ps1 on Windows."
               (list (my/powershell--command-script
                      my/codex-command my/codex-arguments)))
     my/codex-arguments))
-
-(defun my/cli-popup--window (buffer-name)
-  "Return the visible CLI popup window for BUFFER-NAME, or nil."
-  (when-let ((buffer (get-buffer (my/cli-popup--buffer-name buffer-name))))
-    (get-buffer-window buffer nil)))
-
-(defun my/cli-popup--directory (&optional directory)
-  "Return DIRECTORY as a truename directory, defaulting to `my/note-home'."
-  (let ((dir (file-name-as-directory
-              (expand-file-name (or directory my/note-home)))))
-    (make-directory dir t)
-    (file-name-as-directory (file-truename dir))))
-
-(defun my/cli-popup--display-buffer (buffer &optional height)
-  "Display BUFFER in a bottom side window and select it.
-HEIGHT defaults to `my/cli-popup-height'."
-  (let ((window (display-buffer
-                 buffer
-                 `((display-buffer-in-side-window)
-                   (side . bottom)
-                   (slot . 1)
-                   (window-height . ,(or height my/cli-popup-height))
-                   (preserve-size . (nil . t))))))
-    (select-window window)
-    window))
-
-(defun my/cli-popup-display-buffer (buffer &optional height)
-  "Display BUFFER in org-seq's bottom CLI popup area.
-HEIGHT defaults to `my/cli-popup-height'."
-  (my/cli-popup--display-buffer buffer height))
-
-(defun my/cli-popup-kill (buffer-name)
-  "Kill the CLI popup session BUFFER-NAME and its running process."
-  (when-let ((buffer (get-buffer (my/cli-popup--buffer-name buffer-name))))
-    (when-let ((process (get-buffer-process buffer)))
-      (delete-process process))
-    (kill-buffer buffer)))
-
-(defun my/cli-popup-open (buffer-name command &optional arguments directory height restart)
-  "Open COMMAND with ARGUMENTS in a bottom popup named BUFFER-NAME.
-DIRECTORY defaults to `my/note-home'.  When RESTART is non-nil, restart the
-existing process first."
-  (require 'eat)
-  (when restart
-    (my/cli-popup-kill buffer-name))
-  (let* ((target-dir (my/cli-popup--directory directory))
-         (resolved-command (my/cli-popup--resolve-command command))
-         (session-name (my/cli-popup--session-name buffer-name))
-         (default-directory target-dir))
-    (let ((buffer (apply #'eat-make session-name resolved-command nil arguments)))
-      (with-current-buffer buffer
-        (setq-local default-directory target-dir))
-      (my/cli-popup--display-buffer buffer height))))
-
-(defun my/cli-popup-toggle (buffer-name command &optional arguments directory height restart)
-  "Toggle a CLI popup named BUFFER-NAME running COMMAND with ARGUMENTS.
-DIRECTORY defaults to `my/note-home'.  When RESTART is non-nil, restart the
-session instead of hiding the visible window."
-  (if-let ((window (and (not restart)
-                       (my/cli-popup--window buffer-name))))
-      (delete-window window)
-    (my/cli-popup-open buffer-name command arguments directory height restart)))
-
-(defun my/terminal-popup-toggle (&optional restart)
-  "Toggle the NoteHQ terminal popup.
-With prefix argument RESTART, kill and recreate the terminal session."
-  (interactive "P")
-  (my/cli-popup-toggle
-   my/terminal-popup-buffer-name
-   my/terminal-popup-command
-   my/terminal-popup-arguments
-   my/note-home
-   my/cli-popup-height
-   restart))
 
 (defun my/codex-popup-toggle (&optional restart)
   "Toggle the NoteHQ Codex CLI popup.
@@ -789,6 +657,9 @@ With prefix argument RESTART, kill and recreate the kimi-cli session."
    my/cli-popup-height
    restart))
 
+;; ---- claude-code: Claude Code CLI inside Emacs ----
+;; Runs Claude Code through its native Ghostel backend.
+
 ;; inheritenv: required by claude-code, must be installed before it
 (use-package inheritenv :defer t)
 
@@ -802,6 +673,8 @@ With prefix argument RESTART, kill and recreate the kimi-cli session."
       (error
        (message "WARNING org-seq: failed to install claude-code: %s" err)))))
 
+(setq claude-code-terminal-backend 'ghostel)
+
 (use-package claude-code
   :if (locate-library "claude-code")
   :defer t
@@ -810,7 +683,6 @@ With prefix argument RESTART, kill and recreate the kimi-cli session."
              claude-code-send-command-with-context
              claude-code-fix-error-at-point)
   :custom
-  (claude-code-terminal-backend 'eat)
   (claude-code-enable-notifications t))
 
 (provide 'init-ai)

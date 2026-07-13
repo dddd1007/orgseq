@@ -2,7 +2,7 @@
 
 ;; Requires: init-org       (NoteHQ path constants)
 ;; Requires: init-ui        (nerd-icons for file-type icons)
-;; Requires: init-ai        (CLI popup display helper)
+;; Requires: init-terminal  (Ghostel popup lifecycle)
 (defvar my/note-home)      ; forward-declare from init-org
 (defvar my/roam-dir)       ; forward-declare from init-org
 (defvar my/outputs-dir)    ; forward-declare from init-org
@@ -15,6 +15,7 @@
 (defvar dirvish-emerge-groups)
 (defvar dirvish-quick-access-entries)
 (defvar dirvish-mode-map)
+(defvar ghostel-exit-functions)
 (defvar my/cli-popup-height)
 
 (require 'seq)
@@ -22,9 +23,9 @@
 (require 'dired)
 (require 'dired-x)
 
-(declare-function eat-make "eat" (name program &optional startfile &rest switches))
-(declare-function my/cli-popup--resolve-command "init-ai" (command))
-(declare-function my/cli-popup-display-buffer "init-ai" (buffer &optional height))
+(declare-function my/cli-popup--buffer-name "init-terminal" (buffer-name))
+(declare-function my/cli-popup-display-buffer "init-terminal" (buffer &optional height))
+(declare-function my/cli-popup-open "init-terminal" (&rest arguments))
 (declare-function dirvish-override-dired-mode "dirvish")
 (declare-function dirvish-emerge-mode "dirvish-emerge")
 (declare-function dirvish-peek-mode "dirvish")
@@ -205,15 +206,9 @@ A float means a fraction of the selected frame height; an integer means rows."
                  (integer :tag "Rows"))
   :group 'org-seq)
 
-(defun my/yazi--session-name ()
-  "Return the Eat session name for the yazi buffer."
-  (let ((name (replace-regexp-in-string "\\`\\*+\\|\\*+\\'" ""
-                                        my/yazi-popup-buffer-name)))
-    (if (string-empty-p name) "org-seq-yazi" name)))
-
 (defun my/yazi--buffer ()
   "Return the yazi session buffer, or nil."
-  (get-buffer (format "*%s*" (my/yazi--session-name))))
+  (get-buffer (my/cli-popup--buffer-name my/yazi-popup-buffer-name)))
 
 (defun my/yazi--window ()
   "Return the visible yazi window, or nil."
@@ -273,57 +268,47 @@ A float means a fraction of the selected frame height; an integer means rows."
     (when (and file (file-exists-p file))
       (delete-file file))))
 
-(defun my/yazi--install-sentinel (process buffer source-window source-buffer
-                                          chooser-file cwd-file old-sentinel)
-  "Install PROCESS sentinel that consumes yazi chooser and cwd files."
-  (set-process-sentinel
-   process
-   (lambda (proc event)
-     (when old-sentinel
-       (funcall old-sentinel proc event))
-     (unless (process-live-p proc)
-       (unwind-protect
-           (let ((choice (my/yazi--read-path-file chooser-file)))
-             (my/yazi--apply-cwd cwd-file source-buffer)
-             (when (buffer-live-p buffer)
-               (kill-buffer buffer))
-             (when (window-live-p source-window)
-               (select-window source-window))
-             (when choice
-               (my/yazi--open-path choice)))
-         (my/yazi--cleanup-files chooser-file cwd-file))))))
+(defun my/yazi--finish (source-window source-buffer chooser-file cwd-file)
+  "Consume yazi result files and restore SOURCE-WINDOW."
+  (unwind-protect
+      (let ((choice (my/yazi--read-path-file chooser-file)))
+        (my/yazi--apply-cwd cwd-file source-buffer)
+        (when (window-live-p source-window)
+          (select-window source-window))
+        (when choice
+          (my/yazi--open-path choice)))
+    (my/yazi--cleanup-files chooser-file cwd-file)))
+
+(defun my/yazi--exit-setup (source-window source-buffer chooser-file cwd-file)
+  "Return a setup function that handles Ghostel exit for yazi."
+  (lambda (buffer)
+    (with-current-buffer buffer
+      (add-hook
+       'ghostel-exit-functions
+       (lambda (_buffer _event)
+         (my/yazi--finish
+          source-window source-buffer chooser-file cwd-file))
+       nil t))))
 
 (defun my/yazi--start (&optional directory display-kind)
   "Start yazi in DIRECTORY using DISPLAY-KIND.
 DISPLAY-KIND is either `popup' or `window'."
-  (require 'eat)
-  (when-let ((buffer (my/yazi--buffer)))
-    (unless (process-live-p (get-buffer-process buffer))
-      (kill-buffer buffer)))
   (let* ((target-dir (my/yazi--working-directory directory))
          (chooser-file (make-temp-file "org-seq-yazi-choice-"))
          (cwd-file (make-temp-file "org-seq-yazi-cwd-"))
-         (resolved-command (my/cli-popup--resolve-command my/yazi-command))
          (source-window (selected-window))
          (source-buffer (window-buffer source-window))
-         (default-directory target-dir)
          (arguments (list (format "--chooser-file=%s" chooser-file)
-                          (format "--cwd-file=%s" cwd-file)))
-         (buffer (apply #'eat-make
-                        (my/yazi--session-name)
-                        resolved-command
-                        nil
-                        arguments))
-         (process (get-buffer-process buffer)))
-    (with-current-buffer buffer
-      (setq-local default-directory target-dir))
-    (when process
-      (my/yazi--install-sentinel
-       process buffer source-window source-buffer chooser-file cwd-file
-       (process-sentinel process)))
-    (pcase display-kind
-      ('window (pop-to-buffer-same-window buffer))
-      (_ (my/cli-popup-display-buffer buffer my/yazi-popup-height)))))
+                          (format "--cwd-file=%s" cwd-file))))
+    (condition-case err
+        (my/cli-popup-open
+         my/yazi-popup-buffer-name my/yazi-command arguments target-dir
+         my/yazi-popup-height t display-kind
+         (my/yazi--exit-setup
+          source-window source-buffer chooser-file cwd-file))
+      (error
+       (my/yazi--cleanup-files chooser-file cwd-file)
+       (signal (car err) (cdr err))))))
 
 (defun my/yazi-popup-toggle (&optional notehq)
   "Toggle yazi in a bottom popup.

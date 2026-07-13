@@ -18,13 +18,19 @@
 (defvar my/powershell-popup-arguments)
 (defvar my/codex-command)
 (defvar my/codex-arguments)
+(defvar claude-code-terminal-backend)
 
 (declare-function my/powershell--quote-argument "init-ai" (argument))
 (declare-function my/powershell--command-script "init-ai" (command &optional arguments))
 (declare-function my/codex--popup-command "init-ai" ())
 (declare-function my/codex--popup-arguments "init-ai" ())
+(declare-function my/cli-popup-open "init-terminal"
+                  (buffer-name command &optional arguments directory height
+                               restart display-kind setup-function))
 (declare-function my/yazi--read-path-file "init-dired" (file))
 (declare-function my/yazi--open-path "init-dired" (path))
+(declare-function my/yazi--exit-setup "init-dired"
+                  (source-window source-buffer chooser-file cwd-file))
 
 (let ((root (file-name-as-directory
              (expand-file-name "org-seq-test-notehq" temporary-file-directory))))
@@ -37,8 +43,63 @@
         my/archives-dir (expand-file-name "40_Archives/" root)
         my/dashboards-dir (expand-file-name "dashboards/" my/roam-dir)))
 
+(load-file (expand-file-name "../lisp/init-terminal.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-ai.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-dired.el" (file-name-directory load-file-name)))
+
+;; Tests stub Ghostel's public functions and do not need its native module.
+(unless (featurep 'ghostel)
+  (provide 'ghostel))
+
+(ert-deftest my/cli-popup-open-displays-before-ghostel-spawn ()
+  (let ((events nil)
+        (dir (make-temp-file "org-seq-ghostel-dir" t))
+        buffer)
+    (unwind-protect
+        (cl-letf (((symbol-function 'my/cli-popup--show-buffer)
+                   (lambda (buf _height _display-kind)
+                     (push (list 'display (buffer-name buf)) events)))
+                  ((symbol-function 'my/cli-popup--resolve-command)
+                   (lambda (_command) "C:/Tools/pwsh.exe"))
+                  ((symbol-function 'ghostel-mode) #'fundamental-mode)
+                  ((symbol-function 'ghostel-exec)
+                   (lambda (buf program &optional arguments)
+                     (push (list 'spawn (buffer-name buf) program arguments
+                                 default-directory)
+                           events))))
+          (setq buffer
+                (my/cli-popup-open
+                 "*NoteHQ-test*" "pwsh" '("-NoLogo") dir 0.4 t))
+          (should (equal (nreverse events)
+                         `((display "*NoteHQ-test*")
+                           (spawn "*NoteHQ-test*" "C:/Tools/pwsh.exe" ("-NoLogo")
+                                  ,(file-name-as-directory
+                                    (file-truename dir))))))
+          (should (eq buffer (get-buffer "*NoteHQ-test*"))))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer))
+      (delete-directory dir t))))
+
+(ert-deftest my/cli-popup-open-runs-setup-before-ghostel-spawn ()
+  (let ((events nil)
+        buffer)
+    (unwind-protect
+        (cl-letf (((symbol-function 'my/cli-popup--show-buffer) #'ignore)
+                  ((symbol-function 'ghostel-mode) #'fundamental-mode)
+                  ((symbol-function 'ghostel-exec)
+                   (lambda (&rest _)
+                     (push 'spawn events))))
+          (setq buffer
+                (my/cli-popup-open
+                 "*NoteHQ-setup-test*" "pwsh" nil temporary-file-directory
+                 nil t nil
+                 (lambda (_buffer) (push 'setup events))))
+          (should (equal (nreverse events) '(setup spawn))))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))))
+
+(ert-deftest my/claude-code-selects-ghostel-backend ()
+  (should (eq claude-code-terminal-backend 'ghostel)))
 
 (ert-deftest my/powershell-quote-argument-uses-single-quote-escaping ()
   (should (equal (my/powershell--quote-argument "C:/Tools/it's/codex.ps1")
@@ -96,5 +157,34 @@
           (my/yazi--open-path dir)
           (should (equal opened (list 'dirvish dir))))
       (delete-directory dir t))))
+
+(ert-deftest my/yazi-ghostel-exit-hook-applies-cwd-and-cleans-files ()
+  (let* ((terminal-buffer (generate-new-buffer " *org-seq-yazi-hook-test*"))
+         (source-buffer (generate-new-buffer " *org-seq-yazi-source-test*"))
+         (target-dir (make-temp-file "org-seq-yazi-cwd" t))
+         (chooser-file (make-temp-file "org-seq-yazi-choice"))
+         (cwd-file (make-temp-file "org-seq-yazi-cwd")))
+    (unwind-protect
+        (progn
+          (with-temp-file cwd-file
+            (insert target-dir "\n"))
+          (funcall
+           (my/yazi--exit-setup
+            nil source-buffer chooser-file cwd-file)
+           terminal-buffer)
+          (with-current-buffer terminal-buffer
+            (run-hook-with-args
+             'ghostel-exit-functions terminal-buffer "finished"))
+          (with-current-buffer source-buffer
+            (should (equal default-directory
+                           (file-name-as-directory
+                            (file-truename target-dir)))))
+          (should-not (file-exists-p chooser-file))
+          (should-not (file-exists-p cwd-file)))
+      (when (buffer-live-p terminal-buffer) (kill-buffer terminal-buffer))
+      (when (buffer-live-p source-buffer) (kill-buffer source-buffer))
+      (when (file-exists-p chooser-file) (delete-file chooser-file))
+      (when (file-exists-p cwd-file) (delete-file cwd-file))
+      (when (file-directory-p target-dir) (delete-directory target-dir t)))))
 
 ;;; test-cli-yazi.el ends here

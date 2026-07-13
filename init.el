@@ -290,8 +290,8 @@ so byte-compilation and load tests never block on network traffic."
                  (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
-;; Order: UI -> completion -> pyim -> python -> markdown -> eaf -> languages -> org -> roam
-;; -> gtd -> focus -> pkm -> supertag -> ai -> dashboard -> dired
+;; Order: UI -> completion -> pyim -> python -> markdown -> languages -> org -> roam
+;; -> gtd -> focus -> pkm -> supertag -> terminal -> ai -> dashboard -> dired
 ;; -> workspace -> update -> tty -> evil (last)
 ;; Each require is guarded so a single broken module does not kill the
 ;; entire config -- the user gets an actionable warning and can inspect
@@ -331,7 +331,6 @@ so byte-compilation and load tests never block on network traffic."
                init-pyim
                init-python
                init-markdown
-               init-eaf
                init-languages
                init-org
                init-roam
@@ -339,6 +338,7 @@ so byte-compilation and load tests never block on network traffic."
                init-focus
                init-pkm
                init-supertag
+               init-terminal
                init-ai
                init-dashboard
                init-dired

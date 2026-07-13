@@ -239,7 +239,7 @@ Mouse support follows the same shape as Doom Emacs: keyboard commands remain the
 
 All AI commands are enriched with your **purpose.org** and **schema.org** context files (stored in `~/NoteHQ/00_Roam/`). Edit these files to customize how the LLM understands your knowledge base — no manual repetition needed.
 
-The CLI popups are Eat-backed bottom windows rooted at `my/note-home` (`~/NoteHQ/` by default, or `ORG_SEQ_NOTE_HOME` when set). `SPC '` opens the default terminal (`pwsh` on Windows), while `SPC i x`, `SPC i O`, and `SPC i K` open Codex, OpenCode, and kimi-cli. On Windows, Codex is launched through `pwsh` by default so PowerShell shims and profile-managed PATH entries behave like a local terminal. Customize `my/cli-popup-height`, `my/powershell-command`, and the relevant `my/*-command` / `my/*-arguments` variables when a machine uses different executable names or options.
+The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom windows rooted at `my/note-home` (`~/NoteHQ/` by default, or `ORG_SEQ_NOTE_HOME` when set). `SPC '` opens the default terminal (`pwsh` on Windows), while `SPC i x`, `SPC i O`, and `SPC i K` open Codex, OpenCode, and kimi-cli. Claude Code also uses its Ghostel backend, and yazi uses the same popup lifecycle. On first use, Ghostel asks before downloading its matching native module; `M-x ghostel-download-module` can trigger that step manually. On Windows, Codex is launched through `pwsh` by default so PowerShell shims and profile-managed PATH entries behave like a local terminal. Customize `my/cli-popup-height`, `my/powershell-command`, and the relevant `my/*-command` / `my/*-arguments` variables when a machine uses different executable names or options.
 
 ### Other groups
 
@@ -291,30 +291,8 @@ Under `SPC o` the file-manager entries are:
 
 ### Python runtime selection
 
-`init-python.el` chooses one shared Python for EAF and Python tooling. It prefers a local Anaconda/Miniconda installation (`~/miniconda3`, `~/anaconda3`, common Windows local roots, or `CONDA_PREFIX`). If no conda Python exists and `uv` is available, it creates/uses `~/.emacs.d/.venv/`. As a last fallback it uses `python`/`python3` on PATH. Inspect the choice with `M-x my/python-info`.
+`init-python.el` chooses one shared Python for Python tooling. It prefers a local Anaconda/Miniconda installation (`~/miniconda3`, `~/anaconda3`, common Windows local roots, or `CONDA_PREFIX`). If no conda Python exists and `uv` is available, it creates/uses `~/.emacs.d/.venv/`. As a last fallback it uses `python`/`python3` on PATH. Inspect the choice with `M-x my/python-info`.
 
-### `SPC E` EAF
-
-EAF is optional and installed outside package.el. Run `SPC E i` or `M-x my/eaf-install-or-update` to clone/update EAF and install the configured apps: Markdown Previewer, Browser, PDF Viewer, File Manager, PyQterminal, Image Viewer, Org Previewer, and Video Player. The installer wrapper validates EAF git directories before update, deletes broken app/core directories when git metadata is invalid, installs core Python dependencies with the shared org-seq Python (`my/python-command`), and wraps remaining EAF pip/pip3 calls so dependencies land in conda/uv instead of an unrelated PATH Python.
-
-| Key | Action |
-|-----|--------|
-| `SPC E i` | Install/update EAF and configured apps |
-| `SPC E I` | Show manual install commands |
-| `SPC E c` | Clean broken EAF app directories |
-| `SPC E V` | Validate/delete invalid EAF git directories |
-| `SPC E r` | Reload EAF |
-| `SPC E T` | Re-apply community tuning |
-| `SPC E f` | Open current file with EAF |
-| `SPC E m` | Markdown Previewer |
-| `SPC E o` | Org Previewer |
-| `SPC E b` | Browser |
-| `SPC E p` | PDF Viewer |
-| `SPC E d` | File Manager |
-| `SPC E t` | Terminal (PyQterminal) |
-| `SPC E s` | Stop EAF process |
-
-Community-inspired EAF tuning is applied by `my/eaf-apply-community-tuning`: CJK-aware WebEngine font auto-detection, large-display zoom, browser session restore/autofill, PDF click-to-copy, hidden files off in File Manager, PyQterminal font sizing/theme colors that follow Emacs, 16ms terminal refresh, and LazyCat-style browser/terminal navigation keys.
 
 ### `, ` Local leader (mode-specific)
 
@@ -350,7 +328,6 @@ Community-inspired EAF tuning is applied by `my/eaf-apply-community-tuning`: CJK
 | Key | Action |
 |-----|--------|
 | `, v` | Toggle live preview |
-| `, V` | EAF Markdown Previewer |
 | `, p` | Preview |
 | `, e` | Export |
 | `, t` | Insert TOC |
@@ -373,26 +350,28 @@ Load order is fixed in `init.el` (see [AGENTS.md](AGENTS.md)).
 
 | # | Module | Purpose |
 |---|--------|---------|
-| 1 | `init-ui.el` | Fonts (CJK mixed), modus-themes, doom-modeline, olivetti |
+| 1 | `init-ui.el` | Fonts (CJK mixed), modus-themes, modusregel mode-line, olivetti |
 | 2 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
 | 3 | `init-pyim.el` | pyim + pyim-basedict + optional rime-frost import + sis respect/cursor integration for Chinese input |
 | 4 | `init-python.el` | Shared Python runtime selection: local conda first, uv-managed fallback, then PATH |
 | 5 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
-| 6 | `init-eaf.el` | EAF loader/installer + Markdown/Org previewer + browser/file-manager launchers |
-| 7 | `init-languages.el` | R/ESS + Python/eglot + Julia/Quarto tooling |
-| 8 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
-| 9 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
-| 10 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
-| 11 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
-| 12 | `init-pkm.el` | org-supertag (install) + org-transclusion + org-ql |
-| 13 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
-| 14 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + CLI popups + Claude Code + .orgseq AI config + KB overview |
+| 6 | `init-languages.el` | R/ESS + Python/eglot + Julia/Quarto tooling |
+| 7 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
+| 8 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
+| 9 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
+| 10 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
+| 11 | `init-pkm.el` | org-supertag (install) + org-transclusion + org-ql |
+| 12 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
+| 13 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
+| 14 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + AI CLI popups + Claude Code + .orgseq AI config + KB overview |
 | 15 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
 | 16 | `init-dired.el` | Dired + dirvish + yazi picker (file management, preview, quick-access) |
 | 17 | `init-workspace.el` | Workspace: treemacs sidebar + imenu-list outline |
 | 18 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
 | 19 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
 | 20 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
+
+`init-ui.el` bootstraps [`modusregel`](https://codeberg.org/jjba23/modusregel) with `package-vc-install` because it is not currently available from ELPA/MELPA. Noninteractive validation skips that network install path and only enables the mode-line when the package is already present.
 
 ### Optional pyim rime-frost dictionary
 

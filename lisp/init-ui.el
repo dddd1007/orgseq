@@ -3,7 +3,24 @@
 (require 'cl-lib)
 (require 'subr-x)
 
+(declare-function package-installed-p "package")
+(declare-function package-vc-install "package-vc")
+
 (defvar modus-themes-org-blocks)
+(defvar modusregel-buffer-modified-str)
+(defvar modusregel-buffer-name-expr)
+(defvar modusregel-buffer-position-expr)
+(defvar modusregel-buffer-read-only-str)
+(defvar modusregel-column-number-str)
+(defvar modusregel-eglot-expr)
+(defvar modusregel-flymake-expr)
+(defvar modusregel-format)
+(defvar modusregel-leading-str)
+(defvar modusregel-line-number-str)
+(defvar modusregel-major-mode-expr)
+(defvar modusregel-remote-expr)
+(defvar modusregel-spacer-str)
+(defvar modusregel-vc-expr)
 
 ;; ---- CJK mixed typesetting ----
 (defvar my/latin-font-candidates
@@ -247,19 +264,68 @@
 (use-package nerd-icons
   :demand t)
 
-;; ---- doom-modeline ----
-(use-package doom-modeline
+;; ---- modusregel mode-line ----
+;; Codeberg-only package; install via package-vc on interactive startup.
+(defvar my/modusregel-install-error nil
+  "Last error encountered while installing modusregel, if any.")
+
+(unless (or (package-installed-p 'modusregel)
+            (locate-library "modusregel"))
+  (if noninteractive
+      (message "org-seq: skipping modusregel bootstrap in noninteractive session")
+    (condition-case err
+        (package-vc-install "https://codeberg.org/jjba23/modusregel.git")
+      (error
+       (setq my/modusregel-install-error err)
+       (message "WARNING org-seq: failed to install modusregel: %s" err)))))
+
+(use-package modusregel
+  :if (locate-library "modusregel")
   :demand t
-  :init (doom-modeline-mode 1)
-  :custom
-  (doom-modeline-height 22)
-  (doom-modeline-bar-width 4)
-  (doom-modeline-icon t)
-  (doom-modeline-major-mode-icon nil)
-  (doom-modeline-minor-modes nil)
-  (doom-modeline-buffer-encoding nil)
-  (doom-modeline-buffer-file-name-style 'truncate-upto-project)
-  (doom-modeline-project-detection 'project))
+  :init
+  (setq modusregel-leading-str " org-seq "
+        modusregel-spacer-str " "
+        modusregel-buffer-modified-str '(:eval (when (buffer-modified-p) " *"))
+        modusregel-buffer-read-only-str '(:eval (when buffer-read-only " RO")))
+  :config
+  ;; Keep org-seq source ASCII-only while preserving the useful indicators.
+  (setq modusregel-remote-expr
+        '(:eval (when (file-remote-p default-directory)
+                  (list modusregel-spacer-str "remote" modusregel-spacer-str)))
+        modusregel-eglot-expr
+        '(:eval (when (bound-and-true-p eglot--managed-mode)
+                  (propertize " LSP" 'help-echo "Eglot LSP active")))
+        modusregel-format
+        (list
+         modusregel-leading-str
+         modusregel-remote-expr
+         modusregel-buffer-name-expr
+         modusregel-buffer-modified-str
+         modusregel-buffer-read-only-str
+         modusregel-spacer-str
+         modusregel-line-number-str
+         modusregel-column-number-str
+         modusregel-spacer-str
+         modusregel-buffer-position-expr
+         modusregel-spacer-str
+         modusregel-vc-expr
+         modusregel-major-mode-expr
+         modusregel-eglot-expr
+         modusregel-spacer-str
+         modusregel-flymake-expr
+         modusregel-spacer-str
+         'mode-line-process
+         'mode-line-misc-info))
+  (setq-default mode-line-format modusregel-format))
+
+(unless (locate-library "modusregel")
+  (run-with-idle-timer
+   3 nil
+   (lambda ()
+     (message "WARNING org-seq: modusregel not found. %sRun M-x package-vc-install RET https://codeberg.org/jjba23/modusregel.git RET"
+              (if my/modusregel-install-error
+                  (format "Last install error: %s. " my/modusregel-install-error)
+                "")))))
 
 ;; ---- valign: pixel-perfect table alignment with variable-width fonts ----
 ;; NOTE: valign hooks into jit-lock for pixel alignment.  The layout helpers

@@ -502,11 +502,11 @@ machine openrouter.ai login apikey password sk-or-YOUR-KEY
 
 ### Claude Code
 
-`SPC i C` 打开 Claude Code Transient 菜单，`M-x claude-code` 在当前目录启动 Claude Code CLI 会话（使用 eat 终端模拟器）。适合需要 Claude 直接读写文件、执行代码的场景。
+`SPC i C` 打开 Claude Code Transient 菜单，`M-x claude-code` 在当前目录启动 Claude Code CLI 会话（使用 Ghostel 终端后端）。适合需要 Claude 直接读写文件、执行代码的场景。
 
 ### CLI 雷神窗
 
-`SPC '` 会在底部打开 `*NoteHQ-terminal*`，Windows 上使用 `pwsh`。`SPC i x`、`SPC i O`、`SPC i K` 分别打开 `*NoteHQ-codex*`、`*NoteHQ-opencode*`、`*NoteHQ-kimi*`。这些会话的工作目录都固定为 `my/note-home`，再次按同一个键会把窗口藏起来，会话本身继续留在 buffer 里。Windows 上 Codex 默认经由 `pwsh` 启动，这样 npm 的 PowerShell shim 和 profile 里补充的 PATH 更容易保持一致。
+`SPC '` 会通过 Ghostel 在底部打开 `*NoteHQ-terminal*`，Windows 上使用 `pwsh`。`SPC i x`、`SPC i O`、`SPC i K` 分别打开 `*NoteHQ-codex*`、`*NoteHQ-opencode*`、`*NoteHQ-kimi*`。这些会话的工作目录都固定为 `my/note-home`，再次按同一个键会把窗口藏起来，会话本身继续留在 buffer 里。Windows 上 Codex 默认经由 `pwsh` 启动，这样 npm 的 PowerShell shim 和 profile 里补充的 PATH 更容易保持一致。
 
 ---
 
