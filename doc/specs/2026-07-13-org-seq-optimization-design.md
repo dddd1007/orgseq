@@ -210,6 +210,10 @@ build. Do not publish unmeasured performance claims.
 
 ### Subproject 3: Package And Override Governance
 
+Status: package inventory, safe bootstrap boundary, audit command, and doctor
+integration implemented and verified on 2026-07-13. No additional hidden
+override hooks were added because `custom.el` already provides the explicit layer.
+
 #### VC package inventory
 
 Centralize metadata for Git-hosted packages currently bootstrapped in multiple

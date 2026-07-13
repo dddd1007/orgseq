@@ -1,5 +1,8 @@
 ;;; init-org.el --- Org-mode base configuration -*- lexical-binding: t; -*-
 
+;; Requires: init-packages (Git package bootstrap and source metadata)
+(declare-function my/vc-package-ensure "init-packages" (package))
+
 (defvar org-indent-indentation-per-level)
 (defvar org-agenda-prefix-format)
 (defvar org-agenda-window-setup)
@@ -245,14 +248,7 @@ the sidebar displays them alphabetically."
 ;; Enhances how src blocks, drawers, and other multi-line elements render
 ;; when org-indent-mode adds virtual indentation.
 ;; NOTE: requires org-indent-mode to be enabled (which we do via org-startup-indented).
-(unless (or (package-installed-p 'org-modern-indent)
-            (locate-library "org-modern-indent"))
-  (if noninteractive
-      (message "org-seq: skipping org-modern-indent bootstrap in noninteractive session")
-    (condition-case err
-        (package-vc-install "https://github.com/jdtsmith/org-modern-indent")
-      (error
-       (message "WARNING org-seq: failed to install org-modern-indent: %s" err)))))
+(my/vc-package-ensure 'org-modern-indent)
 
 (use-package org-modern-indent
   :if (locate-library "org-modern-indent")

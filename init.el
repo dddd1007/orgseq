@@ -290,7 +290,7 @@ so byte-compilation and load tests never block on network traffic."
                  (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
-;; Order: doctor -> popup -> keymap -> UI -> completion -> pyim -> python
+;; Order: doctor -> packages -> popup -> keymap -> UI -> completion -> pyim -> python
 ;; -> markdown -> languages -> org -> roam
 ;; -> gtd -> focus -> pkm -> supertag -> terminal -> ai -> dashboard -> dired
 ;; -> workspace -> update -> tty -> evil (last)
@@ -305,6 +305,7 @@ so byte-compilation and load tests never block on network traffic."
 
 (defvar my/init-modules
   '(init-doctor
+    init-packages
     init-popup
     init-keymap
     init-ui

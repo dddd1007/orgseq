@@ -15,7 +15,7 @@ Whether you're sending a PR or returning to the codebase later, this is the orie
 ## Module load order
 
 ```
-init-doctor  →  init-popup  →  init-keymap  →  init-ui  →  init-completion  →  init-pyim
+init-doctor  →  init-packages  →  init-popup  →  init-keymap  →  init-ui  →  init-completion  →  init-pyim
         →  init-python  →  init-markdown
         →  init-languages  →  init-org  →  init-roam  →  init-gtd  →  init-focus  →  init-pkm
         →  init-supertag  →  init-terminal  →  init-ai  →  init-dashboard  →  init-dired
@@ -25,6 +25,7 @@ init-doctor  →  init-popup  →  init-keymap  →  init-ui  →  init-completi
 Order is fixed in `init.el` and matters. See `AGENTS.md` for the dependency rationale. The short version:
 
 - `init-doctor` loads first so diagnostics remain available when a later module fails
+- `init-packages` owns Git package metadata and the noninteractive network boundary
 - `init-popup` appends centralized display rules without overriding user rules
 - `init-keymap` defines tested prefix and critical-binding metadata used by `init-evil`
 - `init-python` selects the shared Python runtime before language tooling needs one
@@ -68,11 +69,12 @@ Use `AGENTS.md` as the full rulebook. The short version:
 1. Put org-seq integration in the right `lisp/init-*.el` based on load order.
 2. Use `use-package` with `:after`, `:hook`, `:custom`, and `:bind` where they fit.
 3. Add leader keys in `lisp/init-evil.el` and Org local actions in `lisp/init-org.el`.
-4. After editing `.el` files, byte-compile the changed file explicitly.
-5. Before a commit or broad refactor, run the full-repo byte-compile pass from `AGENTS.md`.
-6. If users must install a runtime dependency manually, document it in `README.md` and any affected architecture/workflow docs.
+4. Register Git-hosted packages in `lisp/init-packages.el`; keep their `use-package` configuration in the owner module.
+5. After editing `.el` files, byte-compile the changed file explicitly.
+6. Before a commit or broad refactor, run the full-repo byte-compile pass from `AGENTS.md`.
+7. If users must install a runtime dependency manually, document it in `README.md` and any affected architecture/workflow docs.
 
-For GitHub-only packages, follow the existing `package-vc-install` bootstrap pattern already used in the repo instead of reviving split Emacs 29/30 branches.
+For Git-hosted packages, use the central inventory and `my/vc-package-ensure`. Batch validation must remain network-free.
 
 ## Testing
 
@@ -98,7 +100,7 @@ org-seq has unusually extensive docs for a personal config. Keep them in sync wh
 
 - **`README.md`** — user-facing key bindings and module table
 - **`AGENTS.md`** — development guidelines and validation workflow
-- **`doc/CORE_ARCHITECTURE.md`** — bootstrap, popup, keymap, startup-delay, and override contracts
+- **`doc/CORE_ARCHITECTURE.md`** — bootstrap, package, popup, keymap, startup-delay, and override contracts
 - **`doc/GUIDE.md`** — long-form beginner guide
 - **`doc/WORKFLOW.md`** — daily PKM/GTD workflows
 - **`doc/NOTES_ARCHITECTURE.md`** — Roam + PARA design rationale

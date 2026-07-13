@@ -19,6 +19,23 @@ later modules from being attempted.
 `init-doctor` loads first so the diagnostic commands survive failures in later
 feature modules.
 
+## Git Package Governance
+
+`lisp/init-packages.el` is the single source inventory for packages installed
+from Git. Each record declares the package symbol, loadable library, source
+URL, owner module, and purpose.
+
+`my/vc-package-ensure` is the only bootstrap boundary for those records. It:
+
+- returns immediately when the package is installed or loadable;
+- never accesses the network in a noninteractive session;
+- records interactive installation errors without aborting startup;
+- rejects packages that are not registered.
+
+Feature-specific `use-package` forms stay in the owner module. Use
+`M-x my/vc-package-audit` for read-only status, ownership, and source details.
+The doctor reports missing or failed records without installing them.
+
 ## Popup Policy
 
 `lisp/init-popup.el` owns org-seq popup metadata. Each rule has a stable ID,

@@ -12,6 +12,7 @@
 (defvar my/kimi-cli-command)
 
 (declare-function my/init-results "init" ())
+(declare-function my/vc-package-statuses "init-packages" ())
 
 (defvar my/doctor-checks nil
   "Ordered doctor check specifications.
@@ -232,6 +233,30 @@ REQUIRED makes a missing executable a failure instead of a warning."
      "Ghostel Elisp library is unavailable"
      "Install Ghostel through package.el; first use handles the native module.")))
 
+(defun my/doctor--check-vc-packages ()
+  "Check registered Git package availability without installing anything."
+  (if (not (fboundp 'my/vc-package-statuses))
+      (my/doctor--payload
+       'warn
+       "Git package inventory is unavailable"
+       "Inspect init-packages with M-x my/init-errors.")
+    (let* ((statuses (my/vc-package-statuses))
+           (problems
+            (cl-remove-if
+             (lambda (status)
+               (eq (plist-get status :status) 'present))
+             statuses)))
+      (if problems
+          (my/doctor--payload
+           'warn
+           (format "Unavailable Git packages: %s"
+                   (mapconcat
+                    (lambda (status)
+                      (symbol-name (plist-get status :package)))
+                    problems ", "))
+           "Run M-x my/vc-package-audit for sources and ownership.")
+        (my/doctor--payload 'pass "All registered Git packages are available")))))
+
 (defun my/doctor--check-active-packages ()
   "Check representative packages required by active core workflows."
   (let* ((libraries '("general" "evil" "org-roam" "org-ql" "org-supertag"))
@@ -268,6 +293,8 @@ REQUIRED makes a missing executable a failure instead of a warning."
          :check my/doctor--check-yazi)
         (:id ai-clis :label "AI command-line tools"
          :check my/doctor--check-ai-clis)
+        (:id vc-packages :label "Git package inventory"
+         :check my/doctor--check-vc-packages)
         (:id packages :label "Active packages"
          :check my/doctor--check-active-packages)))
 

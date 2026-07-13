@@ -1,10 +1,13 @@
 ;;; init-ui.el --- Fonts, themes, modeline -*- lexical-binding: t; -*-
 
+;; Requires: init-packages (Git package bootstrap and source metadata)
+
 (require 'cl-lib)
 (require 'subr-x)
 
-(declare-function package-installed-p "package")
-(declare-function package-vc-install "package-vc")
+(declare-function my/vc-package-ensure "init-packages" (package))
+(declare-function my/vc-package-install-command "init-packages" (package))
+(declare-function my/vc-package-install-error "init-packages" (package))
 
 (defvar modus-themes-org-blocks)
 (defvar modusregel-buffer-modified-str)
@@ -265,19 +268,8 @@
   :demand t)
 
 ;; ---- modusregel mode-line ----
-;; Codeberg-only package; install via package-vc on interactive startup.
-(defvar my/modusregel-install-error nil
-  "Last error encountered while installing modusregel, if any.")
-
-(unless (or (package-installed-p 'modusregel)
-            (locate-library "modusregel"))
-  (if noninteractive
-      (message "org-seq: skipping modusregel bootstrap in noninteractive session")
-    (condition-case err
-        (package-vc-install "https://codeberg.org/jjba23/modusregel.git")
-      (error
-       (setq my/modusregel-install-error err)
-       (message "WARNING org-seq: failed to install modusregel: %s" err)))))
+;; Codeberg-only package; source metadata lives in init-packages.
+(my/vc-package-ensure 'modusregel)
 
 (use-package modusregel
   :if (locate-library "modusregel")
@@ -322,10 +314,12 @@
   (run-with-idle-timer
    3 nil
    (lambda ()
-     (message "WARNING org-seq: modusregel not found. %sRun M-x package-vc-install RET https://codeberg.org/jjba23/modusregel.git RET"
-              (if my/modusregel-install-error
-                  (format "Last install error: %s. " my/modusregel-install-error)
-                "")))))
+     (message "WARNING org-seq: modusregel not found. %sRun %s"
+              (if (my/vc-package-install-error 'modusregel)
+                  (format "Last install error: %s. "
+                          (my/vc-package-install-error 'modusregel))
+                "")
+              (my/vc-package-install-command 'modusregel)))))
 
 ;; ---- valign: pixel-perfect table alignment with variable-width fonts ----
 ;; NOTE: valign hooks into jit-lock for pixel alignment.  The layout helpers

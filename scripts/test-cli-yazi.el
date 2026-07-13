@@ -46,6 +46,7 @@
 (when (file-directory-p my/orgseq-dir)
   (delete-directory my/orgseq-dir t))
 
+(load-file (expand-file-name "../lisp/init-packages.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-popup.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-terminal.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-ai.el" (file-name-directory load-file-name)))

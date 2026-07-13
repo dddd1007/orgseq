@@ -20,10 +20,11 @@ Primary target: **Windows, Linux, and macOS**.
 ## Diagnostics
 
 - `M-x my/doctor` checks Emacs, SQLite, NoteHQ paths, module failures,
-  Ghostel, configured shells, and optional command-line tools without changing
-  the system or downloading anything.
+  Ghostel, registered Git packages, configured shells, and optional
+  command-line tools without changing the system or downloading anything.
 - `M-x my/init-report` shows whether each module loaded and how long it took.
 - `M-x my/keymap-audit` verifies the effective critical SPC bindings.
+- `M-x my/vc-package-audit` shows Git package status, source, and owner module.
 - On Windows, run the complete contributor validation suite with:
 
   ```powershell
@@ -368,30 +369,33 @@ Load order is fixed in `init.el` (see [AGENTS.md](AGENTS.md)).
 | # | Module | Purpose |
 |---|--------|---------|
 | 1 | `init-doctor.el` | Read-only dependency diagnostics + observable module-load report |
-| 2 | `init-popup.el` | Central popup registry backed by `display-buffer-alist` |
-| 3 | `init-keymap.el` | Leader-prefix metadata + tested critical-binding audit |
-| 4 | `init-ui.el` | Fonts (CJK mixed), modus-themes, modusregel mode-line, olivetti |
-| 5 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
-| 6 | `init-pyim.el` | pyim + pyim-basedict + optional rime-frost import + sis respect/cursor integration for Chinese input |
-| 7 | `init-python.el` | Shared Python runtime selection: local conda first, uv-managed fallback, then PATH |
-| 8 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
-| 9 | `init-languages.el` | R/ESS + Python/eglot + Julia/Quarto tooling |
-| 10 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
-| 11 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
-| 12 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
-| 13 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
-| 14 | `init-pkm.el` | org-supertag (install) + org-transclusion + org-ql |
-| 15 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
-| 16 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
-| 17 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + AI CLI popups + Claude Code + .orgseq AI config + KB overview |
-| 18 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
-| 19 | `init-dired.el` | Dired + dirvish + yazi picker (file management, preview, quick-access) |
-| 20 | `init-workspace.el` | Workspace: treemacs sidebar + imenu-list outline |
-| 21 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
-| 22 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
-| 23 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
+| 2 | `init-packages.el` | Git package source inventory, safe bootstrap, and read-only audit |
+| 3 | `init-popup.el` | Central popup registry backed by `display-buffer-alist` |
+| 4 | `init-keymap.el` | Leader-prefix metadata + tested critical-binding audit |
+| 5 | `init-ui.el` | Fonts (CJK mixed), modus-themes, modusregel mode-line, olivetti |
+| 6 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
+| 7 | `init-pyim.el` | pyim + pyim-basedict + optional rime-frost import + sis respect/cursor integration for Chinese input |
+| 8 | `init-python.el` | Shared Python runtime selection: local conda first, uv-managed fallback, then PATH |
+| 9 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
+| 10 | `init-languages.el` | R/ESS + Python/eglot + Julia/Quarto tooling |
+| 11 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
+| 12 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
+| 13 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
+| 14 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
+| 15 | `init-pkm.el` | org-supertag configuration + org-transclusion + org-ql |
+| 16 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
+| 17 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
+| 18 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + AI CLI popups + Claude Code + .orgseq AI config + KB overview |
+| 19 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
+| 20 | `init-dired.el` | Dired + dirvish + yazi picker (file management, preview, quick-access) |
+| 21 | `init-workspace.el` | Workspace: treemacs sidebar + imenu-list outline |
+| 22 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
+| 23 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
+| 24 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
 
-`init-ui.el` bootstraps [`modusregel`](https://codeberg.org/jjba23/modusregel) with `package-vc-install` because it is not currently available from ELPA/MELPA. Noninteractive validation skips that network install path and only enables the mode-line when the package is already present.
+`init-packages.el` is the single source inventory for Git-hosted packages,
+including [`modusregel`](https://codeberg.org/jjba23/modusregel). Batch validation
+never installs from the network; owning modules keep package configuration.
 
 ### Optional pyim rime-frost dictionary
 

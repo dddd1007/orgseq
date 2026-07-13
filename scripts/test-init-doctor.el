@@ -79,4 +79,15 @@
       (should (eq (plist-get payload :status) 'warn))
       (should-not (file-exists-p my/note-home)))))
 
+(ert-deftest my/doctor-vc-package-check-reports-missing-inventory ()
+  (cl-letf (((symbol-function 'my/vc-package-statuses)
+             (lambda ()
+               '((:package installed :status present)
+                 (:package missing-one :status missing)
+                 (:package broken-one :status failed)))))
+    (let ((payload (my/doctor--check-vc-packages)))
+      (should (eq (plist-get payload :status) 'warn))
+      (should (string-match-p "missing-one" (plist-get payload :detail)))
+      (should (string-match-p "broken-one" (plist-get payload :detail))))))
+
 ;;; test-init-doctor.el ends here

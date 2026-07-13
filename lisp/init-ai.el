@@ -1,6 +1,7 @@
 ;;; init-ai.el --- AI integration via gptel -*- lexical-binding: t; -*-
 
 ;; Requires: init-org (my/note-home, my/orgseq-dir, my/roam-dir)
+;; Requires: init-packages (Git package bootstrap and source metadata)
 ;; Requires: init-terminal (Ghostel popup lifecycle)
 (defvar claude-code-terminal-backend)
 (defvar my/note-home)  ; forward-declare from init-org
@@ -15,7 +16,7 @@
 (declare-function my/cli-popup-open "init-terminal" (&rest arguments))
 (declare-function my/cli-popup-toggle "init-terminal" (&rest arguments))
 (declare-function my/popup-display-buffer "init-popup" (buffer &optional overrides))
-(declare-function package-installed-p "package")
+(declare-function my/vc-package-ensure "init-packages" (package))
 
 (require 'seq)
 (require 'subr-x)
@@ -503,15 +504,8 @@ and discover unexpected connections.")
 
 ;; ---- ob-gptel: org-babel integration ----
 ;; Enables #+begin_src gptel blocks in org notes, executed with C-c C-c.
-;; Not on MELPA; install from GitHub via package-vc-install (Emacs 29+).
-
-(unless (package-installed-p 'ob-gptel)
-  (if noninteractive
-      (message "org-seq: skipping ob-gptel bootstrap in noninteractive session")
-    (condition-case err
-        (package-vc-install "https://github.com/jwiegley/ob-gptel")
-      (error
-       (message "WARNING org-seq: failed to install ob-gptel: %s" err)))))
+;; Git source metadata and noninteractive policy live in init-packages.
+(my/vc-package-ensure 'ob-gptel)
 
 (use-package ob-gptel
   :if (locate-library "ob-gptel")
@@ -663,15 +657,8 @@ With prefix argument RESTART, kill and recreate the kimi-cli session."
 ;; inheritenv: required by claude-code, must be installed before it
 (use-package inheritenv :defer t)
 
-;; Bootstrap claude-code from GitHub (not on MELPA).  Works on Emacs 29+
-;; via package-vc-install.
-(unless (package-installed-p 'claude-code)
-  (if noninteractive
-      (message "org-seq: skipping claude-code bootstrap in noninteractive session")
-    (condition-case err
-        (package-vc-install "https://github.com/stevemolitor/claude-code.el")
-      (error
-       (message "WARNING org-seq: failed to install claude-code: %s" err)))))
+;; Git source metadata and noninteractive policy live in init-packages.
+(my/vc-package-ensure 'claude-code)
 
 (setq claude-code-terminal-backend 'ghostel)
 

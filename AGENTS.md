@@ -51,7 +51,7 @@ These rules apply to `early-init.el`, `init.el`, root helper `.el` files, and `l
 
 The module load order in `init.el` is intentional:
 
-`init-doctor -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-terminal -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-update -> init-tty -> init-evil`
+`init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-terminal -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-update -> init-tty -> init-evil`
 
 When adding a new module:
 
@@ -72,7 +72,8 @@ Startup failure visibility:
 - If you are writing a reusable package that may later leave this repo, put it under `packages/<name>/` and add only a thin integration layer under `lisp/init-<name>.el`.
 - Put global leader bindings in `lisp/init-evil.el`.
 - Put Org local-leader bindings in `lisp/init-org.el`.
-- Do not reintroduce split Emacs-29/30 bootstrap branches for GitHub packages; follow the existing `package-vc-install` bootstrap pattern already used in the repo.
+- Register Git-hosted package source, owner, and purpose metadata in `lisp/init-packages.el`; keep feature configuration in the owning module.
+- Use `my/vc-package-ensure` for registered Git packages; do not add split Emacs-29/30 bootstrap branches or batch-time network installation.
 
 ## Validation
 

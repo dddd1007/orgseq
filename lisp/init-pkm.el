@@ -32,13 +32,14 @@
 ;; function live?" the answer is init-supertag.el, not here.
 
 (defvar org-supertag-bridge-enable-ai)
-(declare-function package-installed-p "package")
 
 ;; Requires: init-org (my/roam-dir)
+;; Requires: init-packages (Git package bootstrap and source metadata)
 (defvar my/roam-dir)  ; forward-declare from init-org
 
-(defvar my/supertag-install-error nil
-  "Last error encountered while installing org-supertag, if any.")
+(declare-function my/vc-package-ensure "init-packages" (package))
+(declare-function my/vc-package-install-command "init-packages" (package))
+(declare-function my/vc-package-install-error "init-packages" (package))
 
 (defvar my/supertag-sync-timer nil
   "Idle timer used to debounce post-capture supertag syncs.")
@@ -60,7 +61,7 @@
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
 ;; org-supertag (v5.8+, Tana-style tags with typed fields) is not on
-;; MELPA; we install it from GitHub via `package-vc-install'. This
+;; MELPA; init-packages bootstraps it from the registered Git source. This
 ;; section does ONLY the install and minimal config.  Everything
 ;; user-facing (schema editing, SPC n p * keys, dashboards, etc.) is
 ;; in init-supertag.el.
@@ -132,18 +133,8 @@ same fixes."
       (when patched
         (message "org-seq: applied org-supertag Emacs 30 compatibility patches")))))
 
-;; Bootstrap org-supertag from GitHub (not on MELPA).  Works on Emacs 29+
-;; via package-vc-install.  The condition-case prevents an offline first
-;; boot from killing init.el; the deferred warning below tells the user
-;; to retry once they have network.
-(unless (package-installed-p 'org-supertag)
-  (if noninteractive
-      (message "org-seq: skipping org-supertag bootstrap in noninteractive session")
-    (condition-case err
-        (package-vc-install "https://github.com/yibie/org-supertag")
-      (error
-       (setq my/supertag-install-error err)
-       (message "WARNING org-seq: failed to install org-supertag: %s" err)))))
+;; Bootstrap source metadata and error handling live in init-packages.
+(my/vc-package-ensure 'org-supertag)
 
 (my/supertag-apply-compat-patches)
 
@@ -178,10 +169,12 @@ same fixes."
 (unless (locate-library "org-supertag")
   (run-with-idle-timer 2 nil
     (lambda ()
-      (message "WARNING org-seq: org-supertag not found. %sRun M-x package-vc-install RET https://github.com/yibie/org-supertag RET"
-               (if my/supertag-install-error
-                   (format "Last install error: %s. " my/supertag-install-error)
-                 "")))))
+      (message "WARNING org-seq: org-supertag not found. %sRun %s"
+               (if (my/vc-package-install-error 'org-supertag)
+                   (format "Last install error: %s. "
+                           (my/vc-package-install-error 'org-supertag))
+                 "")
+               (my/vc-package-install-command 'org-supertag)))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Capture bridge — org-roam → org-supertag

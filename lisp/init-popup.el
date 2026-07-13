@@ -12,7 +12,7 @@
      :matcher "\\`\\*AI Result\\*\\'"
      :side bottom :slot 0 :height 0.33 :select nil)
     (:id diagnostics
-     :matcher "\\`\\*org-seq \\(?:doctor\\|init report\\|init errors\\|keymap audit\\)\\*\\'"
+     :matcher "\\`\\*org-seq \\(?:doctor\\|init report\\|init errors\\|keymap audit\\|package audit\\)\\*\\'"
      :side bottom :slot 0 :height 0.33 :select t)
     (:id compilation
      :matcher "\\`\\*\\(?:compilation\\|Compile-Log\\)\\*\\'"
