@@ -1,6 +1,7 @@
 ;;; init-terminal.el --- Ghostel terminal and popup integration -*- lexical-binding: t; -*-
 
-;; Requires: init-org (my/note-home)
+;; Requires: init-popup (central display-buffer policy)
+;; Requires: init-org   (my/note-home)
 
 (require 'subr-x)
 
@@ -13,6 +14,7 @@
 
 (declare-function ghostel-exec "ghostel" (buffer program &optional args))
 (declare-function ghostel-mode "ghostel" ())
+(declare-function my/popup-display-buffer "init-popup" (buffer &optional overrides))
 
 (use-package ghostel
   :defer t
@@ -93,15 +95,8 @@ A float means a fraction of the selected frame height; an integer means rows."
 (defun my/cli-popup--display-buffer (buffer &optional height)
   "Display BUFFER in a bottom side window and select it.
 HEIGHT defaults to `my/cli-popup-height'."
-  (let ((window (display-buffer
-                 buffer
-                 `((display-buffer-in-side-window)
-                   (side . bottom)
-                   (slot . 1)
-                   (window-height . ,(or height my/cli-popup-height))
-                   (preserve-size . (nil . t))))))
-    (select-window window)
-    window))
+  (my/popup-display-buffer
+   buffer (list :height (or height my/cli-popup-height) :select t)))
 
 (defun my/cli-popup-display-buffer (buffer &optional height)
   "Display BUFFER in org-seq's bottom CLI popup area."

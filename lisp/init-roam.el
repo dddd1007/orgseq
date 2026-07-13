@@ -39,6 +39,8 @@
 ;; org-roam provides the node/link/backlink data model and capture system.
 ;; Its expensive SQLite sync is offloaded to org-mem (see Section 2).
 
+;; NOTE(startup): Warm org-roam after the first frame so graph commands and
+;; background accelerators reach a predictable ready state.
 (use-package org-roam
   :defer 1
   :custom

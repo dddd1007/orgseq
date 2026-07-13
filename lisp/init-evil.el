@@ -1,5 +1,8 @@
 ;;; init-evil.el --- Evil mode + SPC leader keys -*- lexical-binding: t; -*-
 
+;; Requires: init-keymap (leader prefix and critical binding contract)
+(declare-function my/keymap-apply-general-contract "init-keymap" ())
+
 ;; ---- Utility functions for leader keys ----
 
 (defun my/copy-file-path ()
@@ -336,7 +339,10 @@
     ;; ── SPC q — Quit ──
     "q"   '(:ignore t :wk "quit")
     "qq"  '(save-buffers-kill-emacs :wk "Quit Emacs")
-    "qu"  '(my/package-update-all :wk "Update packages")))
+    "qu"  '(my/package-update-all :wk "Update packages"))
+
+  ;; Reapply the tested contract last so it describes effective bindings.
+  (my/keymap-apply-general-contract))
 
 ;; ---- magit: Git interface ----
 ;; Windows: may be slow on large repos, set magit-git-executable to full path if needed

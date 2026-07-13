@@ -165,6 +165,8 @@ shell runner is added only if repeated Linux/macOS validation shows a need.
 
 ### Subproject 2: Popup, Keymap, And Startup Governance
 
+Status: implemented and verified on 2026-07-13.
+
 #### Popup registry
 
 Create one org-seq-owned popup registry implemented with

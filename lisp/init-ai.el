@@ -14,6 +14,7 @@
 (declare-function my/cli-popup-kill "init-terminal" (buffer-name))
 (declare-function my/cli-popup-open "init-terminal" (&rest arguments))
 (declare-function my/cli-popup-toggle "init-terminal" (&rest arguments))
+(declare-function my/popup-display-buffer "init-popup" (buffer &optional overrides))
 (declare-function package-installed-p "package")
 
 (require 'seq)
@@ -352,10 +353,8 @@ when working with notes.")
           (org-mode)
           (insert response)
           (goto-char (point-min)))
-        (display-buffer (current-buffer)
-                        '((display-buffer-in-side-window)
-                          (side . bottom)
-                          (window-height . 0.33))))
+        (my/popup-display-buffer (current-buffer)))
+
     (message "AI request failed: %s" (plist-get info :status))))
 
 (defun my/ai--get-text ()

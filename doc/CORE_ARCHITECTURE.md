@@ -1,0 +1,82 @@
+# Core Architecture Contracts
+
+This document describes the small org-seq-owned interfaces that keep startup,
+popups, keybindings, and user overrides observable without turning the
+configuration into a general framework.
+
+## Bootstrap And Diagnostics
+
+`init.el` loads a fixed module list. Every attempt records the module, status,
+elapsed seconds, and original error object. A failed module does not prevent
+later modules from being attempted.
+
+- `M-x my/init-errors` shows legacy failure details.
+- `M-x my/init-report` shows ordered module status and timings.
+- `M-x my/doctor` checks requirements without installing, downloading, or
+  creating user directories.
+- `scripts/check.ps1` is the canonical Windows contributor check.
+
+`init-doctor` loads first so the diagnostic commands survive failures in later
+feature modules.
+
+## Popup Policy
+
+`lisp/init-popup.el` owns org-seq popup metadata. Each rule has a stable ID,
+buffer matcher, side, slot, size, selection behavior, and optional dedication.
+The module translates these plists into normal `display-buffer-alist` entries.
+
+Rules already supplied by `custom.el` or another user module remain first and
+therefore keep priority. Re-registering org-seq rules removes only entries with
+the `my/popup-rule-id` marker, so unrelated rules are neither reordered nor
+deleted.
+
+Use `my/popup-display-buffer` when a workflow needs a per-call size override.
+Ghostel popup lifecycle remains in `init-terminal`; the popup module controls
+placement, not terminal process management.
+
+## Leader-Key Contract
+
+`lisp/init-keymap.el` contains two data sets:
+
+- `my/leader-prefixes` records every top-level SPC namespace and description.
+- `my/leader-critical-bindings` records a focused cross-section of terminal,
+  GTD, focus, org-roam, supertag, AI CLI, and yazi workflows.
+
+`init-evil` defines the complete map and then calls
+`my/keymap-apply-general-contract`. The contract is applied through the
+`general-define-key` function boundary, not by trying to call a generated
+general.el macro dynamically.
+
+`M-x my/keymap-audit` compares effective critical bindings with the contract.
+ERT also checks uniqueness, descriptions, expected commands, and the absence
+of removed EAF bindings.
+
+## Startup Delay Policy
+
+Numeric `use-package :defer` values are allowed only when the delay represents
+real background readiness. Every such site must carry a nearby
+`NOTE(startup):` comment. `scripts/test-startup-policy.el` enforces this rule.
+
+The current retained delays are:
+
+- org-roam graph and accelerator readiness after the first frame;
+- pyim dictionary/input readiness without blocking frame creation;
+- dirvish global Dired takeover after UI setup.
+
+Other timers implement concrete behavior such as dashboard recentering,
+workspace rebalancing, focus-package loading, update scheduling, or delayed
+warning visibility. Do not replace those timers solely to improve an
+unmeasured startup number.
+
+## User Override Order
+
+`custom.el` remains the explicit user override layer loaded before modules.
+Core registries follow these rules:
+
+1. Preserve unrelated user entries.
+2. Mark and replace only org-seq-owned entries.
+3. Keep final values inspectable through ordinary Emacs variables and commands.
+4. Avoid implicit deep merges or hidden profile directories.
+
+When a public customization name changes, use an obsolete alias and document
+the migration rather than silently ignoring the old value.

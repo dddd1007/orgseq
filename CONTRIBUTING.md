@@ -15,7 +15,8 @@ Whether you're sending a PR or returning to the codebase later, this is the orie
 ## Module load order
 
 ```
-init-doctor  →  init-ui  →  init-completion  →  init-pyim  →  init-python  →  init-markdown
+init-doctor  →  init-popup  →  init-keymap  →  init-ui  →  init-completion  →  init-pyim
+        →  init-python  →  init-markdown
         →  init-languages  →  init-org  →  init-roam  →  init-gtd  →  init-focus  →  init-pkm
         →  init-supertag  →  init-terminal  →  init-ai  →  init-dashboard  →  init-dired
         →  init-workspace  →  init-update  →  init-tty  →  init-evil
@@ -24,6 +25,8 @@ init-doctor  →  init-ui  →  init-completion  →  init-pyim  →  init-pytho
 Order is fixed in `init.el` and matters. See `AGENTS.md` for the dependency rationale. The short version:
 
 - `init-doctor` loads first so diagnostics remain available when a later module fails
+- `init-popup` appends centralized display rules without overriding user rules
+- `init-keymap` defines tested prefix and critical-binding metadata used by `init-evil`
 - `init-python` selects the shared Python runtime before language tooling needs one
 - `init-org` defines the path constants and base Org behavior used downstream
 - `init-roam`, `init-gtd`, `init-focus`, `init-pkm`, `init-supertag`, and `init-ai` all build on that foundation
@@ -95,6 +98,7 @@ org-seq has unusually extensive docs for a personal config. Keep them in sync wh
 
 - **`README.md`** — user-facing key bindings and module table
 - **`AGENTS.md`** — development guidelines and validation workflow
+- **`doc/CORE_ARCHITECTURE.md`** — bootstrap, popup, keymap, startup-delay, and override contracts
 - **`doc/GUIDE.md`** — long-form beginner guide
 - **`doc/WORKFLOW.md`** — daily PKM/GTD workflows
 - **`doc/NOTES_ARCHITECTURE.md`** — Roam + PARA design rationale

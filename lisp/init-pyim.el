@@ -49,6 +49,8 @@ file is readable, org-seq registers it ahead of pyim-basedict."
 ;; Core package: pyim
 ;; ═══════════════════════════════════════════════════════════════════════════
 
+;; NOTE(startup): Warm pyim after the first frame because bilingual input is a
+;; daily workflow and dictionary initialization should not block frame creation.
 (use-package pyim
   :defer 1
   :bind (("M-j" . pyim-convert-string-at-point))

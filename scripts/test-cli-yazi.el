@@ -46,6 +46,7 @@
 (when (file-directory-p my/orgseq-dir)
   (delete-directory my/orgseq-dir t))
 
+(load-file (expand-file-name "../lisp/init-popup.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-terminal.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-ai.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-dired.el" (file-name-directory load-file-name)))
@@ -57,6 +58,18 @@
 (ert-deftest my/ai-config-is-not-created-during-noninteractive-load ()
   (should noninteractive)
   (should-not (file-exists-p my/orgseq-ai-config)))
+
+(ert-deftest my/cli-popup-display-buffer-uses-popup-policy ()
+  (let (captured)
+    (cl-letf (((symbol-function 'my/popup-display-buffer)
+               (lambda (buffer overrides)
+                 (setq captured (list buffer overrides))
+                 'popup-window)))
+      (should (eq (my/cli-popup-display-buffer "buffer" 0.5)
+                  'popup-window)))
+    (should (equal captured
+                   '("buffer" (:height 0.5 :select t))))))
+
 (ert-deftest my/cli-popup-open-displays-before-ghostel-spawn ()
   (let ((events nil)
         (dir (make-temp-file "org-seq-ghostel-dir" t))

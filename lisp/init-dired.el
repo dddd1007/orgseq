@@ -412,6 +412,8 @@ Called via `[mouse-1]' in `dirvish-mode-map' (see `:bind' below)."
           ;; No non-side window available (rare) -- fall back to other-window.
           (find-file-other-window file)))))))
 
+;; NOTE(startup): Load dirvish after UI setup so its global Dired takeover is
+;; ready before normal file navigation without blocking the first frame.
 (use-package dirvish
   :defer 2
   :after (dired nerd-icons)
