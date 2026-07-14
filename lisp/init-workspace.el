@@ -1,6 +1,7 @@
 ;;; init-workspace.el --- Three-column workspace layout -*- lexical-binding: t; -*-
 
 ;; Requires: init-org   (my/note-home)
+;; Requires: init-daily (Daily-first startup and sidebar transitions)
 ;; Requires: init-terminal (legacy terminal alias)
 ;; Requires: init-dired (dirvish as general file manager)
 (defvar my/note-home)
@@ -16,6 +17,10 @@
 (defvar imenu-list-size)
 (declare-function imenu-list-minor-mode "imenu-list" (&optional arg))
 (declare-function imenu-list-noselect "imenu-list" ())
+(declare-function my/daily-buffer-p "init-daily" (&optional buffer))
+(declare-function my/daily-initial-buffer "init-daily" ())
+(declare-function my/daily-sidebar-close "init-daily" ())
+(declare-function my/daily-workspace-open "init-daily" ())
 (declare-function my/terminal-popup-toggle "init-terminal" (&optional restart))
 
 (defcustom my/workspace-startup-delay 0.3
@@ -402,6 +407,11 @@ sidebar follows quietly without stealing focus."
     (let ((window (treemacs-get-local-window)))
       (and (window-live-p window) window))))
 
+(defun my/workspace-close-treemacs ()
+  "Close only the current frame's Treemacs window."
+  (when-let ((window (my/workspace-sidebar-visible-p)))
+    (delete-window window)))
+
 (defun my/workspace--outline-window ()
   "Return the visible imenu-list outline window, or nil."
   (when (and (boundp 'imenu-list-buffer-name)
@@ -455,6 +465,8 @@ This mirrors the old Doom-style workflow: the left sidebar is a stable
 navigation tree for NoteHQ, while dirvish remains available separately as
 the full-window file manager."
   (interactive)
+  (when (fboundp 'my/daily-sidebar-close)
+    (my/daily-sidebar-close))
   (require 'treemacs)
   (setq treemacs-width (my/workspace--target-sidebar-width))
   (let ((note-dir (file-name-as-directory (expand-file-name my/note-home))))
@@ -616,6 +628,8 @@ Wrapped in `condition-case' so a failure (e.g. treemacs not yet loaded,
 display window too small) leaves the user with a usable Emacs instead
 of a half-built layout."
   (interactive)
+  (when (fboundp 'my/daily-sidebar-close)
+    (my/daily-sidebar-close))
   (condition-case err
       (progn
         (require 'imenu-list)
@@ -663,33 +677,43 @@ of a half-built layout."
      (message "WARNING org-seq: workspace setup failed: %s" err))))
 
 (defun my/workspace-startup (&optional frame)
-  "Startup layout for FRAME: treemacs sidebar plus dashboard or client buffer.
+  "Startup layout for FRAME: Daily Workspace or the legacy Treemacs layout.
 Wrapped in `condition-case' so a failure during startup/client frame setup
 does not break other hooks or leave the frame empty."
   (let ((frame (or frame (selected-frame))))
     (condition-case err
         (with-selected-frame frame
-          (let* ((target-buffer (my/workspace--startup-target-buffer))
-                 (open-sidebar (my/workspace--startup-open-sidebar-p
-                                target-buffer)))
-            (when-let ((editor-win (my/workspace--main-window)))
-              (select-window editor-win)
-              (delete-other-windows editor-win))
-            (when open-sidebar
-              (my/workspace-open-sidebar))
-            (let ((editor-win (or (car (my/workspace--non-sidebar-windows))
-                                  (selected-window))))
-              (when editor-win
-                (select-window editor-win)
-                (when (buffer-live-p target-buffer)
-                  (switch-to-buffer target-buffer))))
-            (if open-sidebar
+          (let ((target-buffer (my/workspace--startup-target-buffer)))
+            (if (and (buffer-live-p target-buffer)
+                     (fboundp 'my/daily-buffer-p)
+                     (my/daily-buffer-p target-buffer))
                 (progn
-                  (my/workspace--set-layout-kind 'startup)
-                  (my/workspace-rebalance)
-                  (when my/workspace-startup-focus-sidebar
-                    (my/workspace-focus-sidebar)))
-              (set-frame-parameter frame 'my/workspace-layout-kind nil))))
+                  (when-let ((editor-win (my/workspace--main-window)))
+                    (select-window editor-win)
+                    (switch-to-buffer target-buffer))
+                  (my/daily-workspace-open))
+              (let ((open-sidebar (my/workspace--startup-open-sidebar-p
+                                   target-buffer)))
+                (when-let ((editor-win (my/workspace--main-window)))
+                  (select-window editor-win)
+                  (delete-other-windows editor-win))
+                (when open-sidebar
+                  (my/workspace-open-sidebar))
+                (let ((editor-win
+                       (or (car (my/workspace--non-sidebar-windows))
+                           (selected-window))))
+                  (when editor-win
+                    (select-window editor-win)
+                    (when (buffer-live-p target-buffer)
+                      (switch-to-buffer target-buffer))))
+                (if open-sidebar
+                    (progn
+                      (my/workspace--set-layout-kind 'startup)
+                      (my/workspace-rebalance)
+                      (when my/workspace-startup-focus-sidebar
+                        (my/workspace-focus-sidebar)))
+                  (set-frame-parameter
+                   frame 'my/workspace-layout-kind nil))))))
       (error
        (message "WARNING org-seq: workspace startup failed: %s" err)))))
 
@@ -712,8 +736,10 @@ does not break other hooks or leave the frame empty."
 (define-obsolete-function-alias
   'my/workspace-toggle-terminal 'my/terminal-popup-toggle "2026-05-03")
 
-;; Startup: lightweight layout (treemacs sidebar + dashboard, no popup)
-;; Use SPC l l for the full workspace, and SPC ' for the terminal popup.
+(setq initial-buffer-choice #'my/daily-initial-buffer)
+
+;; Startup: Daily Workspace (Today plus the recent-notes sidebar).
+;; Use SPC l l for the legacy full workspace, and SPC ' for the terminal popup.
 ;;
 ;; The delay (`my/workspace-startup-delay') gives package autoloads
 ;; (treemacs, dashboard, nerd-icons) time to register before the layout

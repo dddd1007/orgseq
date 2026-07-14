@@ -14,10 +14,12 @@
 (defvar org-roam-dailies-directory)
 
 (declare-function my/org-roam-dailies--file-for-date "init-roam" (time))
+(declare-function my/org-roam-dailies-open-date "init-roam" (time))
 (declare-function my/supertag-schedule-sync "init-pkm" ())
 (declare-function my/daily-workspace-open "init-daily" ())
 (declare-function my/daily-workspace-open-date "init-daily" (time))
 (declare-function my/daily-workspace-choose-date "init-daily" ())
+(declare-function my/workspace-close-treemacs "init-workspace" ())
 
 (defcustom my/daily-sidebar-days 14
   "Number of consecutive calendar days shown in the Daily sidebar."
@@ -260,6 +262,68 @@
   (if-let ((time (get-text-property (point) 'my/daily-time)))
       (my/daily-workspace-open-date time)
     (user-error "No Daily date at point")))
+
+(defun my/daily--editor-window ()
+  "Return a non-side editor window in the selected frame."
+  (or (cl-find-if (lambda (window)
+                    (not (window-parameter window 'window-side)))
+                  (window-list nil 'no-minibuffer))
+      (selected-window)))
+
+(defun my/daily--visit-date (time)
+  "Visit TIME through the existing org-roam dailies boundary."
+  (let ((file (my/daily--file-for-time time)))
+    (when (and (not (file-exists-p file))
+               (file-exists-p my/roam-dir)
+               (not (file-writable-p my/roam-dir)))
+      (user-error "Roam directory is not writable: %s" my/roam-dir))
+    (my/org-roam-dailies-open-date time)
+    (my/daily-note-mode 1)
+    (current-buffer)))
+
+(defun my/daily-workspace-open-date (time &optional capture-ready)
+  "Open TIME in the Daily Workspace.
+Existing history is browse-only unless CAPTURE-READY is non-nil."
+  (interactive (list (current-time) current-prefix-arg))
+  (let* ((file (my/daily--file-for-time time))
+         (missing (not (file-exists-p file))))
+    (when (fboundp 'my/workspace-close-treemacs)
+      (my/workspace-close-treemacs))
+    (select-window (my/daily--editor-window))
+    (let ((buffer (my/daily--visit-date time)))
+      (switch-to-buffer buffer)
+      (when (or capture-ready missing)
+        (my/daily--prepare-node))
+      (my/daily-sidebar-open)
+      (my/daily-sidebar-refresh)
+      buffer)))
+
+(defun my/daily-workspace-open ()
+  "Open Today's capture-ready Daily Workspace."
+  (interactive)
+  (my/daily-workspace-open-date
+   (current-time) my/daily-auto-prepare-today))
+
+(defun my/daily-workspace-choose-date ()
+  "Choose a date and open its Daily Workspace."
+  (interactive)
+  (my/daily-workspace-open-date (org-read-date nil t)))
+
+(defun my/daily-new-node ()
+  "Prepare a node in the current Daily Note, opening Today if needed."
+  (interactive)
+  (unless (my/daily-buffer-p)
+    (my/daily-workspace-open))
+  (my/daily--prepare-node))
+
+(defun my/daily-initial-buffer ()
+  "Return Today's capture-ready buffer without opening a sidebar."
+  (let ((buffer (save-window-excursion
+                  (my/daily--visit-date (current-time)))))
+    (with-current-buffer buffer
+      (when my/daily-auto-prepare-today
+        (my/daily--prepare-node)))
+    buffer))
 
 (provide 'init-daily)
 ;;; init-daily.el ends here

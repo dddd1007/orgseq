@@ -194,9 +194,6 @@
                 (remove-hook 'kill-buffer-hook #'my/dashboard--kill-cleanup t)
                 (add-hook 'kill-buffer-hook #'my/dashboard--kill-cleanup nil t))))
 
-  (setq initial-buffer-choice
-        (lambda () (get-buffer-create dashboard-buffer-name)))
-
   (dashboard-setup-startup-hook))
 
 (provide 'init-dashboard)

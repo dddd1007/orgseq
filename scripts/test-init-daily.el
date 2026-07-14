@@ -142,4 +142,55 @@
         (kill-buffer buffer))
       (delete-directory root t))))
 
+(defun my/test-daily-open-date (time)
+  "Create and visit a temporary Daily file for TIME."
+  (let ((file (my/daily--file-for-time time)))
+    (make-directory (file-name-directory file) t)
+    (unless (file-exists-p file)
+      (write-region
+       (format "#+title: %s\n#+filetags: :daily:\n\n"
+               (format-time-string "%Y-%m-%d" time))
+       nil file nil 'silent))
+    (find-file file)))
+
+(ert-deftest my/daily-workspace-existing-history-is-browse-only ()
+  (let* ((root (make-temp-file "org-seq-daily-history-" t))
+         (my/roam-dir (file-name-as-directory root))
+         (org-roam-dailies-directory "daily/")
+         (org-id-locations-file (expand-file-name ".org-id-locations" root))
+         (time (encode-time 0 0 12 13 7 2026))
+         (file (expand-file-name "daily/2026-07-13.org" root)))
+    (unwind-protect
+        (progn
+          (make-directory (file-name-directory file) t)
+          (write-region "#+title: 2026-07-13\n\n* 09:00 Existing\n"
+                        nil file nil 'silent)
+          (cl-letf (((symbol-function 'my/org-roam-dailies-open-date)
+                     #'my/test-daily-open-date)
+                    ((symbol-function 'my/daily-sidebar-open) #'ignore))
+            (my/daily-workspace-open-date time))
+          (with-current-buffer (find-buffer-visiting file)
+            (should (= (how-many "^\\* " (point-min) (point-max)) 1))))
+      (when-let ((buffer (find-buffer-visiting file))) (kill-buffer buffer))
+      (delete-directory root t))))
+
+(ert-deftest my/daily-workspace-missing-date-creates-first-node ()
+  (let* ((root (make-temp-file "org-seq-daily-create-" t))
+         (my/roam-dir (file-name-as-directory root))
+         (org-roam-dailies-directory "daily/")
+         (org-id-locations-file (expand-file-name ".org-id-locations" root))
+         (time (encode-time 0 0 12 12 7 2026))
+         (file (expand-file-name "daily/2026-07-12.org" root)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'my/org-roam-dailies-open-date)
+                   #'my/test-daily-open-date)
+                  ((symbol-function 'my/daily-sidebar-open) #'ignore))
+          (my/daily-workspace-open-date time)
+          (should (file-exists-p file))
+          (with-current-buffer (find-buffer-visiting file)
+            (should (= (how-many "^\\* " (point-min) (point-max)) 1))
+            (should (org-entry-get nil "ID"))))
+      (when-let ((buffer (find-buffer-visiting file))) (kill-buffer buffer))
+      (delete-directory root t))))
+
 ;;; test-init-daily.el ends here

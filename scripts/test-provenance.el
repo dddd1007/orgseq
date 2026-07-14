@@ -55,4 +55,12 @@
         (my/test-provenance--contents
          (file-relative-name file my/test-provenance-root)))))))
 
+(ert-deftest my/daily-module-loads-between-supertag-and-terminal ()
+  (let ((modules (my/test-provenance--runtime-modules)))
+    (should (equal (seq-filter
+                    (lambda (module)
+                      (memq module '(init-supertag init-daily init-terminal)))
+                    modules)
+                   '(init-supertag init-daily init-terminal)))))
+
 ;;; test-provenance.el ends here
