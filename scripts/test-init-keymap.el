@@ -19,6 +19,8 @@
   (dolist (expected '(("'" . my/terminal-popup-toggle)
                       ("ad" . my/org-dashboard)
                       ("af" . org-focus-start)
+                      ("ndd" . my/daily-workspace-open)
+                      ("nda" . my/daily-new-node)
                       ("nF" . org-roam-node-find)
                       ("npp" . my/supertag-quick-action)
                       ("ix" . my/codex-popup-toggle)

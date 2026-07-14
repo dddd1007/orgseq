@@ -1,8 +1,12 @@
 ;;; init-dashboard.el --- Startup dashboard -*- lexical-binding: t; -*-
 
-;; Requires: init-roam (my/org-roam-dailies-open-today, org-roam-node-find)
+;; Requires: init-daily (Daily records and workspace commands)
+;; Requires: init-roam (org-roam-node-find)
 
 (require 'cl-lib)
+(declare-function my/daily-date-records "init-daily" (&optional time count))
+(declare-function my/daily-workspace-open "init-daily" ())
+(declare-function my/daily-workspace-open-date "init-daily" (time))
 
 (defconst my/dashboard-version-file
   (expand-file-name ".org-seq-version" user-emacs-directory)
@@ -52,8 +56,29 @@
         dashboard-recentf-show-base t
         dashboard-recentf-item-format "%s")
 
-  (setq dashboard-items '((recents . 5)))
-  (setq dashboard-item-shortcuts '((recents . "r")))
+  (defun my/dashboard-insert-dailies (list-size)
+    "Insert LIST-SIZE recent calendar dates into Dashboard."
+    (let ((items
+           (mapcar
+            (lambda (record)
+              (propertize
+               (format "%s  %s"
+                       (plist-get record :label)
+                       (plist-get record :date))
+               'my/daily-time (plist-get record :time)))
+            (my/daily-date-records nil list-size))))
+      (dashboard-insert-section
+       "Daily Notes:" items list-size 'daily
+       (dashboard-get-shortcut 'daily)
+       `(lambda (&rest _)
+          (my/daily-workspace-open-date
+           (get-text-property 0 'my/daily-time ,el)))
+       el)))
+
+  (setf (alist-get 'daily dashboard-item-generators)
+        #'my/dashboard-insert-dailies)
+  (setq dashboard-items '((daily . 5) (recents . 5))
+        dashboard-item-shortcuts '((daily . "d") (recents . "r")))
 
   ;; Footer: random quote, Doom-style
   ;; `my/dashboard-quotes' is provided by lisp/dashboard-quotes.el
@@ -119,7 +144,7 @@
   (setq dashboard-navigator-buttons
         `(((,(my/dashboard-icon "nf-md-notebook_edit")
            " Today " "Open today's daily note  [SPC n d d]"
-           (lambda (&rest _) (my/org-roam-dailies-open-today)))
+           (lambda (&rest _) (my/daily-workspace-open)))
           (,(my/dashboard-icon "nf-md-magnify")
            " Find " "Search all NoteHQ notes with Deft  [SPC n f]"
            (lambda (&rest _) (deft)))

@@ -249,7 +249,8 @@
 
     ;; SPC n d — Dailies
     "nd"  '(:ignore t :wk "dailies")
-    "ndd" '(my/org-roam-dailies-open-today :wk "Open today")
+    "ndd" '(my/daily-workspace-open :wk "Daily workspace")
+    "nda" '(my/daily-new-node :wk "Append node")
     "ndt" '(my/org-roam-dailies-open-today :wk "Open today")
     "ndy" '(org-roam-dailies-goto-yesterday :wk "Yesterday")
     "ndT" '(org-roam-dailies-goto-tomorrow :wk "Tomorrow")

@@ -35,6 +35,10 @@
      :description "GTD Dashboard")
     (:key "af" :command org-focus-start
      :description "Focus: start slice")
+    (:key "ndd" :command my/daily-workspace-open
+     :description "Daily workspace")
+    (:key "nda" :command my/daily-new-node
+     :description "Append Daily node")
     (:key "nF" :command org-roam-node-find
      :description "Find note (roam)")
     (:key "npp" :command my/supertag-quick-action

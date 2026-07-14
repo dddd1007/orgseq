@@ -63,4 +63,18 @@
                     modules)
                    '(init-supertag init-daily init-terminal)))))
 
+(ert-deftest my/dashboard-daily-section-precedes-recents ()
+  (let* ((contents (my/test-provenance--contents "lisp/init-dashboard.el"))
+         (daily (string-match "(daily \\. 5)" contents))
+         (recents (string-match "(recents \\. 5)" contents))
+         (today (string-match "\" Today \"" contents)))
+    (should daily)
+    (should recents)
+    (should (< daily recents))
+    (should today)
+    (should (string-match-p
+             "my/daily-workspace-open"
+             (substring contents today (min (length contents)
+                                            (+ today 400)))))))
+
 ;;; test-provenance.el ends here
