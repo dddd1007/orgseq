@@ -9,6 +9,7 @@
 
 (defvar my/roam-dir)
 (defvar org-roam-dailies-directory)
+(defvar org-id-locations-file)
 
 (ert-deftest my/daily-date-records-use-fourteen-calendar-days ()
   (let* ((root (make-temp-file "org-seq-daily-dates-" t))
@@ -56,5 +57,56 @@
           (setq buffer-file-name (expand-file-name "capture/note.org" root))
           (should-not (my/daily-buffer-p)))
       (delete-directory root t))))
+
+(ert-deftest my/daily-prepare-node-creates-id-and-reuses-blank-tail ()
+  (let* ((root (make-temp-file "org-seq-daily-node-" t))
+         (my/roam-dir (file-name-as-directory root))
+         (org-roam-dailies-directory "daily/")
+         (org-id-locations-file (expand-file-name ".org-id-locations" root))
+         (file (expand-file-name "daily/2026-07-14.org" root)))
+    (unwind-protect
+        (progn
+          (make-directory (file-name-directory file) t)
+          (with-current-buffer (find-file-noselect file)
+            (erase-buffer)
+            (insert "#+title: 2026-07-14\n#+filetags: :daily:\n\n")
+            (org-mode)
+            (my/daily-note-mode 1)
+            (my/daily--prepare-node)
+            (let ((first-id (org-entry-get nil "ID")))
+              (should first-id)
+              (my/daily--prepare-node)
+              (should (equal (org-entry-get nil "ID") first-id))
+              (should (= (how-many "^\\* " (point-min) (point-max)) 1)))
+            (kill-buffer (current-buffer))))
+      (delete-directory root t))))
+
+(ert-deftest my/daily-prepare-node-appends-after-content ()
+  (let* ((root (make-temp-file "org-seq-daily-content-" t))
+         (my/roam-dir (file-name-as-directory root))
+         (org-roam-dailies-directory "daily/")
+         (org-id-locations-file (expand-file-name ".org-id-locations" root))
+         (file (expand-file-name "daily/2026-07-14.org" root)))
+    (unwind-protect
+        (progn
+          (make-directory (file-name-directory file) t)
+          (with-current-buffer (find-file-noselect file)
+            (erase-buffer)
+            (insert "#+title: 2026-07-14\n\n* 09:00 Existing note\n")
+            (org-mode)
+            (my/daily--prepare-node)
+            (should (= (how-many "^\\* " (point-min) (point-max)) 2))
+            (should (org-entry-get nil "ID"))
+            (kill-buffer (current-buffer))))
+      (delete-directory root t))))
+
+(ert-deftest my/daily-save-schedules-supertag-sync ()
+  (let (scheduled)
+    (cl-letf (((symbol-function 'my/supertag-schedule-sync)
+               (lambda () (setq scheduled t))))
+      (with-temp-buffer
+        (my/daily-note-mode 1)
+        (run-hooks 'after-save-hook)
+        (should scheduled)))))
 
 ;;; test-init-daily.el ends here

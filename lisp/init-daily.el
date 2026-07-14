@@ -1,11 +1,12 @@
 ;;; init-daily.el --- Daily-first workspace and navigation -*- lexical-binding: t; -*-
 
 ;; Requires: init-roam (my/roam-dir, dailies path helpers)
-;; Requires: init-supertag (my/supertag-schedule-sync)
+;; Requires: init-pkm (my/supertag-schedule-sync)
 
 (require 'calendar)
 (require 'cl-lib)
 (require 'org)
+(require 'org-id)
 (require 'subr-x)
 
 (defvar my/roam-dir)
@@ -87,6 +88,89 @@
                  (string-prefix-p directory file
                                   (file-name-case-insensitive-p
                                    directory))))))))
+
+(defun my/daily--allowed-blank-property-p (property)
+  "Return non-nil when PROPERTY is metadata allowed on a blank node."
+  (member (car property) '("ID" "CATEGORY")))
+
+(defun my/daily--blank-node-at-point-p ()
+  "Return non-nil when point is on a reusable Daily capture node."
+  (and (= (org-outline-level) 1)
+       (string-match-p "\\`[0-9][0-9]:[0-9][0-9]\\'"
+                       (string-trim (org-get-heading t t t t)))
+       (null (org-get-tags nil t))
+       (cl-every #'my/daily--allowed-blank-property-p
+                 (org-entry-properties nil 'standard))
+       (save-excursion
+         (org-end-of-meta-data t)
+         (let ((begin (point))
+               (end (save-excursion (org-end-of-subtree t t))))
+           (string-empty-p
+            (string-trim (buffer-substring-no-properties begin end)))))))
+
+(defun my/daily--final-blank-node-marker ()
+  "Return a marker for the final reusable Daily node, or nil."
+  (org-with-wide-buffer
+   (goto-char (point-max))
+   (when (re-search-backward org-heading-regexp nil t)
+     (when (my/daily--blank-node-at-point-p)
+       (copy-marker (line-beginning-position))))))
+
+(defun my/daily--insert-node ()
+  "Append a top-level timestamp node and return its marker."
+  (goto-char (point-max))
+  (unless (bolp) (insert "\n"))
+  (unless (or (= (point) (point-min))
+              (save-excursion (forward-line -1) (looking-at-p "^$")))
+    (insert "\n"))
+  (insert "* " (format-time-string "%H:%M"))
+  (let ((marker (copy-marker (line-beginning-position))))
+    (org-id-get-create)
+    marker))
+
+(defun my/daily--writable-p ()
+  "Return non-nil when the current Daily file can be written."
+  (let ((file (or buffer-file-name default-directory)))
+    (if (file-exists-p file)
+        (file-writable-p file)
+      (file-writable-p (file-name-directory file)))))
+
+(defun my/daily--prepare-node ()
+  "Reuse or create one capture-ready node and return its marker."
+  (unless (my/daily-buffer-p)
+    (user-error "Current buffer is not a Daily Note"))
+  (unless (my/daily--writable-p)
+    (user-error "Daily Note is not writable: %s" buffer-file-name))
+  (let ((marker (or (my/daily--final-blank-node-marker)
+                    (save-excursion (my/daily--insert-node)))))
+    (goto-char marker)
+    (org-back-to-heading t)
+    (end-of-line)
+    (unless (eq (char-before) ?\s) (insert " "))
+    (save-buffer)
+    marker))
+
+(defun my/daily--schedule-supertag-sync ()
+  "Request existing debounced supertag sync without breaking save."
+  (when (fboundp 'my/supertag-schedule-sync)
+    (condition-case err
+        (my/supertag-schedule-sync)
+      (error
+       (message "WARNING org-seq: Daily supertag sync failed: %s" err)))))
+
+(define-minor-mode my/daily-note-mode
+  "Minor mode for org-seq Daily Notes."
+  :lighter " Daily"
+  (if my/daily-note-mode
+      (add-hook 'after-save-hook #'my/daily--schedule-supertag-sync nil t)
+    (remove-hook 'after-save-hook #'my/daily--schedule-supertag-sync t)))
+
+(defun my/daily--maybe-enable-note-mode ()
+  "Enable `my/daily-note-mode' for files in the dailies directory."
+  (when (my/daily-buffer-p)
+    (my/daily-note-mode 1)))
+
+(add-hook 'org-mode-hook #'my/daily--maybe-enable-note-mode)
 
 (provide 'init-daily)
 ;;; init-daily.el ends here
