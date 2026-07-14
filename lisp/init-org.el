@@ -263,6 +263,15 @@ the sidebar displays them alphabetically."
   (org-appear-autoentities t)
   (org-appear-autosubmarkers t))
 
+;; org-sticky-header: keep the heading breadcrumb visible at the top
+;; (VS Code Sticky Scroll).  Only hooks into org-mode, so the Daily
+;; sidebar (my/daily-sidebar-mode) and other non-org buffers are unaffected.
+(use-package org-sticky-header
+  :hook (org-mode . org-sticky-header-mode)
+  :custom
+  (org-sticky-header-full-path 'full)
+  (org-sticky-header-outline-path-separator " > "))
+
 ;; org-fragtog: auto-toggle LaTeX fragment preview at cursor
 ;; Requires a LaTeX distribution (MiKTeX or TeX Live) with dvisvgm on PATH.
 ;; NOTE: table cells don't support image overlays well — fragments inside

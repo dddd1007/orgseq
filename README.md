@@ -309,7 +309,7 @@ The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom win
 | `SPC f j` | Dired jump (to current file's directory) |
 | `SPC p` | Project (switch/find-file/search/buffer) |
 | `SPC s` | Search (line/ripgrep/notes/imenu/outline/bookmark/replace) |
-| `SPC u` | UI toggles (theme/line-numbers/wrap/fullscreen/menu-bar) |
+| `SPC u` | UI toggles (theme/line-numbers/wrap/fullscreen/menu-bar/sticky-header) |
 | `SPC w` | Window (split/close/maximize/navigate/resize) |
 | `SPC q q` | Quit Emacs |
 | `SPC q u` | Update all packages (ELPA + vc) |
