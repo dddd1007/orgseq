@@ -350,6 +350,26 @@ so byte-compilation and load tests never block on network traffic."
 (add-hook 'after-save-hook
           #'executable-make-buffer-file-executable-if-script-p)
 
+;; ---- Auto-save visited files (VS Code-style afterDelay) ----
+;; Saves the on-disk file behind every visiting buffer every N seconds of
+;; idle time, like VS Code's "Auto Save: afterDelay".  No #autosave# files
+;; are produced; the visited file itself is written.
+;;
+;; Side effect 1 (verified): a Daily note save triggers
+;; `my/daily--schedule-supertag-sync' (init-daily.el) -> the debounced
+;; `my/supertag-schedule-sync' (init-pkm.el, 0.5s idle) ->
+;; `supertag-sync-check-now'.  That check is incremental: it compares each
+;; tracked file's mtime against the stored last-sync time
+;; (`supertag-sync-check-state') and re-parses only the changed files, so
+;; the 2s interval does not rescan NoteHQ.  The interval stays at 2s.
+;;
+;; Side effect 2 (acceptable): saving an emacs-lisp buffer runs
+;; compile-angel's on-save byte-compilation (init-update.el), so editing
+;; this config fires background compiles.  This is the intended compile
+;; behavior, just more frequent.
+(setq auto-save-visited-interval 2)
+(auto-save-visited-mode 1)
+
 ;; ---- External dependency checks (deferred to avoid process spawns during init) ----
 (run-with-idle-timer 2 nil
   (lambda ()

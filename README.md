@@ -310,7 +310,7 @@ The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom win
 | `SPC f j` | Dired jump (to current file's directory) |
 | `SPC p` | Project (switch/find-file/search/buffer) |
 | `SPC s` | Search (line/ripgrep/notes/imenu/outline/bookmark/replace) |
-| `SPC u` | UI toggles (theme/line-numbers/wrap/fullscreen/menu-bar/sticky-header/buffer-tabs) |
+| `SPC u` | UI toggles (theme/line-numbers/wrap/fullscreen/menu-bar/sticky-header/buffer-tabs/auto-save) |
 | `SPC w` | Window (split/close/maximize/navigate/resize) |
 | `SPC q q` | Quit Emacs |
 | `SPC q u` | Update all packages (ELPA + vc) |
@@ -340,6 +340,10 @@ bold, and `ds *` removes the bold.
 `M-d` here lives in evil normal/visual state. The Corfu completion popup
 also binds `M-d` to toggle its doc window, but only while the candidate
 menu is visible (insert state), so the two bindings never collide.
+
+### Auto-save
+
+Visited files are auto-saved in place every 2s of idle time (VS Code "Auto Save: afterDelay"). No `#autosave#` files are produced; the on-disk file itself is written. Toggle it off with `SPC u a`. A Daily-note save triggers the debounced org-supertag sync (incremental — it only re-parses changed files), and saving an Emacs Lisp buffer runs compile-angel's on-save byte-compilation, which is the intended behavior but happens more often with auto-save on.
 
 Under `SPC l` the most important sidebar controls are:
 
