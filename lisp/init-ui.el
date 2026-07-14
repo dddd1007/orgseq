@@ -464,7 +464,11 @@ timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
 ;; current `display-graphic-p'.  A daemon started on a TTY then asked for a
 ;; GUI frame stays on the margin path; this is an acceptable simplification
 ;; and avoids per-frame fringe bookkeeping.
+;; `:if' keeps the whole form (including the :init global-diff-hl-mode) a
+;; no-op on a clean checkout without diff-hl installed, so batch validation
+;; does not trip on a void `global-diff-hl-mode'.
 (use-package diff-hl
+  :if (locate-library "diff-hl")
   :init
   (global-diff-hl-mode 1)
   :config

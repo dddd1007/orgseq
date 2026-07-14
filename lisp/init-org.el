@@ -266,7 +266,9 @@ the sidebar displays them alphabetically."
 ;; org-sticky-header: keep the heading breadcrumb visible at the top
 ;; (VS Code Sticky Scroll).  Only hooks into org-mode, so the Daily
 ;; sidebar (my/daily-sidebar-mode) and other non-org buffers are unaffected.
+;; `:if' keeps this a no-op on a checkout without org-sticky-header installed.
 (use-package org-sticky-header
+  :if (locate-library "org-sticky-header")
   :hook (org-mode . org-sticky-header-mode)
   :custom
   (org-sticky-header-full-path 'full)

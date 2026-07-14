@@ -59,13 +59,19 @@
 ;; In org, the single-char inline markers are pairs already (= ~ * / _ +),
 ;; so `S =` wraps a selection as verbatim, `cs = *` swaps to bold, `ds *`
 ;; removes the bold.
+;; `:if' keeps the :after-evil require a no-op on a checkout without
+;; evil-surround installed, so an absent package never fails module load.
 (use-package evil-surround
+  :if (locate-library "evil-surround")
   :after evil
   :config
   (global-evil-surround-mode 1))
 
 ;; ---- avy: jump to any character on screen (Helix-style labels) ----
 ;; SPC j reads a few chars, then labels every on-screen match with a key.
+;; Bind the evil-wrapped motion `evil-avy-goto-char-timer' (defined by
+;; evil-integration once avy is loaded) so the jump participates in evil's
+;; repeat/jump ring.  avy itself stays `:defer t'.
 (use-package avy
   :defer t
   :custom
@@ -77,7 +83,10 @@
 ;; lives in evil normal/visual state; the corfu completion popup also uses
 ;; M-d inside corfu-map, but only while a candidate menu is visible (insert
 ;; state), so the two never collide.
+;; `:if' mirrors the evil-surround guard: absent package -> no-op, no
+;; load-time require failure.
 (use-package evil-multiedit
+  :if (locate-library "evil-multiedit")
   :after evil
   :config
   (evil-multiedit-default-keybinds))
@@ -85,7 +94,10 @@
 ;; ---- vundo: visual undo tree (VS Code Timeline's kin) ----
 ;; Works on top of evil-undo-system 'undo-redo (Emacs native undo), so no
 ;; undo-tree needed.  SPC b u opens the tree for the current buffer.
+;; `:if' skips the form (including the :custom that reads
+;; `vundo-unicode-symbols') on a clean checkout without vundo installed.
 (use-package vundo
+  :if (locate-library "vundo")
   :defer t
   :custom
   (vundo-glyph-alist vundo-unicode-symbols))
@@ -123,7 +135,7 @@
     "/"   '(consult-ripgrep :wk "Search project")
     "TAB" '(evil-switch-to-windows-last-buffer :wk "Last buffer")
     "'"   '(my/terminal-popup-toggle :wk "Terminal popup")
-    "j"   '(avy-goto-char-timer :wk "Jump to char")
+    "j"   '(evil-avy-goto-char-timer :wk "Jump to char")
 
     ;; ── SPC t — Tasks / GTD / Focus ──
     "t"   '(:ignore t :wk "tasks")

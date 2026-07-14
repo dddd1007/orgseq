@@ -61,7 +61,9 @@
 ;; ---- wgrep: edit grep/embark-export buffers in place ----
 ;; Workflow: SPC / (consult-ripgrep) -> C-. E (embark-act, then export)
 ;; -> C-c C-p (wgrep-change-to-wgrep-mode) -> edit -> C-c C-c.
+;; `:if' keeps this a no-op on a checkout without wgrep installed.
 (use-package wgrep
+  :if (locate-library "wgrep")
   :defer t
   :custom
   (wgrep-auto-save-buffer t))
