@@ -16,7 +16,7 @@
 SPC n d a  → 新建或复用一个时间节点
 , # a      → 稍后给当前节点添加 supertag
 , # e      → 编辑该 supertag 的字段
-SPC a d    → 打开 GTD Dashboard
+SPC t d    → 打开 GTD Dashboard
 ```
 
 Dashboard 左侧的每一行都是一个视图入口，带着实时计算出来的任务数，让你一眼就知道各个篮子里堆了多少东西。**Inbox** 显示的是你昨天随手记下但还没有处理的 fleeting 想法；**Today** 是今天到期或已经排期的任务；**Upcoming** 是未来几天已经排期的任务；**Anytime** 是那些可以随时做、没有具体截止日期的 NEXT 行动；**Waiting** 列出你正在等别人做的事；**Someday** 是你暂时搁置、将来也许会做的事；**Projects** 则是当前所有活跃项目的列表，每个项目前面的符号（● / ~ / 空白）告诉你它的健康度——是有明确下一步、没有下一步、还是完全卡壳了。
@@ -30,7 +30,7 @@ Dashboard 左侧的每一行都是一个视图入口，带着实时计算出来�
 Daily Workspace 是当天持续使用的低摩擦入口：
 
 ```
-SPC n d d  → 打开今日 Daily Workspace（主入口）
+SPC d  → 打开今日 Daily Workspace（主入口）
 SPC n d a  → 追加或复用一个带 ID 的时间节点
 SPC n d c  → 在今日 daily note 中 capture（需要模板时）
 ```
@@ -67,16 +67,16 @@ NoteHQ 时，再用 `SPC l l` 切换到 Treemacs 工作区。
 
 区分 TODO 和 PROJECT 的规则很简单——没有子任务的事情写作 TODO，有子任务的事情写作 PROJECT（在 `, q` 里按 `p` 可以把一条 TODO 升格成 PROJECT）。这样区分的好处是 GTD Dashboard 可以分别统计"纯待办"和"项目"，并在项目列表里提醒你哪些项目还没有 NEXT。
 
-任务完成后你不需要做任何归档动作。daily 文件本身就是历史档案，DONE 的任务会留在原地，`SPC a 6`（Logbook 视图）会自动把所有状态为 DONE 的条目按时间倒序汇总起来——你想回顾"这周都完成了什么"时打开这个视图就够了。
+任务完成后你不需要做任何归档动作。daily 文件本身就是历史档案，DONE 的任务会留在原地，`SPC t l`（Logbook 视图）会自动把所有状态为 DONE 的条目按时间倒序汇总起来——你想回顾"这周都完成了什么"时打开这个视图就够了。
 
-> **关于 SPC a c**：传统的 `org-capture` 快捷键 `SPC a c` 依然可用，它会把内容送到专门的 inbox 文件里。但 daily-first 是推荐姿势——不是因为 capture 有什么不好，而是因为 inbox 处理本身就是一个额外的仪式感，很多人会在第三周就放弃它。把任务直接写在 daily 里，工作上下文自然保留，你不必"处理 inbox"也不会丢东西。
+> **关于 SPC t c**：传统的 `org-capture` 快捷键 `SPC t c` 依然可用，它会把内容送到专门的 inbox 文件里。但 daily-first 是推荐姿势——不是因为 capture 有什么不好，而是因为 inbox 处理本身就是一个额外的仪式感，很多人会在第三周就放弃它。把任务直接写在 daily 里，工作上下文自然保留，你不必"处理 inbox"也不会丢东西。
 
 ### 4. 集中工作
 
 进入深度工作状态后，你会在笔记和任务之间频繁切换。几个常用的动作：
 
 ```
-SPC n f    → 找到要编辑的笔记（Deft 全库搜索，最常用的入口）
+SPC n s    → 找到要编辑的笔记（Deft 全库搜索，最常用的入口）
 SPC l l    → 打开自适应三栏工作区（treemacs 侧栏 + 编辑器 + outline）
 SPC l =    → 重新按当前窗口尺寸平衡工作区比例
 , s        → 给光标所在任务设置 schedule（计划开始日期）
@@ -84,15 +84,15 @@ SPC l =    → 重新按当前窗口尺寸平衡工作区比例
 , q        → 弹出单键状态选择器（n=NEXT, i=进行中, w=等待, k=完成）
 ```
 
-大多数人一天之内会反复按到 `SPC n f` 和 `, q`——前者是你进入任何 NoteHQ 笔记的最快路径，后者是你推进任务状态的最低摩擦方式。
+大多数人一天之内会反复按到 `SPC n s` 和 `, q`——前者是你进入任何 NoteHQ 笔记的最快路径，后者是你推进任务状态的最低摩擦方式。
 
 ### 5. 晚间收尾
 
 一天结束前花两分钟收尾：
 
 ```
-SPC a d    → 再看一眼 Dashboard，确认 Today 视图清空，Inbox 不积压
-SPC n d d  → 回到 daily note，用几行字总结今天做了什么、明天要做什么
+SPC t d    → 再看一眼 Dashboard，确认 Today 视图清空，Inbox 不积压
+SPC d  → 回到 daily note，用几行字总结今天做了什么、明天要做什么
 ```
 
 这个晚间动作不是强制仪式，但坚持下来会带来一个你意想不到的好处——第二天晨间回顾时，你的 daily 底部已经有了一段"昨天视角"的备忘，比空白开始一天要轻松得多。
@@ -108,8 +108,8 @@ SPC n d d  → 回到 daily note，用几行字总结今天做了什么、明天
 GTD 教材通常会强调一个"无摩擦 inbox"——意思是你要能在 10 秒内把任何待办记下来，不受当前任务干扰。org-seq 提供了三条捕获路径，对应三种场景：
 
 ```
-SPC n d d  → 在今日 daily note 中直接写入（推荐）
-SPC a c    → 通用 org-capture（进入 Inbox）
+SPC d  → 在今日 daily note 中直接写入（推荐）
+SPC t c    → 通用 org-capture（进入 Inbox）
 SPC n c    → org-roam capture（创建新笔记节点）
 ```
 
@@ -118,7 +118,7 @@ SPC n c    → org-roam capture（创建新笔记节点）
 处理 inbox 的时候你需要逐条决定每个条目的归宿。打开 Inbox 视图：
 
 ```
-SPC a 0    → 打开 Inbox 视图
+SPC t i    → 打开 Inbox 视图
 ```
 
 对每一条，问自己五个问题：**这需要行动吗？不需要的就删掉或扔到 Library 作为参考资料。需要行动但两分钟就能搞完吗？当场做掉，直接标 DONE。需要但不是我来做？** 设状态为 WAITING 并加一条谁在等。**需要但得分几步？** 升格为 PROJECT 并拆子任务。**需要、只有一步、要花比较长时间？** 按 `, q` 选 NEXT，然后 `, t` 加上下文 tag（比如 `@work`），条件允许再 `, s` 或 `, d` 排个时间。`, r` 可以把条目 refile 到另一个 heading，例如把"学英语"从 inbox 移到你的"长期学习"项目下面。
@@ -130,9 +130,9 @@ SPC a 0    → 打开 Inbox 视图
 真正做事的时候，你需要根据当前的上下文（是在办公室还是家里、是有 30 分钟还是 2 小时、是专注状态还是间隙时间）挑一件任务推进。org-seq 提供了几个不同维度的筛选视图：
 
 ```
-SPC a 3    → Anytime 视图（所有 NEXT 且没有排期，相当于"随时可做"池）
-SPC a 1    → Today 视图（今天到期/排期的任务，最紧迫的一组）
-SPC a 7    → 按上下文筛选，弹出 @work / @home / @computer 等标签选择
+SPC t a    → Anytime 视图（所有 NEXT 且没有排期，相当于"随时可做"池）
+SPC t t    → Today 视图（今天到期/排期的任务，最紧迫的一组）
+SPC t x    → 按上下文筛选，弹出 @work / @home / @computer 等标签选择
 ```
 
 做完一件事后按 `, q` 再按 `k` 标记 DONE——如果这个任务下面还有未完成的子任务，org-seq 会问你是否连同子任务一起标完。DONE 的任务会自动下沉到同级列表的底部，让你的"未完成"条目始终在视线顶部。
@@ -142,7 +142,7 @@ SPC a 7    → 按上下文筛选，弹出 @work / @home / @computer 等标签�
 Allen 把周回顾称为 GTD 系统的"秘密武器"——如果你跳过这一步，整个系统三个月内就会退化成一个积灰的待办列表。org-seq 提供两个层次的回顾视图：
 
 ```
-SPC a w    → GTD 侧的周回顾视图（任务角度）
+SPC t r    → GTD 侧的周回顾视图（任务角度）
 SPC n v w  → PKM 侧的周回顾 dashboard（笔记角度）
 ```
 
@@ -161,8 +161,8 @@ Zettelkasten 的核心动作不是"建立分类体系"，而是**识别哪些想
 1. 按 `SPC n c` 打开 capture 模板选择菜单，大多数情况选 `d`（default）就够了——你不需要一开始就为每类笔记设计专门的模板。
 2. 新节点会落到 `~/NoteHQ/00_Roam/capture/` 下，文件名是时间戳前缀加 slug（比如 `20260410T143022-atomic-notes-as-conversation.org`）。这个命名方案保证了两点：节点之间不会因为重名冲突，以及将来你可以用文件名时间戳回溯"某一周我写了哪些新东西"。
 3. 屏幕下方会弹出一个窗口让你编辑新节点的正文——写几句话阐明这个想法就够了。不要在第一版就追求完美，原子笔记的价值来自数量积累而非单条完美。
-4. 写完后回到原来的 daily 位置（可以 `C-x b` 切回去，或用 `SPC ,`），按 `SPC n i` 插入一个 `[[id:...]]` 链接指向新节点。这样以后你在 daily 里看到这条"已经被提升"的想法时，可以一键跳过去查看它演化成了什么样子。
-5. 如果这条笔记属于某个已经定义好的 supertag 类别（比如你有 `concept` 或 `reading` tag），按 `SPC n p p` 给它加 tag 并填上相关字段。没有合适的 tag 就跳过这一步——tag 是后来长出来的，不是预先规划的。
+4. 写完后回到原来的 daily 位置（可以 `C-x b` 切回去，或用 `SPC b b`），按 `SPC n i` 插入一个 `[[id:...]]` 链接指向新节点。这样以后你在 daily 里看到这条"已经被提升"的想法时，可以一键跳过去查看它演化成了什么样子。
+5. 如果这条笔记属于某个已经定义好的 supertag 类别（比如你有 `concept` 或 `reading` tag），按 `SPC # #` 给它加 tag 并填上相关字段。没有合适的 tag 就跳过这一步——tag 是后来长出来的，不是预先规划的。
 6. 关闭 capture 窗口，回到 daily 继续写下一段。
 
 这个过程你会做得越来越快。第一周可能每条都要想 2-3 分钟，一个月后大约每条 30 秒就能完成提取。重点是养成"看到值得的想法就提升"的本能反应——漏掉几条没关系，僵化的仪式才是真正的敌人。
@@ -180,8 +180,8 @@ SPC n c → d = 默认笔记（无 tag 的纯笔记，覆盖 80% 场景）
 
 需要更多模板时：
 ```
-SPC n m c  → 编辑 capture 模板文件（~/.orgseq/capture-templates.el）
-SPC n m C  → 重载 capture 模板（无需重启 Emacs）
+SPC # c  → 编辑 capture 模板文件（~/.orgseq/capture-templates.el）
+SPC # C  → 重载 capture 模板（无需重启 Emacs）
 ```
 
 ### 链接与发现
@@ -197,20 +197,20 @@ SPC n q v  → org-ql 保存视图
 
 ### Supertag 操作
 
-**全局键位 `SPC n p …`**：
+**全局键位 `SPC # …`**：
 
 ```
-SPC n p p  → 快速操作（context-aware 菜单：无 tag 时加 tag，有 tag 时选操作）
-SPC n p a  → 添加 supertag
-SPC n p e  → 编辑字段
-SPC n p x  → 移除 tag
-SPC n p j  → 跳转到关联节点
+SPC # #  → 快速操作（context-aware 菜单：无 tag 时加 tag，有 tag 时选操作）
+SPC # a  → 添加 supertag
+SPC # e  → 编辑字段
+SPC # x  → 移除 tag
+SPC # j  → 跳转到关联节点
 ```
 
 **Org buffer 内局部 leader `, # …`**：
 
 ```
-, ##       → 快速操作（等同 SPC n p p）
+, ##       → 快速操作（等同 SPC # #）
 , #a       → 添加 tag
 , #e       → 编辑字段
 , #x       → 移除 tag
@@ -220,8 +220,8 @@ SPC n p j  → 跳转到关联节点
 ### Tag schema 维护
 
 ```
-SPC n m t  → 编辑 tag schema（~/NoteHQ/00_Roam/supertag-schema.el）
-SPC n m T  → 重载 tag schema（无需重启 Emacs）
+SPC # t  → 编辑 tag schema（~/NoteHQ/00_Roam/supertag-schema.el）
+SPC # T  → 重载 tag schema（无需重启 Emacs）
 ```
 
 增加新 tag 的时机：某类事情你已经用 default 模板记过 5 次以上，且发现它们有共同结构。
@@ -236,7 +236,7 @@ SPC n t t  → 开启/关闭 transclusion 模式（实时渲染嵌入内容）
 ### Daily Notes 导航
 
 ```
-SPC n d d  → 打开今日 Daily Workspace（主入口）
+SPC d  → 打开今日 Daily Workspace（主入口）
 SPC n d a  → 追加或复用一个时间节点
 SPC n d t  → 打开今日 daily note（兼容别名）
 SPC n d c  → Capture today（用 daily 模板写入）
@@ -269,7 +269,7 @@ SPC n v i  → Dashboard index
 ### 创建新 Dashboard
 
 ```
-SPC n m d  → 创建新 dashboard
+SPC # d  → 创建新 dashboard
 ```
 
 新 dashboard 保存在 `~/NoteHQ/00_Roam/dashboards/` 下。每个文件是独立的 org 文件，用 `#+BEGIN: supertag-query` 动态块定义查询。
@@ -348,20 +348,20 @@ machine openrouter.ai login apikey password sk-or-你的KEY
 ### 日常 AI 操作
 
 ```
-SPC i i    → 发送当前 buffer/选区到 LLM，回答追加在后面
-SPC i m    → 完整 AI 菜单（切换模型、参数、预设）
-SPC i c    → 打开独立 AI 对话 buffer
-SPC i r    → 改写选中区域（diff 模式，可接受/拒绝）
+SPC a a    → 发送当前 buffer/选区到 LLM，回答追加在后面
+SPC a m    → 完整 AI 菜单（切换模型、参数、预设）
+SPC a c    → 打开独立 AI 对话 buffer
+SPC a r    → 改写选中区域（diff 模式，可接受/拒绝）
 ```
 
 ### PKM 专用 AI 命令
 
 ```
-SPC i s    → 摘要当前笔记或选区
-SPC i t    → 根据内容建议 org-roam filetags
-SPC i l    → 翻译选区（中英互译）
-SPC i k    → 基于当前笔记建议关联概念
-SPC i p    → 润色选中文本的写作质量
+SPC a s    → 摘要当前笔记或选区
+SPC a t    → 根据内容建议 org-roam filetags
+SPC a l    → 翻译选区（中英互译）
+SPC a k    → 基于当前笔记建议关联概念
+SPC a p    → 润色选中文本的写作质量
 ```
 
 ### Org-babel AI 块
@@ -406,7 +406,7 @@ SPC i p    → 润色选中文本的写作质量
 当你忘记某个模式下有哪些操作可用时：
 
 ```
-SPC c c    → 全局 Casual EditKit 菜单（任何 buffer 中可用）
+SPC m    → 全局 Casual EditKit 菜单（任何 buffer 中可用）
 C-o        → 当前模式的 Casual 菜单（在 Org Agenda / Dired / IBuffer / Info 等中）
 ```
 
@@ -428,8 +428,8 @@ Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。Zet
 
 | 场景 | 键位 | 说明 |
 |------|------|------|
-| 找笔记 | `SPC n f` | Deft 全库搜索 |
-| 写日记 | `SPC n d d` | 今日 daily note（推荐任务录入入口） |
+| 找笔记 | `SPC n s` | Deft 全库搜索 |
+| 写日记 | `SPC d` | 今日 daily note（推荐任务录入入口） |
 | 新建笔记 | `SPC n c` | org-roam capture（d=默认, r=reading） |
 | 插入链接 | `SPC n i` | 在当前位置插入 Roam 节点链接 |
 | 看 backlinks | `SPC n b` | 侧边栏显示反向链接 |
@@ -440,27 +440,27 @@ Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。Zet
 
 | 场景 | 键位 | 说明 |
 |------|------|------|
-| 看任务 | `SPC a d` | GTD Dashboard |
-| 今天做什么 | `SPC a 1` | Today 视图 |
-| 处理 inbox | `SPC a 0` | Inbox 视图 |
-| 随时可做 | `SPC a 3` | Anytime 视图 |
+| 看任务 | `SPC t d` | GTD Dashboard |
+| 今天做什么 | `SPC t t` | Today 视图 |
+| 处理 inbox | `SPC t i` | Inbox 视图 |
+| 随时可做 | `SPC t a` | Anytime 视图 |
 | 改状态 | `, q` | 单键状态选择 |
 
-### Supertag（SPC n p）
+### Supertag（SPC #）
 
 | 场景 | 键位 | 说明 |
 |------|------|------|
-| 快速操作 | `SPC n p p` | context-aware 菜单 |
-| 加 tag | `SPC n p a` | 添加 supertag |
-| 编辑字段 | `SPC n p e` | 编辑 tag 字段 |
-| 移除 tag | `SPC n p x` | 移除 tag |
-| 跳转关联 | `SPC n p j` | 跳转到关联节点 |
+| 快速操作 | `SPC # #` | context-aware 菜单 |
+| 加 tag | `SPC # a` | 添加 supertag |
+| 编辑字段 | `SPC # e` | 编辑 tag 字段 |
+| 移除 tag | `SPC # x` | 移除 tag |
+| 跳转关联 | `SPC # j` | 跳转到关联节点 |
 
 ### Supertag 局部 leader（Org buffer 内）
 
 | 场景 | 键位 | 说明 |
 |------|------|------|
-| 快速操作 | `, ##` | 等同 SPC n p p |
+| 快速操作 | `, ##` | 等同 SPC # # |
 | 加 tag | `, #a` | 添加 supertag |
 | 编辑字段 | `, #e` | 编辑 tag 字段 |
 | 移除 tag | `, #x` | 移除 tag |
@@ -474,15 +474,15 @@ Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。Zet
 | 周回顾 | `SPC n v w` | Weekly review dashboard |
 | Dashboard index | `SPC n v i` | 同 SPC n v v |
 
-### Meta / 扩展（SPC n m）
+### Meta / 扩展（SPC #）
 
 | 场景 | 键位 | 说明 |
 |------|------|------|
-| 编辑 tag schema | `SPC n m t` | 打开 supertag-schema.el |
-| 重载 tag schema | `SPC n m T` | 重载 tag 定义 |
-| 编辑 capture 模板 | `SPC n m c` | 打开 capture-templates.el |
-| 重载 capture 模板 | `SPC n m C` | 重载 capture 模板 |
-| 新建 dashboard | `SPC n m d` | 创建新 dashboard |
+| 编辑 tag schema | `SPC # t` | 打开 supertag-schema.el |
+| 重载 tag schema | `SPC # T` | 重载 tag 定义 |
+| 编辑 capture 模板 | `SPC # c` | 打开 capture-templates.el |
+| 重载 capture 模板 | `SPC # C` | 重载 capture 模板 |
+| 新建 dashboard | `SPC # d` | 创建新 dashboard |
 
 ### PARA 导航（SPC P）
 
@@ -497,22 +497,22 @@ Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。Zet
 
 | 场景 | 键位 | 说明 |
 |------|------|------|
-| AI 提问 | `SPC i i` | 发送到 LLM |
-| AI 摘要 | `SPC i s` | 总结笔记 |
-| AI 菜单 | `SPC i m` | 完整 AI 菜单 |
+| AI 提问 | `SPC a a` | 发送到 LLM |
+| AI 摘要 | `SPC a s` | 总结笔记 |
+| AI 菜单 | `SPC a m` | 完整 AI 菜单 |
 | 终端雷神窗 | `SPC '` | 从底部唤出 NoteHQ 的终端，Windows 使用 pwsh |
-| Codex CLI | `SPC i x` | 从底部唤出 NoteHQ 的 Codex |
-| OpenCode | `SPC i O` | 从底部唤出 NoteHQ 的 OpenCode |
-| kimi-cli | `SPC i K` | 从底部唤出 NoteHQ 的 kimi-cli |
+| Codex CLI | `SPC a x` | 从底部唤出 NoteHQ 的 Codex |
+| OpenCode | `SPC a O` | 从底部唤出 NoteHQ 的 OpenCode |
+| kimi-cli | `SPC a K` | 从底部唤出 NoteHQ 的 kimi-cli |
 
 ### 专注计时器（Vitamin-R 风格）
 
 | 场景 | 键位 | 说明 |
 |------|------|------|
-| 启动专注片段 | `SPC a f` | 在当前点插入计时标记，自动对齐到最近整点（默认 15 分钟边界） |
-| 自定义时长 | `C-u SPC a f` | 弹出时长输入框，默认值为自动对齐结果 |
-| 中止当前片段 | `SPC a X` | 取消运行中的片段（不记录结果） |
-| 专注 Dashboard | `SPC a F` | 打开近 14 天专注历史可视化 |
+| 启动专注片段 | `SPC t f` | 在当前点插入计时标记，自动对齐到最近整点（默认 15 分钟边界） |
+| 自定义时长 | `C-u SPC t f` | 弹出时长输入框，默认值为自动对齐结果 |
+| 中止当前片段 | `SPC t X` | 取消运行中的片段（不记录结果） |
+| 专注 Dashboard | `SPC t F` | 打开近 14 天专注历史可视化 |
 
 当计时结束时 Emacs 会响铃并弹出单键提示："这段感觉如何？(u) 不集中 (n) 正常 (f) 心流"。结果会同时追加到原 buffer 的内联标记和 `~/NoteHQ/.orgseq/focus-log.org` 日志文件。Modeline 在片段运行期间显示剩余时间。
 
@@ -537,5 +537,5 @@ Dashboard 按天展示彩色时间线（█ flow / ▓ normal / ░ unfocused）
 | 场景 | 键位 | 说明 |
 |------|------|------|
 | 不知道按什么 | `SPC` 等一下 | which-key 弹出 |
-| 还是不知道 | `SPC c c` | Casual 全局菜单 |
+| 还是不知道 | `SPC m` | Casual 全局菜单 |
 | 定制配置 | `M-x customize-group RET org-seq RET` | 所有用户可调参数（路径、宽度、TTL、context tags 等） |

@@ -14,11 +14,13 @@
     (buffer-string)))
 
 (defun my/test-provenance--runtime-modules ()
-  "Read `my/init-modules' from init.el without loading the configuration."
+  "Read the canonical module list from init.el without loading the config.
+The literal list lives in the `my/init-modules-default' defconst;
+`my/init-modules' references it."
   (with-temp-buffer
     (insert-file-contents (expand-file-name "init.el" my/test-provenance-root))
     (goto-char (point-min))
-    (re-search-forward "^(defvar my/init-modules")
+    (re-search-forward "^(defconst my/init-modules-default")
     (goto-char (match-beginning 0))
     (cadr (nth 2 (read (current-buffer))))))
 

@@ -20,10 +20,10 @@
 (defvar my/codex-arguments)
 (defvar claude-code-terminal-backend)
 
-(declare-function my/powershell--quote-argument "init-ai" (argument))
-(declare-function my/powershell--command-script "init-ai" (command &optional arguments))
-(declare-function my/codex--popup-command "init-ai" ())
-(declare-function my/codex--popup-arguments "init-ai" ())
+(declare-function my/powershell--quote-argument "init-ai-cli" (argument))
+(declare-function my/powershell--command-script "init-ai-cli" (command &optional arguments))
+(declare-function my/codex--popup-command "init-ai-cli" ())
+(declare-function my/codex--popup-arguments "init-ai-cli" ())
 (declare-function my/cli-popup-open "init-terminal"
                   (buffer-name command &optional arguments directory height
                                restart display-kind setup-function))
@@ -50,6 +50,7 @@
 (load-file (expand-file-name "../lisp/init-popup.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-terminal.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-ai.el" (file-name-directory load-file-name)))
+(load-file (expand-file-name "../lisp/init-ai-cli.el" (file-name-directory load-file-name)))
 (load-file (expand-file-name "../lisp/init-dired.el" (file-name-directory load-file-name)))
 
 ;; Tests stub Ghostel's public functions and do not need its native module.

@@ -9,41 +9,50 @@
 (declare-function evil-normal-state "evil" ())
 
 (defconst my/leader-prefixes
-  '((:key "a" :description "agenda")
+  '((:key "a" :description "AI")
     (:key "b" :description "buffer")
-    (:key "c" :description "casual")
     (:key "e" :description "eval")
     (:key "f" :description "file")
     (:key "g" :description "git")
     (:key "h" :description "help")
-    (:key "i" :description "AI")
     (:key "l" :description "layout")
     (:key "n" :description "notes")
     (:key "o" :description "open")
     (:key "P" :description "PARA")
     (:key "p" :description "project")
     (:key "s" :description "search")
-    (:key "t" :description "toggle")
+    (:key "t" :description "tasks")
+    (:key "u" :description "UI/toggles")
     (:key "w" :description "window")
-    (:key "q" :description "quit"))
-  "Top-level SPC leader namespaces and their which-key descriptions.")
+    (:key "q" :description "quit")
+    (:key "#" :description "supertag"))
+  "Top-level SPC leader namespaces and their which-key descriptions.
+
+Design rules (see README \"Key Bindings\"): groups are nouns, the
+doubled key is each group's primary action (SPC f f, SPC n n, SPC t t),
+and the highest-frequency actions are single top-level keys
+(SPC d Daily, SPC c capture, SPC / search, SPC m menu).")
 
 (defconst my/leader-critical-bindings
   '((:key "'" :command my/terminal-popup-toggle
      :description "Terminal popup")
-    (:key "ad" :command my/org-dashboard
-     :description "GTD Dashboard")
-    (:key "af" :command org-focus-start
-     :description "Focus: start slice")
-    (:key "ndd" :command my/daily-workspace-open
+    (:key "d" :command my/daily-workspace-open
      :description "Daily workspace")
+    (:key "c" :command org-roam-capture
+     :description "New note")
+    (:key "td" :command my/org-dashboard
+     :description "GTD Dashboard")
+    (:key "tt" :command my/org-open-today
+     :description "Today's tasks")
+    (:key "tf" :command org-focus-start
+     :description "Focus: start slice")
+    (:key "nn" :command org-roam-node-find
+     :description "Find note (roam)")
     (:key "nda" :command my/daily-new-node
      :description "Append Daily node")
-    (:key "nF" :command org-roam-node-find
-     :description "Find note (roam)")
-    (:key "npp" :command my/supertag-quick-action
+    (:key "##" :command my/supertag-quick-action
      :description "Quick action")
-    (:key "ix" :command my/codex-popup-toggle
+    (:key "ax" :command my/codex-popup-toggle
      :description "Codex CLI popup")
     (:key "oy" :command my/yazi-popup-toggle
      :description "Yazi popup"))

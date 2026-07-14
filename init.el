@@ -130,10 +130,80 @@
 ;; NOTE(win): The bundled GPG in the official Windows Emacs build constructs
 ;; a malformed GNUPGHOME path (e.g. /c/Program Files/Emacs/c:/Users/...),
 ;; which makes ELPA signature verification fail even for legitimately signed
-;; packages (the key exists but GPG cannot find its keyring).  Disable
-;; signature checking entirely on Windows to avoid blocking package installs.
+;; packages (the key exists but GPG cannot find its keyring).  Instead of
+;; disabling signature checking outright, probe whether the resolved gpg can
+;; actually operate on `package-gnupghome-dir' (a working gpg such as the one
+;; shipped with Git for Windows is often on PATH).  Keep the default ELPA
+;; verification whenever the probe succeeds; disable only when it fails.
+(defvar my/package-signature-status
+  (if (eq system-type 'windows-nt) 'unknown 'default)
+  "How org-seq resolved ELPA signature checking on this system.
+One of `default' (non-Windows, Emacs default), `verified' (Windows,
+working gpg found, verification kept), or `disabled' (Windows, no
+usable gpg, `package-check-signature' set to nil).")
+
+(defvar epg-gpg-program)
+
+(defconst my/init--gpg-native-candidates
+  '("C:/Program Files (x86)/GnuPG/bin/gpg.exe"
+    "C:/Program Files/GnuPG/bin/gpg.exe")
+  "Known native Windows GnuPG install locations (Gpg4win, official GnuPG).
+Native builds handle Windows-style --homedir paths; MSYS builds (Git for
+Windows, the Emacs bundle) treat them as relative paths and fail.")
+
+(defun my/init--gpg-homedir-usable-p (program homedir)
+  "Return non-nil when gpg PROGRAM can operate on HOMEDIR.
+Runs the same homedir access pattern package.el uses for signature
+verification, so the probe fails exactly when real verification would.
+HOMEDIR is created first because package.el creates it too when it
+imports the bundled ELPA keyring; gpg refuses missing homedirs in
+--batch mode, which would otherwise make this probe a false negative."
+  (condition-case nil
+      (progn
+        (make-directory homedir t)
+        (eq 0 (call-process program nil nil nil
+                            "--homedir" homedir
+                            "--batch" "--quiet" "--list-keys")))
+    (error nil)))
+
+(defun my/init--find-usable-gpg ()
+  "Return a gpg program usable for ELPA verification, or nil.
+Tries the gpg that epg resolves by default first, then the known native
+GnuPG install locations in `my/init--gpg-native-candidates'."
+  (when (require 'epg-config nil t)
+    (let* ((homedir (expand-file-name package-gnupghome-dir))
+           (config (ignore-errors (epg-find-configuration 'OpenPGP)))
+           (default-program (and config (alist-get 'program config))))
+      (or (and default-program
+               (my/init--gpg-homedir-usable-p default-program homedir)
+               default-program)
+          (cl-find-if (lambda (candidate)
+                        (and (file-executable-p candidate)
+                             (my/init--gpg-homedir-usable-p candidate homedir)))
+                      my/init--gpg-native-candidates)))))
+
 (when (eq system-type 'windows-nt)
-  (setq package-check-signature nil))
+  ;; Probe only in interactive sessions: batch validation suppresses package
+  ;; installation anyway, and skipping the subprocess keeps batch runs fast.
+  (let ((gpg (and (not noninteractive) (my/init--find-usable-gpg))))
+    (if gpg
+        (progn
+          (setq my/package-signature-status 'verified
+                package-check-signature 'allow-unsigned)
+          ;; When the usable gpg is not the one epg resolves by default
+          ;; (e.g. a native Gpg4win install shadowed by the MSYS gpg from
+          ;; Git for Windows on exec-path), point epg at it explicitly and
+          ;; refresh epg's cached configuration.
+          (unless (equal gpg
+                         (ignore-errors
+                           (alist-get 'program
+                                      (epg-find-configuration 'OpenPGP))))
+            (setq epg-gpg-program gpg)
+            (ignore-errors (epg-find-configuration 'OpenPGP t))))
+      (setq my/package-signature-status 'disabled
+            package-check-signature nil)
+      (unless noninteractive
+        (message "org-seq: no usable gpg found; ELPA signature checking disabled (install Gpg4win or official GnuPG to enable it)")))))
 
 (package-initialize)
 (defconst my/noninteractive-init noninteractive
@@ -292,8 +362,9 @@ so byte-compilation and load tests never block on network traffic."
 ;; ---- Load modules ----
 ;; Order: doctor -> packages -> popup -> keymap -> UI -> completion -> pyim -> python
 ;; -> markdown -> languages -> org -> roam
-;; -> gtd -> focus -> pkm -> supertag -> daily -> terminal -> ai -> dashboard -> dired
-;; -> workspace -> update -> tty -> evil (last)
+;; -> gtd -> gtd-dashboard -> focus -> pkm -> supertag -> daily -> terminal
+;; -> ai -> ai-cli -> dashboard -> dired
+;; -> mouse -> frame -> workspace -> update -> tty -> evil (last)
 ;; Each require is guarded so a single broken module does not kill the
 ;; entire config -- the user gets an actionable warning and can inspect
 ;; details with `M-x my/init-errors'.
@@ -303,7 +374,7 @@ so byte-compilation and load tests never block on network traffic."
 (defvar my/--init-results nil
   "Reverse-ordered module load result plists for the current startup.")
 
-(defvar my/init-modules
+(defconst my/init-modules-default
   '(init-doctor
     init-packages
     init-popup
@@ -317,19 +388,81 @@ so byte-compilation and load tests never block on network traffic."
     init-org
     init-roam
     init-gtd
+    init-gtd-dashboard
     init-focus
     init-pkm
     init-supertag
     init-daily
     init-terminal
     init-ai
+    init-ai-cli
     init-dashboard
     init-dired
+    init-mouse
+    init-frame
     init-workspace
     init-update
     init-tty
     init-evil)
+  "Canonical org-seq module list in dependency order.
+Kept separate from `my/init-modules' so tests can inspect the canonical
+order while overriding the effective load list.")
+
+(defvar my/init-modules my/init-modules-default
   "Modules loaded by org-seq in dependency order.")
+
+(defconst my/init-module-requires
+  '((init-ui            . (init-packages))
+    (init-markdown      . (init-ui))
+    (init-languages     . (init-completion init-python))
+    (init-org           . (init-packages))
+    (init-roam          . (init-org))
+    (init-gtd           . (init-org))
+    (init-gtd-dashboard . (init-gtd))
+    (init-focus         . (init-org))
+    (init-pkm           . (init-org init-packages))
+    (init-supertag      . (init-org init-pkm init-roam))
+    (init-daily         . (init-roam init-pkm))
+    (init-terminal      . (init-popup init-org))
+    (init-ai            . (init-org init-packages init-popup))
+    (init-ai-cli        . (init-org init-packages init-terminal))
+    (init-dashboard     . (init-daily init-roam))
+    (init-dired         . (init-org init-ui init-terminal))
+    (init-mouse         . (init-org init-gtd init-gtd-dashboard init-daily))
+    (init-workspace     . (init-org init-daily init-terminal init-dired init-frame))
+    (init-tty           . (init-completion init-ui))
+    (init-evil          . (init-keymap)))
+  "Alist of (MODULE . DEPENDENCIES) mirroring the module \"Requires:\" headers.
+Every dependency must appear before MODULE in `my/init-modules'.  This is
+the machine-checkable form of the load-order contract: startup warns on
+violations, and scripts/test-init-loader.el fails on them.  When adding a
+module, add its record here and keep the module file's \"Requires:\"
+comment in sync.")
+
+(defun my/init-check-module-order (&optional modules requires)
+  "Return module dependency violations as a list of (MODULE . PROBLEM) pairs.
+MODULES defaults to `my/init-modules'; REQUIRES defaults to
+`my/init-module-requires'.  A violation is a declared dependency that is
+missing from MODULES or ordered after the module that requires it."
+  (let ((modules (or modules my/init-modules))
+        (requires (or requires my/init-module-requires))
+        violations)
+    (dolist (entry requires)
+      (let* ((module (car entry))
+             (pos (cl-position module modules)))
+        (when pos
+          (dolist (dep (cdr entry))
+            (let ((dep-pos (cl-position dep modules)))
+              (cond
+               ((null dep-pos)
+                (push (cons module
+                            (format "dependency %s is not in my/init-modules" dep))
+                      violations))
+               ((> dep-pos pos)
+                (push (cons module
+                            (format "dependency %s loads after it" dep))
+                      violations))))))))
+    (nreverse violations)))
 
 (defun my/init-results ()
   "Return module load results in attempted load order."
@@ -387,6 +520,14 @@ Return non-nil when MODULE loads successfully."
 
 (setq my/--init-errors nil
       my/--init-results nil)
+
+;; Dependency assertion: fail loudly (but non-fatally) when the module list
+;; violates the declared load-order contract, before any module loads.
+(dolist (violation (my/init-check-module-order))
+  (display-warning
+   'org-seq
+   (format "module order: %s: %s" (car violation) (cdr violation))
+   :error))
 
 (dolist (module my/init-modules)
   (my/--require-module module))

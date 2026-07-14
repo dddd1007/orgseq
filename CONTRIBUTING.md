@@ -17,12 +17,16 @@ Whether you're sending a PR or returning to the codebase later, this is the orie
 ```
 init-doctor  →  init-packages  →  init-popup  →  init-keymap  →  init-ui  →  init-completion  →  init-pyim
         →  init-python  →  init-markdown
-        →  init-languages  →  init-org  →  init-roam  →  init-gtd  →  init-focus  →  init-pkm
-        →  init-supertag  →  init-daily  →  init-terminal  →  init-ai  →  init-dashboard  →  init-dired
-        →  init-workspace  →  init-update  →  init-tty  →  init-evil
+        →  init-languages  →  init-org  →  init-roam  →  init-gtd  →  init-gtd-dashboard  →  init-focus  →  init-pkm
+        →  init-supertag  →  init-daily  →  init-terminal  →  init-ai  →  init-ai-cli  →  init-dashboard  →  init-dired
+        →  init-mouse  →  init-frame  →  init-workspace  →  init-update  →  init-tty  →  init-evil
 ```
 
-Order is fixed in `init.el` and matters. See `AGENTS.md` for the dependency rationale. The short version:
+Order is fixed in `init.el` and matters. Module dependencies are declared in
+`my/init-module-requires` (in `init.el`), mirroring each module's `;; Requires:`
+header; startup warns on order violations and `scripts/test-init-loader.el`
+fails on them or on header drift. See `AGENTS.md` for the dependency rationale.
+The short version:
 
 - `init-doctor` loads first so diagnostics remain available when a later module fails
 - `init-packages` owns Git package metadata and the noninteractive network boundary
@@ -33,14 +37,16 @@ Order is fixed in `init.el` and matters. See `AGENTS.md` for the dependency rati
 - `init-roam`, `init-gtd`, `init-focus`, `init-pkm`, `init-supertag`, and `init-ai` all build on that foundation
 - `init-daily` owns Daily Workspace orchestration, read-only recent-date rendering, and capture-ready Daily nodes
 - Daily sidebar tests must use temporary NoteHQ roots and must prove that rendering does not create missing notes
-- `init-workspace` owns transitions between the Daily sidebar and Treemacs
+- `init-gtd-dashboard` renders the live-count *GTD* buffer on top of `init-gtd`'s agenda core
+- `init-mouse` owns first-class mouse support: context menus, org-mouse, the NoteHQ menu bar, and drag & drop
+- `init-frame` owns adaptive GUI frame sizing; `init-workspace` owns transitions between the Daily sidebar and Treemacs
 - `init-terminal` owns Ghostel popup placement and lifecycle before AI, yazi, and workspace aliases consume it
-- `init-ai` defines the AI CLI and Claude Code command entry points before leader keys reference them
+- `init-ai` owns gptel and in-buffer AI commands; `init-ai-cli` defines the AI CLI and Claude Code entry points before leader keys reference them
 - `init-dired` provides the file-manager helpers that `init-workspace` depends on
-- `init-update` runs after the package-config modules it manages
+- `init-update` runs after the package-config modules it manages, snapshots `elpa/` before every upgrade, and provides `M-x my/package-snapshot-rollback`
 - `init-evil` loads last because the leader-key map references functions from nearly every earlier module
 
-If you add a new module, place it deliberately in the chain, update `init.el`, and keep `AGENTS.md`, `README.md`, and this file aligned.
+If you add a new module, place it deliberately in the chain, update `init.el` (both `my/init-modules-default` and `my/init-module-requires`), and keep `AGENTS.md`, `README.md`, and this file aligned.
 
 ## Bundled subprojects
 

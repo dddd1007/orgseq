@@ -10,6 +10,13 @@ configuration into a general framework.
 elapsed seconds, and original error object. A failed module does not prevent
 later modules from being attempted.
 
+The load-order contract is machine-checkable: `my/init-module-requires`
+declares each module's dependencies (mirroring the `;; Requires:` headers in
+`lisp/*.el`), `my/init-check-module-order` returns violations, startup emits
+an error-level warning for each violation before loading modules, and
+`scripts/test-init-loader.el` fails when the declarations, the headers, or
+the order disagree.
+
 - `M-x my/init-errors` shows legacy failure details.
 - `M-x my/init-report` shows ordered module status and timings.
 - `M-x my/doctor` checks requirements without installing, downloading, or

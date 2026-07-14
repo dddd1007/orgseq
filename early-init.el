@@ -13,8 +13,11 @@
           (lambda ()
             (setq file-name-handler-alist my--file-name-handler-alist)))
 
-;; 3. Prevent UI elements from being created (faster than disabling after creation)
-(push '(menu-bar-lines . 0) default-frame-alist)
+;; 3. Frame chrome: keep the menu bar (mouse is a first-class input in
+;;    org-seq; init-mouse.el adds the NoteHQ menu), skip the tool bar and
+;;    scroll bars.  Setting frame parameters here is faster than toggling
+;;    the modes after the first frame exists.
+(push '(menu-bar-lines . 1) default-frame-alist)
 (push '(tool-bar-lines . 0) default-frame-alist)
 (push '(vertical-scroll-bars) default-frame-alist)
 

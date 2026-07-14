@@ -17,13 +17,15 @@
 
 (ert-deftest my/keymap-critical-contract-covers-core-workflows ()
   (dolist (expected '(("'" . my/terminal-popup-toggle)
-                      ("ad" . my/org-dashboard)
-                      ("af" . org-focus-start)
-                      ("ndd" . my/daily-workspace-open)
+                      ("d" . my/daily-workspace-open)
+                      ("c" . org-roam-capture)
+                      ("td" . my/org-dashboard)
+                      ("tt" . my/org-open-today)
+                      ("tf" . org-focus-start)
+                      ("nn" . org-roam-node-find)
                       ("nda" . my/daily-new-node)
-                      ("nF" . org-roam-node-find)
-                      ("npp" . my/supertag-quick-action)
-                      ("ix" . my/codex-popup-toggle)
+                      ("##" . my/supertag-quick-action)
+                      ("ax" . my/codex-popup-toggle)
                       ("oy" . my/yazi-popup-toggle)))
     (let ((spec (seq-find
                  (lambda (entry)
@@ -42,8 +44,8 @@
 
 (ert-deftest my/keymap-general-arguments-preserve-contract-shape ()
   (let ((arguments (my/keymap-general-arguments)))
-    (should (equal (plist-get (cadr (member "a" arguments)) :wk)
-                   "agenda"))
+    (should (equal (plist-get (cadr (member "t" arguments)) :wk)
+                   "tasks"))
     (should (eq (car (cadr (member "'" arguments)))
                 'my/terminal-popup-toggle))
     (should (equal (plist-get (cdr (cadr (member "'" arguments))) :wk)
@@ -84,7 +86,7 @@
   (let ((results
          (my/keymap-audit-results
           (lambda (key)
-            (if (equal key "ad") 'wrong-command
+            (if (equal key "td") 'wrong-command
               (plist-get
                (seq-find (lambda (spec)
                            (equal (plist-get spec :key) key))
@@ -92,7 +94,7 @@
                :command))))))
     (should (eq (plist-get (seq-find
                             (lambda (result)
-                              (equal (plist-get result :key) "ad"))
+                              (equal (plist-get result :key) "td"))
                             results)
                            :status)
                 'fail))

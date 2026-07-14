@@ -4,9 +4,15 @@
 (require 'ert)
 
 (defvar my/init-modules)
+(defvar my/init-modules-default)
+(defvar my/init-module-requires)
 
-(let* ((root (file-name-as-directory
-              (expand-file-name ".." (file-name-directory load-file-name))))
+(defvar my/test-loader--root
+  (file-name-as-directory
+   (expand-file-name ".." (file-name-directory load-file-name)))
+  "Repository root for locating module sources.")
+
+(let* ((root my/test-loader--root)
        (user-emacs-directory root)
        (my/init-modules nil))
   (load-file (expand-file-name "init.el" root)))
@@ -63,5 +69,59 @@
            (:module init-first :status failed :elapsed 0.1 :error first))))
     (should (equal (my/init-failed-modules)
                    '(init-first init-third)))))
+
+(ert-deftest my/init-module-order-satisfies-declared-dependencies ()
+  "The canonical module list must satisfy `my/init-module-requires'."
+  (should (null (my/init-check-module-order my/init-modules-default))))
+
+(ert-deftest my/init-module-requires-covers-only-known-modules ()
+  "Every module and dependency in the contract must be a real module."
+  (dolist (entry my/init-module-requires)
+    (should (memq (car entry) my/init-modules-default))
+    (dolist (dep (cdr entry))
+      (should (memq dep my/init-modules-default)))))
+
+(ert-deftest my/init-check-module-order-detects-inverted-order ()
+  (should (equal (my/init-check-module-order
+                  '(init-b init-a)
+                  '((init-b . (init-a))))
+                 '((init-b . "dependency init-a loads after it")))))
+
+(ert-deftest my/init-check-module-order-detects-missing-dependency ()
+  (should (equal (my/init-check-module-order
+                  '(init-b)
+                  '((init-b . (init-a))))
+                 '((init-b . "dependency init-a is not in my/init-modules")))))
+
+(ert-deftest my/init-check-module-order-ignores-disabled-modules ()
+  "A module removed from the load list is not checked for its own deps."
+  (should (null (my/init-check-module-order
+                 '(init-a)
+                 '((init-b . (init-a)))))))
+
+(defun my/test-loader--declared-requires (module)
+  "Return modules named on \"Requires:\" comment lines of MODULE's source."
+  (let ((file (expand-file-name (format "lisp/%s.el" module)
+                                my/test-loader--root))
+        (found nil))
+    (when (file-exists-p file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (while (re-search-forward "^;; Requires: \\(.*\\)$" nil t)
+          (let ((line (match-string 1))
+                (start 0))
+            (while (string-match "\\binit-[a-z-]+\\b" line start)
+              (push (intern (match-string 0 line)) found)
+              (setq start (match-end 0)))))))
+    (cl-remove-duplicates (nreverse found))))
+
+(ert-deftest my/init-module-requires-matches-source-headers ()
+  "`my/init-module-requires' must mirror the module \"Requires:\" headers."
+  (dolist (module my/init-modules-default)
+    (let ((declared (my/test-loader--declared-requires module))
+          (contract (cdr (assq module my/init-module-requires))))
+      (should (equal (sort (copy-sequence declared) #'string<)
+                     (sort (copy-sequence contract) #'string<))))))
 
 ;;; test-init-loader.el ends here

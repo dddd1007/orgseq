@@ -39,7 +39,7 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 
 早上打开 Emacs，第一眼看到的是 GTD Dashboard，上面实时统计着今天该做的事、本周在等的回复、几个卡住的项目。你点进去处理待办，回到当天的 daily 笔记继续写工作流水。写着写着冒出一个值得单独存放的想法，你按两下键把它提取为一条独立的 Zettelkasten 笔记，org-roam 自动为它分配一个永久 ID，并在原来的 daily 里留下一条 `[[id:...]]` 链接。稍后这条新笔记会出现在反向链接面板里——提醒你它和过去哪些笔记产生了关联。
 
-如果你想把它归类，可以按 `SPC n p a` 给它加一个 supertag（比如 `reading` 或 `concept`），这些 tag 不只是标签，而是 Tana 式的"数据库记录"——每个 tag 可以定义字段、在 dashboard 里跨 tag 聚合查询。下午你在读一篇长文，选中几段文字按 `SPC i s` 让 LLM 摘要；想翻译一段中文按 `SPC i l`；想让 AI 建议相关笔记按 `SPC i k`。所有这些交互都发生在 Emacs 里，所有输出都保留在你的 `.org` 文件里，没有 SaaS 订阅、没有 vendor lock-in、没有离线就断联的焦虑。
+如果你想把它归类，可以按 `SPC # a` 给它加一个 supertag（比如 `reading` 或 `concept`），这些 tag 不只是标签，而是 Tana 式的"数据库记录"——每个 tag 可以定义字段、在 dashboard 里跨 tag 聚合查询。下午你在读一篇长文，选中几段文字按 `SPC a s` 让 LLM 摘要；想翻译一段中文按 `SPC a l`；想让 AI 建议相关笔记按 `SPC a k`。所有这些交互都发生在 Emacs 里，所有输出都保留在你的 `.org` 文件里，没有 SaaS 订阅、没有 vendor lock-in、没有离线就断联的焦虑。
 
 技术底座：**Zettelkasten 笔记网络**由 org-roam 驱动（双向链接 + 知识图谱）；**GTD 任务系统**是用 org-agenda + org-ql 自建的 dashboard；**结构化数据**由 org-supertag 提供，把标签变成带字段的数据库表格和看板；**性能层**由 org-node / org-mem 承担，让 3000+ 节点的索引从几分钟降到两秒；**AI 集成**通过 gptel 和 Claude Code 完成；**Vim 手感**由 Evil mode 保证；**版本控制**交给 Magit（几乎所有用过它的人都认为它是目前最好的 Git 界面）；**Markdown 文件**也能在同一个编辑器里流畅编辑，方便你从 Obsidian 或其他工具过渡过来。
 
@@ -49,7 +49,7 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 
 1. **笔记用 `.org` 格式存在 `~/NoteHQ/00_Roam/` 下**——不是数据库，不是云端，而是人眼可读的纯文本文件。二十年后你的 Emacs 没了，这些 `.org` 文件依然能被任何文本编辑器打开。
 2. **任务就写在笔记里**，用 `TODO` / `NEXT` / `DONE` 等状态词标记。不存在"任务系统"和"笔记系统"的分离——一件待办总有它的上下文，而最好的上下文就是写下它时的那段话。
-3. **键盘是主路径，鼠标是舒服的辅助入口**。核心入口仍然是空格键 `SPC`：按下 SPC 等半秒钟会弹出 which-key 菜单告诉你下一步可以按什么；同时，滚轮、右键菜单、Dashboard/Dired 点击、终端鼠标和鼠标侧键导航也会尽量按现代编辑器的直觉工作。
+3. **键盘和鼠标是平级的一等输入**。键盘侧的核心入口是空格键 `SPC`：按下 SPC 等半秒钟会弹出 which-key 菜单告诉你下一步可以按什么。鼠标侧则由 `init-mouse.el` 保证同等能力：右键在笔记/agenda/Daily 侧栏/GTD 仪表盘上弹出针对当前对象的操作菜单，TODO 关键字、复选框、时间戳可以直接点击，菜单栏的 NoteHQ 菜单收纳了核心工作流，文件可以拖进笔记、拖出 dired。日常闭环用哪种输入都能独立完成。
 
 ### 1.4 你的笔记库结构
 
@@ -156,7 +156,7 @@ M-x supertag-sync-full-initialize
 
 ### 2.4 配置 AI（可选但推荐）
 
-AI 功能不是必需的——你完全可以把 org-seq 当作纯粹的 PKM 工具用。但如果你已经在用 Claude 或 ChatGPT 写东西，把它们搬到 Emacs 里会让你省下大量复制粘贴的时间。org-seq 通过 [OpenRouter](https://openrouter.ai) 统一接入各家模型（Claude、GPT、DeepSeek、Gemini 等），你只需要注册一个账号、拿一个 API key，就能在 `SPC i m` 菜单里随意切换模型，而不必为每家 API 单独开账户。
+AI 功能不是必需的——你完全可以把 org-seq 当作纯粹的 PKM 工具用。但如果你已经在用 Claude 或 ChatGPT 写东西，把它们搬到 Emacs 里会让你省下大量复制粘贴的时间。org-seq 通过 [OpenRouter](https://openrouter.ai) 统一接入各家模型（Claude、GPT、DeepSeek、Gemini 等），你只需要注册一个账号、拿一个 API key，就能在 `SPC a m` 菜单里随意切换模型，而不必为每家 API 单独开账户。
 
 **第一步：获取 Key**
 
@@ -215,30 +215,30 @@ Normal 模式下按空格键 `SPC`，会在屏幕底部弹出一个菜单——�
 ```
 SPC         → 等 0.3 秒 → 弹出功能菜单
 SPC SPC     → M-x（输入任意命令名称执行）
-SPC .       → 打开文件
-SPC ,       → 切换 buffer（已打开的文件）
+SPC f f       → 打开文件
+SPC b b       → 切换 buffer（已打开的文件）
 SPC /       → 在项目中全文搜索
 ```
 
-如果按完 SPC 之后的菜单里依然找不到你要的功能，还有一招兜底：按 `SPC c c` 打开 Casual 菜单，那是一个基于 Transient 的图形化命令面板，把当前上下文下所有可用操作都列出来了。记不住键就用 Casual，用多了自然就记住了键——这比硬背键位表高效得多。
+如果按完 SPC 之后的菜单里依然找不到你要的功能，还有一招兜底：按 `SPC m` 打开 Casual 菜单，那是一个基于 Transient 的图形化命令面板，把当前上下文下所有可用操作都列出来了。记不住键就用 Casual，用多了自然就记住了键——这比硬背键位表高效得多。
 
 ### 3.3 最常用的操作
 
 ```
 基本操作：
-  SPC .       → 打开文件
+  SPC f f       → 打开文件
   SPC f s     → 保存文件
-  SPC b d     → 关闭当前文件
+  SPC b k     → 关闭当前文件
   SPC q q     → 退出 Emacs
 
 笔记操作：
-  SPC n f     → 搜索/打开全库笔记
+  SPC n s     → 搜索/打开全库笔记
   SPC n c     → 新建笔记
-  SPC n d d   → 写今日日记
+  SPC d   → 写今日日记
 
 任务操作：
-  SPC a d     → 任务仪表盘
-  SPC a c     → 快速记一条待办
+  SPC t d     → 任务仪表盘
+  SPC t c     → 快速记一条待办
 
 搜索：
   SPC /       → 全文搜索
@@ -251,7 +251,7 @@ SPC /       → 在项目中全文搜索
 |-----------|--------|
 | 退出插入模式 | `Esc` |
 | 关闭弹出窗口/菜单 | `q` 或 `Esc` |
-| 关闭当前 buffer | `SPC b d` |
+| 关闭当前 buffer | `SPC b k` |
 | 退出 Emacs | `SPC q q` |
 | 取消正在输入的命令 | `C-g`（Ctrl+g）|
 
@@ -355,7 +355,7 @@ SPC h p        → 查看某个包的信息
 ### 5.2 文件操作
 
 ```
-SPC .          → 打开文件（支持模糊匹配）
+SPC f f          → 打开文件（支持模糊匹配）
 SPC f f        → 同上
 SPC f r        → 打开最近编辑的文件
 SPC f s        → 保存当前文件
@@ -370,9 +370,9 @@ SPC f p        → 直接打开 init.el（编辑配置）
 ### 5.3 Buffer 操作
 
 ```
-SPC ,          → 切换 buffer（模糊匹配，最常用）
+SPC b b          → 切换 buffer（模糊匹配，最常用）
 SPC b b        → 同上
-SPC b d        → 关闭当前 buffer
+SPC b k        → 关闭当前 buffer
 SPC b s        → 保存当前 buffer
 SPC b S        → 保存所有 buffer
 SPC b n        → 新建空 buffer
@@ -382,7 +382,7 @@ SPC b p        → 上一个 buffer
 SPC b N        → 下一个 buffer
 SPC TAB        → 快速切换到上一个 buffer（来回切换两个文件）
 SPC b m        → 给当前位置设置书签
-SPC RET        → 跳转到书签
+SPC b j        → 跳转到书签
 ```
 
 ### 5.4 补全系统（Vertico）
@@ -554,7 +554,7 @@ org-seq 使用 **org-modern** 让 Org 文件更美观：
 - 时间戳使用更清晰的格式
 - 列表项使用现代化的点符号
 
-这些都是纯显示效果，不改变文件内容。切换开关：`SPC t i`。
+这些都是纯显示效果，不改变文件内容。切换开关：`SPC u i`。
 
 ---
 
@@ -594,9 +594,9 @@ SPC n c        → 新建笔记（弹出模板选择）
 **添加更多模板**（如咨询记录、学生信息等）：
 
 ```
-SPC n m c      → 打开模板配置文件（~/.orgseq/capture-templates.el）
+SPC # c      → 打开模板配置文件（~/.orgseq/capture-templates.el）
                编辑后保存
-SPC n m C      → 热重载，立即生效
+SPC # C      → 热重载，立即生效
 ```
 
 模板文件里已有 session（咨询记录）、client（来访者）、student（学生）的注释示例，取消注释即可启用。
@@ -604,12 +604,12 @@ SPC n m C      → 热重载，立即生效
 ### 8.3 查找和打开笔记
 
 ```
-SPC n f        → 搜索全库笔记（Deft，最常用）
+SPC n s        → 搜索全库笔记（Deft，最常用）
 SPC n /        → 在笔记内容中全文搜索（ripgrep 驱动）
 SPC n ?        → consult 增强搜索（支持实时预览）
 ```
 
-`SPC n f` 会打开 Deft，对整个 `~/NoteHQ/` 目录做增量搜索；输入 `emacs config` 可以快速缩小到标题或正文里相关的 Org/Markdown 笔记。
+`SPC n s` 会打开 Deft，对整个 `~/NoteHQ/` 目录做增量搜索；输入 `emacs config` 可以快速缩小到标题或正文里相关的 Org/Markdown 笔记。
 
 ### 8.4 建立链接
 
@@ -644,7 +644,7 @@ SPC n g        → 在浏览器中打开 org-roam-ui 交互图谱
 每日笔记是默认启动入口，也是你的数字日记本和临时收集箱：
 
 ```
-SPC n d d      → 打开今日 Daily Workspace
+SPC d      → 打开今日 Daily Workspace
 SPC n d a      → 追加或复用一个带 ID 的时间节点
 SPC n d t      → 打开今日笔记（兼容别名）
 SPC n d y      → 打开昨天的笔记
@@ -678,7 +678,7 @@ org-supertag 把 Org 文件中的标签变成数据库表格。例如给一个�
 **最常用的操作——快速操作菜单**：
 
 ```
-SPC n p p      → 上下文感知菜单（自动判断当前节点有无标签）
+SPC # #      → 上下文感知菜单（自动判断当前节点有无标签）
                如果没有标签 → 直接进入添加标签流程
                如果已有标签 → 弹出选项：添加/移除/编辑字段/跳转关联
 ```
@@ -686,19 +686,19 @@ SPC n p p      → 上下文感知菜单（自动判断当前节点有无标签�
 **全部 supertag 操作**：
 
 ```
-SPC n p p      → 快速操作（最常用）
-SPC n p a      → 添加标签
-SPC n p e      → 编辑字段
-SPC n p x      → 移除标签
-SPC n p j      → 跳转到关联节点
-SPC n p k      → 看板视图
-SPC n p s      → 搜索 supertag 数据库
+SPC # #      → 快速操作（最常用）
+SPC # a      → 添加标签
+SPC # e      → 编辑字段
+SPC # x      → 移除标签
+SPC # j      → 跳转到关联节点
+SPC # k      → 看板视图
+SPC # s      → 搜索 supertag 数据库
 ```
 
 在 Org buffer 中也可以用 local leader：
 
 ```
-, ##           → 快速操作（同 SPC n p p）
+, ##           → 快速操作（同 SPC # #）
 , #a           → 添加标签
 , #e           → 编辑字段
 , #x           → 移除标签
@@ -708,8 +708,8 @@ SPC n p s      → 搜索 supertag 数据库
 **标签定义**（schema）管理：
 
 ```
-SPC n m t      → 编辑 supertag-schema.el（定义标签和字段）
-SPC n m T      → 热重载 schema（改完立即生效）
+SPC # t      → 编辑 supertag-schema.el（定义标签和字段）
+SPC # T      → 热重载 schema（改完立即生效）
 ```
 
 **首次使用需要初始化**：`M-x supertag-sync-full-initialize`
@@ -722,7 +722,7 @@ Dashboard 是只读的查询窗口，用来汇总和回顾你的笔记状态。
 SPC n v v      → 选择并打开一个 dashboard
 SPC n v w      → 打开每周回顾 dashboard
 SPC n v i      → 打开 dashboard 索引
-SPC n m d      → 创建新的 dashboard
+SPC # d      → 创建新的 dashboard
 ```
 
 ### 8.10 PARA 层导航
@@ -810,7 +810,7 @@ SOMEDAY   → 将来也许做
 Dashboard 是你的任务管理中心：
 
 ```
-SPC a d        → 打开/关闭 GTD Dashboard
+SPC t d        → 打开/关闭 GTD Dashboard
 ```
 
 Dashboard 显示：
@@ -846,9 +846,9 @@ Dashboard 显示：
 随时随地快速记录想法，不打断当前工作：
 
 ```
-SPC a c        → 通用 capture（进入 Inbox）
+SPC t c        → 通用 capture（进入 Inbox）
 SPC n c        → 创建一条新笔记
-SPC n d d      → 在今日日记中快速记录
+SPC d      → 在今日日记中快速记录
 ```
 
 #### 处理
@@ -856,7 +856,7 @@ SPC n d d      → 在今日日记中快速记录
 打开 Inbox，逐条决定每一项的去处：
 
 ```
-SPC a 0        → 打开 Inbox 视图
+SPC t i        → 打开 Inbox 视图
 ```
 
 对每条 inbox 条目：
@@ -871,16 +871,16 @@ SPC a 0        → 打开 Inbox 视图
 根据当前场景选择要做的事：
 
 ```
-SPC a 1        → Today（今天要做的）
-SPC a 3        → Anytime（NEXT 且无排期 = 随时可做）
-SPC a 7        → 按上下文筛选（弹出选择：@work、@home…）
-SPC a u        → 即将到来（按天分组的排期任务）
+SPC t t        → Today（今天要做的）
+SPC t a        → Anytime（NEXT 且无排期 = 随时可做）
+SPC t x        → 按上下文筛选（弹出选择：@work、@home…）
+SPC t u        → 即将到来（按天分组的排期任务）
 ```
 
 #### 回顾
 
 ```
-SPC a w        → 打开 Weekly Review 视图
+SPC t r        → 打开 Weekly Review 视图
 ```
 
 每周回顾内容包括：
@@ -893,18 +893,18 @@ SPC a w        → 打开 Weekly Review 视图
 
 | 键位 | 视图 | 内容 |
 |------|------|------|
-| `SPC a d` | Dashboard | 实时计数面板 + 项目 + 上下文 |
-| `SPC a n` | GTD Overview | 综合视图（Today + NEXT + IN-PROGRESS + WAITING） |
-| `SPC a p` | Projects | 活跃项目 + 卡壳项目 |
-| `SPC a w` | Weekly Review | 3天回顾 + 3天展望 + 全部活跃任务 |
-| `SPC a 0` | Inbox | 带 :fleeting: 标签的未处理条目 |
-| `SPC a 1` | Today | 今天到期/排期的任务 |
-| `SPC a u` | Upcoming | 未来排期任务（按天分组） |
-| `SPC a 3` | Anytime | NEXT 且无排期 |
-| `SPC a 4` | Waiting | 等待中的任务 |
-| `SPC a 5` | Someday | 将来也许做 |
-| `SPC a 6` | Logbook | 已完成/已取消 |
-| `SPC a 7` | Context | 按 @work/@home 等筛选 |
+| `SPC t d` | Dashboard | 实时计数面板 + 项目 + 上下文 |
+| `SPC t o` | GTD Overview | 综合视图（Today + NEXT + IN-PROGRESS + WAITING） |
+| `SPC t p` | Projects | 活跃项目 + 卡壳项目 |
+| `SPC t r` | Weekly Review | 3天回顾 + 3天展望 + 全部活跃任务 |
+| `SPC t i` | Inbox | 带 :fleeting: 标签的未处理条目 |
+| `SPC t t` | Today | 今天到期/排期的任务 |
+| `SPC t u` | Upcoming | 未来排期任务（按天分组） |
+| `SPC t a` | Anytime | NEXT 且无排期 |
+| `SPC t w` | Waiting | 等待中的任务 |
+| `SPC t s` | Someday | 将来也许做 |
+| `SPC t l` | Logbook | 已完成/已取消 |
+| `SPC t x` | Context | 按 @work/@home 等筛选 |
 
 ---
 
@@ -912,18 +912,18 @@ SPC a w        → 打开 Weekly Review 视图
 
 ### 10.1 概述
 
-大多数 AI 笔记应用把 AI 当作一个外挂工具——你需要切换到另一个窗口，复制内容过去，让 AI 回答完再复制回来。org-seq 的思路正好相反：AI 是你编辑器的原生命令之一，和"保存文件"、"切换 buffer"处于同一层。你在写笔记时选中一段文字按 `SPC i s`，AI 的摘要就出现在底部的结果窗口里；你想让它建议标签按 `SPC i t`；你想把一段中文翻译成英文按 `SPC i l`。没有窗口切换，没有复制粘贴，所有输出都保留在你的 `.org` 文件里可以随时回溯。
+大多数 AI 笔记应用把 AI 当作一个外挂工具——你需要切换到另一个窗口，复制内容过去，让 AI 回答完再复制回来。org-seq 的思路正好相反：AI 是你编辑器的原生命令之一，和"保存文件"、"切换 buffer"处于同一层。你在写笔记时选中一段文字按 `SPC a s`，AI 的摘要就出现在底部的结果窗口里；你想让它建议标签按 `SPC a t`；你想把一段中文翻译成英文按 `SPC a l`。没有窗口切换，没有复制粘贴，所有输出都保留在你的 `.org` 文件里可以随时回溯。
 
-底层用的是 **gptel**——Emacs 社区目前最活跃的 LLM 客户端库。默认通过 OpenRouter 接入，这意味着你可以用同一个 API key 访问 DeepSeek、Claude、GPT、Gemini 等几十种模型，随时在 `SPC i m` 菜单里切换。所有 AI 相关的命令都挂在 `SPC i` 这个 leader 前缀下面——按 `SPC i` 等半秒钟 which-key 会把全部命令列给你看。
+底层用的是 **gptel**——Emacs 社区目前最活跃的 LLM 客户端库。默认通过 OpenRouter 接入，这意味着你可以用同一个 API key 访问 DeepSeek、Claude、GPT、Gemini 等几十种模型，随时在 `SPC a m` 菜单里切换。所有 AI 相关的命令都挂在 `SPC a` 这个 leader 前缀下面——按 `SPC a` 等半秒钟 which-key 会把全部命令列给你看。
 
 ### 10.2 基础对话
 
 ```
-SPC i c        → 打开 AI 对话 buffer（独立的聊天窗口）
-SPC i i        → 把当前 buffer 内容或选区发送给 AI，回答追加在后面
-SPC i m        → AI 菜单（切换模型、调整参数、选择预设）
-SPC i r        → 改写选中区域（AI 提供修改建议，可逐一接受/拒绝）
-SPC i a        → 添加上下文文件（让 AI 参考更多内容）
+SPC a c        → 打开 AI 对话 buffer（独立的聊天窗口）
+SPC a a        → 把当前 buffer 内容或选区发送给 AI，回答追加在后面
+SPC a m        → AI 菜单（切换模型、调整参数、选择预设）
+SPC a r        → 改写选中区域（AI 提供修改建议，可逐一接受/拒绝）
+SPC a +        → 添加上下文文件（让 AI 参考更多内容）
 ```
 
 ### 10.3 PKM 专属 AI 命令
@@ -932,12 +932,12 @@ SPC i a        → 添加上下文文件（让 AI 参考更多内容）
 
 | 键位 | 功能 | 说明 |
 |------|------|------|
-| `SPC i s` | 摘要 | 将当前笔记或选区交给 AI 生成结构化摘要 |
-| `SPC i t` | 标签建议 | AI 阅读笔记内容，建议 3-5 个 filetags |
-| `SPC i l` | 翻译 | 选中文本中英互译（自动判断语言方向） |
-| `SPC i k` | 关联发现 | AI 分析笔记，建议 3-5 个可能相关的概念/笔记 |
-| `SPC i p` | 润色写作 | 改善选中文本的表达质量 |
-| `SPC i o` | 知识库概览 | 分析整个知识库，生成主题/空白/建议报告 |
+| `SPC a s` | 摘要 | 将当前笔记或选区交给 AI 生成结构化摘要 |
+| `SPC a t` | 标签建议 | AI 阅读笔记内容，建议 3-5 个 filetags |
+| `SPC a l` | 翻译 | 选中文本中英互译（自动判断语言方向） |
+| `SPC a k` | 关联发现 | AI 分析笔记，建议 3-5 个可能相关的概念/笔记 |
+| `SPC a p` | 润色写作 | 改善选中文本的表达质量 |
+| `SPC a o` | 知识库概览 | 分析整个知识库，生成主题/空白/建议报告 |
 
 > 结果会显示在底部的 `*AI Result*` 窗口中。
 
@@ -948,7 +948,7 @@ SPC i a        → 添加上下文文件（让 AI 参考更多内容）
 - `~/NoteHQ/00_Roam/purpose.org` 描述你的知识库目标和研究方向。例如"我是研究认知科学的博士生，当前关注元认知与学习迁移"。
 - `~/NoteHQ/00_Roam/schema.org` 描述你的笔记类型约定和 tag 体系。例如"reading tag 记录文献，field 有 authors / year / topic"。
 
-首次使用时按 `SPC i g` 会在 Roam 目录下创建这两个文件的骨架，你填入自己的内容即可。以后每次 `SPC i s` / `SPC i k` / `SPC i i` 的调用都会自动带上这段背景，不需要你重复输入。编辑完保存，下次调用自动生效——没有重启步骤，没有缓存刷新。
+首次使用时按 `SPC a i` 会在 Roam 目录下创建这两个文件的骨架，你填入自己的内容即可。以后每次 `SPC a s` / `SPC a k` / `SPC a a` 的调用都会自动带上这段背景，不需要你重复输入。编辑完保存，下次调用自动生效——没有重启步骤，没有缓存刷新。
 
 ### 10.5 Org-babel AI 代码块
 
@@ -1077,7 +1077,7 @@ SPC l l        → 启动完整工作区
 - **treemacs**（左）：稳定的项目/目录树侧边栏。用于浏览 NoteHQ 层级、展开折叠目录、定位当前文件。它负责“树”，而不是完整文件管理。
 - **主编辑区**（中）：你的笔记/代码
 - **Outline**（右）：当前文件的大纲/标题列表，点击可跳转
-- **CLI 雷神窗**：按 `SPC '` 从底部唤出终端，`SPC i x` / `SPC i O` / `SPC i K` 分别唤出 Codex、OpenCode、kimi-cli，工作目录固定为 `my/note-home`（默认 `~/NoteHQ/`，可由 `ORG_SEQ_NOTE_HOME` 覆盖）
+- **CLI 雷神窗**：按 `SPC '` 从底部唤出终端，`SPC a x` / `SPC a O` / `SPC a K` 分别唤出 Codex、OpenCode、kimi-cli，工作目录固定为 `my/note-home`（默认 `~/NoteHQ/`，可由 `ORG_SEQ_NOTE_HOME` 覆盖）
 
 这个布局会按当前屏幕宽度自动计算比例：小屏优先保住主编辑区，大屏扩大侧栏和 outline 但不会无限铺开。
 
@@ -1160,8 +1160,8 @@ SPC w + / -    → 增加/减少高度
 把光标停在任何你想"从这里开始专注"的位置，按：
 
 ```
-SPC a f        → 启动专注片段（使用自动对齐的时长）
-C-u SPC a f    → 启动时自定义时长（默认值是自动对齐的结果）
+SPC t f        → 启动专注片段（使用自动对齐的时长）
+C-u SPC t f    → 启动时自定义时长（默认值是自动对齐的结果）
 ```
 
 Emacs 会在当前位置插入一行标记，类似这样：
@@ -1192,7 +1192,7 @@ How did that feel?  (u) unfocused   (n) normal focus   (f) flow state :
 ### 13.4 可视化：Focus Dashboard
 
 ```
-SPC a F        → 打开 Focus Dashboard
+SPC t F        → 打开 Focus Dashboard
 ```
 
 会弹出一个文本界面，显示最近 14 天的专注历史：
@@ -1255,9 +1255,9 @@ q              → 退出
 
 这个结构是有意为之的过渡形态。这个计时器对任何用 org-mode 的人都有价值——它不依赖 org-roam、不依赖 supertag、不依赖 org-seq 的任何路径约定，核心是纯粹的 elisp + 时间计算 + 文件读写。等到 API 和日志格式稳定下来之后，它会**毕业**成一个独立的 GitHub 项目，那时候 `init-focus.el` 会从当前的 `:load-path` 引用改成 `:vc` 引用，`packages/org-focus-timer/` 这个目录会被移出 org-seq。
 
-在那之前，把源代码放在 org-seq 内部带来一个实用的好处：**迭代闭环更短**。你想改 `org-focus-timer.el` 的某段逻辑？直接编辑 `packages/org-focus-timer/org-focus-timer.el`，保存，`M-x eval-buffer`——下一次 `SPC a f` 就用上了新代码，不需要重新 deploy，不需要切换仓库。对于一个尚在打磨的功能，这种零摩擦的改动环境比"干净的包边界"更重要。
+在那之前，把源代码放在 org-seq 内部带来一个实用的好处：**迭代闭环更短**。你想改 `org-focus-timer.el` 的某段逻辑？直接编辑 `packages/org-focus-timer/org-focus-timer.el`，保存，`M-x eval-buffer`——下一次 `SPC t f` 就用上了新代码，不需要重新 deploy，不需要切换仓库。对于一个尚在打磨的功能，这种零摩擦的改动环境比"干净的包边界"更重要。
 
-包和集成层之间有一条明确的分工：**所有 org-seq 特有的默认值**（日志文件指向 `~/NoteHQ/.orgseq/`、默认用 10/30/15 的 Vitamin-R 参数、键位绑定到 `SPC a f`）都住在 `lisp/init-focus.el` 里；**包本身**（`packages/org-focus-timer/`）只提供纯粹的函数和 defcustom，不知道 org-seq 的存在。这意味着等到它毕业的那天，你直接 `git mv packages/org-focus-timer/ ../org-focus-timer/` 就能把它剥离出来而不需要改任何一行代码。
+包和集成层之间有一条明确的分工：**所有 org-seq 特有的默认值**（日志文件指向 `~/NoteHQ/.orgseq/`、默认用 10/30/15 的 Vitamin-R 参数、键位绑定到 `SPC t f`）都住在 `lisp/init-focus.el` 里；**包本身**（`packages/org-focus-timer/`）只提供纯粹的函数和 defcustom，不知道 org-seq 的存在。这意味着等到它毕业的那天，你直接 `git mv packages/org-focus-timer/ ../org-focus-timer/` 就能把它剥离出来而不需要改任何一行代码。
 
 如果你把 org-seq clone 到另一台机器并发现 `packages/` 没跟着复制过去，`M-x customize-group RET org-seq` 里有一个 `my/focus-timer-path` 可以指向你实际保存 `org-focus-timer.el` 的位置。
 
@@ -1305,7 +1305,7 @@ SPC g f        → Git 文件操作（多种选项）
 默认主题是 **modus-operandi-tinted**（浅色主题），属于 Modus 主题家族——为可读性和无障碍设计的高对比度主题。
 
 ```
-SPC t t        → 切换主题（从可用主题列表中选择）
+SPC u t        → 切换主题（从可用主题列表中选择）
 ```
 
 已安装的主题家族：
@@ -1323,11 +1323,11 @@ org-seq 配置了中英文混排：
 ### 15.3 界面开关
 
 ```
-SPC t l        → 显示/隐藏行号
-SPC t w        → 显示/隐藏自动换行
+SPC u l        → 显示/隐藏行号
+SPC u w        → 显示/隐藏自动换行
 SPC t o        → 显示/隐藏 Olivetti（居中）模式
-SPC t f        → 全屏切换
-SPC t i        → 显示/隐藏 org-modern 美化效果
+SPC u f        → 全屏切换
+SPC u i        → 显示/隐藏 org-modern 美化效果
 ```
 
 ### 15.4 Olivetti（居中阅读模式）
@@ -1345,11 +1345,9 @@ SPC t i        → 显示/隐藏 org-modern 美化效果
 当你不确定当前模式下有什么操作可用时，**Casual** 提供 Transient 菜单面板：
 
 ```
-SPC c c        → 全局 EditKit 菜单（任何地方都能用）
-SPC c a        → Agenda 操作菜单
-SPC c d        → Dired（文件管理器）操作菜单
-SPC c b        → 书签操作菜单
-SPC c s        → 搜索操作菜单
+SPC m        → 全局 EditKit 菜单（任何地方都能用）
+SPC m          → 当前上下文的 Casual 主菜单
+C-o            → 在 agenda/dired/ibuffer/info/书签/isearch 缓冲区内直接打开对应 Casual 菜单
 ```
 
 在特定模式下按 `C-o` 也会弹出对应的 Casual 菜单：
@@ -1446,8 +1444,8 @@ M-x customize-group RET org-seq RET
 
 | 修改内容 | 热重载方式 |
 |---------|-----------|
-| supertag schema（`~/NoteHQ/00_Roam/supertag-schema.el`） | `SPC n m T`（`my/reload-supertag-schema`） |
-| capture 模板（`~/NoteHQ/.orgseq/capture-templates.el`） | `SPC n m C`（`my/reload-capture-templates`） |
+| supertag schema（`~/NoteHQ/00_Roam/supertag-schema.el`） | `SPC # T`（`my/reload-supertag-schema`） |
+| capture 模板（`~/NoteHQ/.orgseq/capture-templates.el`） | `SPC # C`（`my/reload-capture-templates`） |
 | AI 后端（`~/NoteHQ/.orgseq/ai-config.org`） | 保存文件后下次 `M-x gptel` 会重新解析 |
 | 单个 `init-*.el` 模块 | `M-x eval-buffer` |
 | 所有 `init-*.el` 模块 | 重启 Emacs 最稳妥（或 `M-x restart-emacs`） |
@@ -1461,40 +1459,40 @@ M-x customize-group RET org-seq RET
 | 键位 | 功能 |
 |------|------|
 | `SPC SPC` | M-x（执行任意命令） |
-| `SPC .` | 打开文件 |
-| `SPC ,` | 切换 buffer |
+| `SPC f f` | 打开文件 |
+| `SPC b b` | 切换 buffer |
 | `SPC /` | 项目全文搜索 |
 | `SPC TAB` | 切换到上一个 buffer |
-| `SPC RET` | 跳转到书签 |
+| `SPC b j` | 跳转到书签 |
 | `SPC '` | 开关终端雷神窗 |
 
-### SPC a — 日程与 GTD
+### SPC t — 任务与 GTD
 
 | 键位 | 功能 |
 |------|------|
-| `SPC a d` | GTD Dashboard |
-| `SPC a a` | Agenda 调度器 |
-| `SPC a n` | GTD 综合视图 |
-| `SPC a p` | 项目视图 |
-| `SPC a w` | 每周回顾 |
-| `SPC a u` | 即将到来 |
-| `SPC a c` | Capture |
-| `SPC a e` | 状态选择器 |
-| `SPC a 0` | Inbox |
-| `SPC a 1` | Today |
-| `SPC a 3` | Anytime |
-| `SPC a 4` | Waiting |
-| `SPC a 5` | Someday |
-| `SPC a 6` | Logbook |
-| `SPC a 7` | 上下文筛选 |
-| `SPC a r` | 刷新 agenda 缓存 |
+| `SPC t d` | GTD Dashboard |
+| `SPC t g` | Agenda 调度器 |
+| `SPC t o` | GTD 综合视图 |
+| `SPC t p` | 项目视图 |
+| `SPC t r` | 每周回顾 |
+| `SPC t u` | 即将到来 |
+| `SPC t c` | Capture |
+| `SPC t e` | 状态选择器 |
+| `SPC t i` | Inbox |
+| `SPC t t` | Today |
+| `SPC t a` | Anytime |
+| `SPC t w` | Waiting |
+| `SPC t s` | Someday |
+| `SPC t l` | Logbook |
+| `SPC t x` | 上下文筛选 |
+| `SPC t R` | 刷新 agenda 缓存 |
 
 ### SPC b — Buffer
 
 | 键位 | 功能 |
 |------|------|
 | `SPC b b` | 切换 buffer |
-| `SPC b d` | 关闭 buffer |
+| `SPC b k` | 关闭 buffer |
 | `SPC b s` | 保存 |
 | `SPC b S` | 保存全部 |
 | `SPC b n` | 新建 |
@@ -1541,26 +1539,26 @@ M-x customize-group RET org-seq RET
 | `SPC h p` | 包信息 |
 | `SPC h a` | 模糊搜索 |
 
-### SPC i — AI
+### SPC a — AI
 
 | 键位 | 功能 |
 |------|------|
-| `SPC i i` | 发送到 LLM |
-| `SPC i m` | AI 菜单 |
-| `SPC i c` | 聊天 buffer |
-| `SPC i r` | 改写区域 |
-| `SPC i a` | 添加上下文 |
-| `SPC i s` | 摘要 |
-| `SPC i t` | 标签建议 |
-| `SPC i l` | 翻译 |
-| `SPC i k` | 关联发现 |
-| `SPC i p` | 润色 |
-| `SPC i o` | 知识库概览 |
-| `SPC i g` | 初始化上下文文件 |
-| `SPC i x` | Codex CLI 底部弹窗 |
-| `SPC i O` | OpenCode 底部弹窗 |
-| `SPC i K` | kimi-cli 底部弹窗 |
-| `SPC i C` | Claude Code CLI 菜单 |
+| `SPC a a` | 发送到 LLM |
+| `SPC a m` | AI 菜单 |
+| `SPC a c` | 聊天 buffer |
+| `SPC a r` | 改写区域 |
+| `SPC a +` | 添加上下文 |
+| `SPC a s` | 摘要 |
+| `SPC a t` | 标签建议 |
+| `SPC a l` | 翻译 |
+| `SPC a k` | 关联发现 |
+| `SPC a p` | 润色 |
+| `SPC a o` | 知识库概览 |
+| `SPC a i` | 初始化上下文文件 |
+| `SPC a x` | Codex CLI 底部弹窗 |
+| `SPC a O` | OpenCode 底部弹窗 |
+| `SPC a K` | kimi-cli 底部弹窗 |
+| `SPC a C` | Claude Code CLI 菜单 |
 
 ### SPC l — 布局
 
@@ -1577,13 +1575,13 @@ M-x customize-group RET org-seq RET
 
 | 键位 | 功能 |
 |------|------|
-| `SPC n f` | 搜索全库笔记 |
+| `SPC n s` | 搜索全库笔记 |
 | `SPC n c` | 新建笔记 |
 | `SPC n i` | 插入链接 |
 | `SPC n b` | 反向链接面板 |
 | `SPC n /` | 全文搜索 |
 | `SPC n g` | 知识图谱 |
-| `SPC n n` | 当前节点动作菜单 |
+| `SPC n o` | 当前节点动作菜单 |
 | `SPC n a` | 添加别名 |
 | `SPC n r` | 添加引用 |
 | `SPC n l` | 正向链接 |
@@ -1594,7 +1592,7 @@ M-x customize-group RET org-seq RET
 
 | 键位 | 功能 |
 |------|------|
-| `SPC n d d` | 打开今天 |
+| `SPC d` | 打开今天 |
 | `SPC n d a` | 追加/复用时间节点 |
 | `SPC n d t` | 打开今天（别名） |
 | `SPC n d y` | 昨天 |
@@ -1605,21 +1603,21 @@ M-x customize-group RET org-seq RET
 | `SPC n d p` | 上一篇 |
 | `SPC n d n` | 下一篇 |
 
-### SPC n p — Supertag
+### SPC # — Supertag
 
 | 键位 | 功能 |
 |------|------|
-| `SPC n p p` | 快速操作（上下文感知菜单） |
-| `SPC n p a` | 添加标签 |
-| `SPC n p e` | 编辑字段 |
-| `SPC n p x` | 移除标签 |
-| `SPC n p l` | 列出字段 |
-| `SPC n p j` | 跳转关联 |
-| `SPC n p k` | 看板 |
-| `SPC n p s` | 搜索 |
-| `SPC n p S` | 同步状态 |
-| `SPC n p r` | 立即同步 |
-| `SPC n p R` | 完全重建索引 |
+| `SPC # #` | 快速操作（上下文感知菜单） |
+| `SPC # a` | 添加标签 |
+| `SPC # e` | 编辑字段 |
+| `SPC # x` | 移除标签 |
+| `SPC # l` | 列出字段 |
+| `SPC # j` | 跳转关联 |
+| `SPC # k` | 看板 |
+| `SPC # s` | 搜索 |
+| `SPC # S` | 同步状态 |
+| `SPC # r` | 立即同步 |
+| `SPC # R` | 完全重建索引 |
 
 ### SPC n v — 视图 / Dashboard
 
@@ -1629,15 +1627,15 @@ M-x customize-group RET org-seq RET
 | `SPC n v w` | 每周回顾 |
 | `SPC n v i` | Dashboard 索引 |
 
-### SPC n m — 扩展中心
+### SPC # — 扩展中心
 
 | 键位 | 功能 |
 |------|------|
-| `SPC n m t` | 编辑 tag schema |
-| `SPC n m T` | 重载 tag schema |
-| `SPC n m c` | 编辑 capture 模板 |
-| `SPC n m C` | 重载 capture 模板 |
-| `SPC n m d` | 创建新 dashboard |
+| `SPC # t` | 编辑 tag schema |
+| `SPC # T` | 重载 tag schema |
+| `SPC # c` | 编辑 capture 模板 |
+| `SPC # C` | 重载 capture 模板 |
+| `SPC # d` | 创建新 dashboard |
 
 ### SPC n t — Transclusion
 
@@ -1700,16 +1698,16 @@ M-x customize-group RET org-seq RET
 | `SPC s r` | 查找替换 |
 | `SPC s R` | 正则替换 |
 
-### SPC t — 开关
+### SPC u — 界面开关
 
 | 键位 | 功能 |
 |------|------|
-| `SPC t t` | 切换主题 |
-| `SPC t l` | 行号 |
-| `SPC t w` | 自动换行 |
+| `SPC u t` | 切换主题 |
+| `SPC u l` | 行号 |
+| `SPC u w` | 自动换行 |
 | `SPC t o` | Olivetti |
-| `SPC t f` | 全屏 |
-| `SPC t i` | Org-modern |
+| `SPC u f` | 全屏 |
+| `SPC u i` | Org-modern |
 
 ### SPC w — 窗口
 
@@ -1734,15 +1732,13 @@ M-x customize-group RET org-seq RET
 | `SPC e r` | 执行选区 |
 | `SPC e d` | 执行函数 |
 
-### SPC c — Casual 菜单
+### SPC m — Casual 菜单
 
 | 键位 | 功能 |
 |------|------|
-| `SPC c c` | 全局 EditKit |
-| `SPC c a` | Agenda 菜单 |
-| `SPC c d` | Dired 菜单 |
-| `SPC c b` | 书签菜单 |
-| `SPC c s` | 搜索菜单 |
+| `SPC m` | 全局 EditKit |
+| `SPC m` | 当前上下文的 Casual 主菜单 |
+| `C-o` | 模式内直达：agenda / dired / ibuffer / info / 书签 / isearch |
 
 ### Org Local Leader（逗号 `,`）
 
@@ -1834,7 +1830,7 @@ M-x customize-group RET org-seq RET
 
 **第一周**让自己熟悉 Emacs 作为一个普通编辑器的操作——打开文件、保存、在 buffer 之间切换、学会 Evil 的基本动作（第四章和第五章讲的东西）。不要急着写笔记或管任务，光是学会不慌不忙地编辑文本就已经是一个不小的成就。感到迷惑的时候按 SPC 看菜单，或者按 `SPC h k` 然后按任何一个键让 Emacs 告诉你它是干什么的。
 
-**第二周**开始写 daily 笔记（第八章 8.7）和简单的任务记录（第九章 9.3）。每天打开 Emacs 第一件事是 `SPC n d d` 写今日笔记，冒出任何待办就直接写成 `* TODO ...` 塞进去。不要担心格式，不要担心 tag，不要担心"以后怎么查找"——光是把想法从脑子转移到文件里，这一周就没白过。
+**第二周**开始写 daily 笔记（第八章 8.7）和简单的任务记录（第九章 9.3）。每天打开 Emacs 第一件事是 `SPC d` 写今日笔记，冒出任何待办就直接写成 `* TODO ...` 塞进去。不要担心格式，不要担心 tag，不要担心"以后怎么查找"——光是把想法从脑子转移到文件里，这一周就没白过。
 
 **第三周**开始创建 Zettelkasten 原子笔记（第八章 8.2-8.5），学着建立链接和反向链接。从 daily 里挑两三个值得独立存在的想法，用 `SPC n c` 提升成新节点，用 `SPC n i` 在 daily 里插回链接。笔记还不需要很多——五到十条就够你第一次体会到"顺着链接跳来跳去"的乐趣。
 

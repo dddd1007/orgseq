@@ -29,6 +29,12 @@ server/
 # Local agent config
 .claude/settings.local.json
 
+# Package snapshots for rollback (created before auto-updates)
+package-snapshots/
+
+# oh-my-claudecode runtime state
+.omc/
+
 # Craft/pi workspace runtime state
 .claude-plugin/
 config.json

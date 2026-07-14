@@ -41,15 +41,15 @@
 
 ### 阶段 1：启动 — GTD 主导今日工作
 
-打开 Emacs 的第一个动作不是打开笔记，也不是写东西——而是按 `SPC a d` 进入 GTD Dashboard，确认今天要推进的项目和具体任务。这个先后顺序很重要：**GTD 系统决定"今天做什么"，笔记系统不参与这个决策**。把"计划今天"和"写想法"分成两个独立动作，可以避免一个常见的陷阱——你本来打算 10 分钟计划一下今天，结果在笔记里东翻西找两个小时还没开始干活。
+打开 Emacs 的第一个动作不是打开笔记，也不是写东西——而是按 `SPC t d` 进入 GTD Dashboard，确认今天要推进的项目和具体任务。这个先后顺序很重要：**GTD 系统决定"今天做什么"，笔记系统不参与这个决策**。把"计划今天"和"写想法"分成两个独立动作，可以避免一个常见的陷阱——你本来打算 10 分钟计划一下今天，结果在笔记里东翻西找两个小时还没开始干活。
 
 ### 阶段 2：执行与记录 — Daily 笔记作为思维流与任务录入入口
 
-按 `SPC n d d` 进入当天的 daily 笔记。这个文件同时承担两个职责：
+按 `SPC d` 进入当天的 daily 笔记。这个文件同时承担两个职责：
 
-**职责 A：思维流捕捉**。一边做事一边记录进展、观察、临时想法、半成形的洞察。文字写法不严谨，可以是流水账、问句、断句。每条记录前可以用时间戳标记（手动 `[2026-04-09 14:30]` 或 `SPC RET` 插入）。
+**职责 A：思维流捕捉**。一边做事一边记录进展、观察、临时想法、半成形的洞察。文字写法不严谨，可以是流水账、问句、断句。每条记录前可以用时间戳标记（手动 `[2026-04-09 14:30]` 或 `SPC b j` 插入）。
 
-**职责 B：任务录入入口**。日常 TODO 主要不通过单独的 `SPC a c` capture 入口，而是直接在 daily 笔记里就地写入。orgseq 的 agenda 已经扫描整个 `~/NoteHQ/` 树，所以 daily 里的任务会自动出现在 GTD Dashboard 各视图中。
+**职责 B：任务录入入口**。日常 TODO 主要不通过单独的 `SPC t c` capture 入口，而是直接在 daily 笔记里就地写入。orgseq 的 agenda 已经扫描整个 `~/NoteHQ/` 树，所以 daily 里的任务会自动出现在 GTD Dashboard 各视图中。
 
 任务类型按照是否有子任务进行区分：
 
@@ -71,11 +71,11 @@
 * TODO 给学生发本周作业反馈 :@office:
 ```
 
-orgseq 的 GTD keyword 序列是 `PROJECT/TODO → NEXT → IN-PROGRESS → WAITING / SOMEDAY → DONE / CANCELLED`。`SPC a e` 一键切换状态，`SPC a d` 看到的 GTD Dashboard 会自动统计这些任务。
+orgseq 的 GTD keyword 序列是 `PROJECT/TODO → NEXT → IN-PROGRESS → WAITING / SOMEDAY → DONE / CANCELLED`。`SPC t e` 一键切换状态，`SPC t d` 看到的 GTD Dashboard 会自动统计这些任务。
 
 这个设计的好处：所有任务的"出生地"就是当时正在写的 daily 流水，任务的上下文（为什么要做、跟今天的什么思考有关）天然保留在同一个文件里。不需要先打断思路去 capture，再回头记笔记。
 
-任务完成后不需要做任何归档动作。daily 文件本身就是历史档案，`SPC a 6` Logbook 视图会自动汇总所有 DONE 状态的任务。
+任务完成后不需要做任何归档动作。daily 文件本身就是历史档案，`SPC t l` Logbook 视图会自动汇总所有 DONE 状态的任务。
 
 ### 阶段 3：碎片提取 — 当某条想法值得独立存在
 
@@ -84,7 +84,7 @@ orgseq 的 GTD keyword 序列是 `PROJECT/TODO → NEXT → IN-PROGRESS → WAIT
 1. 把光标停在那段内容（或要新建的word）上，按 `SPC n c` 选合适的 capture 模板（多数时候用 default 即可）
 2. capture 出一个新的 Roam 节点，文件落到 `00_Roam/capture` 目录，在 daily 原位置插入 `id:` 链接（`SPC n i`）
 3. 从下方弹出buffer让我可以编辑这个节点内容
-4. 在新节点里按 `SPC n p p` 添加 supertag，填字段
+4. 在新节点里按 `SPC # #` 添加 supertag，填字段
 5. 关闭，回到 daily 继续
 
 
@@ -193,7 +193,7 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 ;;;
 ;;; 当前只有 2 个示范 tag。增加新 tag 的时机:
 ;;; 某类事情你已经用 default 模板记过 5 次以上,且发现它们有共同结构。
-;;; 编辑后用 SPC n m T 重载,无需重启 Emacs。
+;;; 编辑后用 SPC # T 重载,无需重启 Emacs。
 
 (require 'org-supertag)
 
@@ -223,11 +223,11 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 当你在某个领域积累了足够多的笔记，发现某类事情值得专门定义结构时：
 
-1. `SPC n m t` 打开 `supertag-schema.el`
+1. `SPC # t` 打开 `supertag-schema.el`
 2. 在合适的位置加新的 `org-supertag-tag-create` 块
 3. 决定它是实体 tag 还是事件 tag。事件 tag 通常需要至少一个 `:node` 字段挂到某个实体
 4. 字段宁少勿多，每个字段都该回答一个**你已经反复需要查询但当前 schema 答不出来**的问题
-5. `SPC n m T` 重载
+5. `SPC # T` 重载
 
 可能的扩展方向：临床工作的 client/session、教学的 course/lesson_prep/reflection、学生指导的 student/meeting、研究工作的 hypothesis/experiment/concept、健康追踪的 health_log。**但具体怎么定义字段、定义多少字段，请等到你真的写过 5 次再决定**。
 
@@ -257,15 +257,15 @@ Capture 模板分两层：
 
 ### 常用操作
 
-- `SPC n m c`（`my/edit-capture-templates`）— 打开 `~/NoteHQ/.orgseq/capture-templates.el`
-- `SPC n m C`（`my/reload-capture-templates`）— 重载用户模板（无需重启 Emacs）
+- `SPC # c`（`my/edit-capture-templates`）— 打开 `~/NoteHQ/.orgseq/capture-templates.el`
+- `SPC # C`（`my/reload-capture-templates`）— 重载用户模板（无需重启 Emacs）
 - 在 `~/NoteHQ/` 目录里让 Codex 按 `AGENTS.md` 约定帮你生成新模板
 
 ### 起步建议
 
 **只需要 default 模板就够**。当你决定为某类笔记建立独立的 supertag（例如 `lesson_prep`、`session`、`hypothesis`），**同时**在 `.orgseq/capture-templates.el` 加一个对应的 capture 模板，模板正文用 org 标题骨架引导你思考关键问题。
 
-模板正文的设计原则：**标题骨架而非字段**。字段交给 supertag 处理（通过 `SPC n p a` 在节点上添加 tag 并弹出字段表单），模板只负责让你看到笔记应该展开的几个思考方向。
+模板正文的设计原则：**标题骨架而非字段**。字段交给 supertag 处理（通过 `SPC # a` 在节点上添加 tag 并弹出字段表单），模板只负责让你看到笔记应该展开的几个思考方向。
 
 ---
 
@@ -277,16 +277,16 @@ Capture 模板分两层：
 
 1. **PARA 路径常量**：`my/outputs-dir` / `my/practice-dir` / `my/library-dir` / `my/archives-dir` / `my/dashboards-dir` / `my/schema-file`。这些常量从 `my/note-home`（`init-org.el` 中的 defcustom）派生。注意：`my/roam-dir` 本身定义在 `init-org.el`，因为 `init-roam.el` / `init-pkm.el` / `init-ai.el` 都要先于 `init-supertag.el` 加载并引用它。
 
-2. **Schema 编辑与重载**：`my/edit-supertag-schema`（打开 `supertag-schema.el`）和 `my/reload-supertag-schema`（`load` 文件，无需重启）。对应 leader key：`SPC n m t` / `SPC n m T`。
+2. **Schema 编辑与重载**：`my/edit-supertag-schema`（打开 `supertag-schema.el`）和 `my/reload-supertag-schema`（`load` 文件，无需重启）。对应 leader key：`SPC # t` / `SPC # T`。
 
-3. **Capture 模板管理**：`my/edit-capture-templates` 和 `my/reload-capture-templates`。用户模板存在 `~/NoteHQ/.orgseq/capture-templates.el`，首次使用时由 `my/ensure-capture-templates-file` 创建带示例的文件。`init-roam.el` 中的默认模板和用户模板通过 `my/reload-capture-templates` 合并到 `org-roam-capture-templates`。对应 leader key：`SPC n m c` / `SPC n m C`。
+3. **Capture 模板管理**：`my/edit-capture-templates` 和 `my/reload-capture-templates`。用户模板存在 `~/NoteHQ/.orgseq/capture-templates.el`，首次使用时由 `my/ensure-capture-templates-file` 创建带示例的文件。`init-roam.el` 中的默认模板和用户模板通过 `my/reload-capture-templates` 合并到 `org-roam-capture-templates`。对应 leader key：`SPC # c` / `SPC # C`。
 
-4. **Supertag 快速操作**：`my/supertag-quick-action` 是上下文感知的弹出菜单——当前 heading 无 tag 时直接加 tag，有 tag 时列出 "加另一个 / 删除 / 编辑字段 / 跳转到关联节点" 四类动作。对应 leader key：`SPC n p p`（全局）和 `, # #`（org buffer 内）。
+4. **Supertag 快速操作**：`my/supertag-quick-action` 是上下文感知的弹出菜单——当前 heading 无 tag 时直接加 tag，有 tag 时列出 "加另一个 / 删除 / 编辑字段 / 跳转到关联节点" 四类动作。对应 leader key：`SPC # #`（全局）和 `, # #`（org buffer 内）。
 
 5. **Dashboard 导航与创建**：
    - `my/dashboard-find`：从 `00_Roam/dashboards/` 选择一个 dashboard 打开并刷新所有 dynamic blocks。对应 `SPC n v v`。
    - `my/dash-index` / `my/dash-review`：命名快捷方式。对应 `SPC n v i` / `SPC n v w`。
-   - `my/dashboard-create`：提示名字后生成带骨架的新 dashboard 文件。对应 `SPC n m d`。
+   - `my/dashboard-create`：提示名字后生成带骨架的新 dashboard 文件。对应 `SPC # d`。
    - 需要更多快捷方式时，直接在 `00_Roam/dashboards/` 加文件，用 `my/dashboard-find` 访问即可，**不必再改 elisp**。
 
 6. **PARA 层导航**：`my/find-in-outputs` / `my/find-in-practice` / `my/find-in-library` / `my/ripgrep-notehq`。对应 leader key：`SPC P o` / `SPC P p` / `SPC P l` / `SPC P g`。
@@ -318,14 +318,14 @@ Capture 模板分两层：
   - [[file:reading.org][📖 Reading]] :: reading tag 查询示例
 
 * 快捷键
-  - ~SPC n m t~ 编辑 tag schema
-  - ~SPC n m T~ 重载 schema
+  - ~SPC # t~ 编辑 tag schema
+  - ~SPC # T~ 重载 schema
   - ~SPC n c~  新建笔记 (按类型选模板)
-  - ~SPC n p p~ 当前节点 tag/字段操作
+  - ~SPC # #~ 当前节点 tag/字段操作
   - ~SPC P o/p/l~ PARA 导航 (10_Outputs/20_Practice/Library)
 
 * 增加新 dashboard 的步骤
-  1. SPC n m d (my/dashboard-create) 生成带骨架的新 dashboard 文件
+  1. SPC # d (my/dashboard-create) 生成带骨架的新 dashboard 文件
   2. 编辑 #+BEGIN: supertag-query 块定义查询
   3. SPC n v v (my/dashboard-find) 会自动列出此目录下的所有 .org 文件,
      无需再改 elisp 或加命名函数
@@ -430,7 +430,7 @@ bootstrap 脚本应该创建以下种子文件，让用户启动后立刻有可�
 最初记录于 [[file:daily/example-day.org][2026-04-09]] daily 笔记。
 
 * COMMENT 后续操作
-按 SPC n p p 添加 tag。
+按 SPC # # 添加 tag。
 建议先用 default 模板的形式存在,等到积累了 5 条类似笔记
 再考虑为它们定义专门的 supertag。
 ```
@@ -518,9 +518,9 @@ Library 层存放被取用而非被维护的素材:
 脚本本身不会替你写笔记或 schema。跑完之后你需要：
 
 1. 在 `~/NoteHQ/00_Roam/supertag-schema.el` 写第一个 supertag（参考本文档 §4）
-2. 在 `~/NoteHQ/00_Roam/dashboards/index.org` 写 dashboard 索引（参考本文档 §7；或用 `SPC n m d` 打开对应入口）
+2. 在 `~/NoteHQ/00_Roam/dashboards/index.org` 写 dashboard 索引（参考本文档 §7；或用 `SPC # d` 打开对应入口）
 3. （可选）`cd ~/NoteHQ && git init && git add . && git commit -m 'initial structure'`——把笔记本身纳入版本控制
-4. 在 Emacs 中运行 `M-x supertag-sync-full-initialize`（或 `SPC n p R`）完成 supertag 首次索引
+4. 在 Emacs 中运行 `M-x supertag-sync-full-initialize`（或 `SPC # R`）完成 supertag 首次索引
 
 ### 更新部署的 NoteHQ/Codex 脚手架
 

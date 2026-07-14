@@ -152,59 +152,73 @@ emacsclient -t -s org-seq
 
 Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` and wait for the which-key popup to see all available keys.
 
+The leader map follows three ergonomic rules:
+
+1. **Groups are nouns**: `n` notes, `t` tasks, `a` AI, `f` file, `b` buffer,
+   `g` git, `s` search, `u` UI toggles, `#` supertag.
+2. **Doubled key = the group's primary action**: `SPC f f` find file,
+   `SPC n n` find note, `SPC t t` today's tasks, `SPC g g` git status,
+   `SPC b b` switch buffer, `SPC s s` search buffer, `SPC # #` supertag.
+3. **The highest-frequency actions are single top-level keys**:
+   `SPC d` Daily, `SPC c` capture a note, `SPC /` search, `SPC m` menu.
+
 ### Mouse
 
-Mouse support follows the same shape as Doom Emacs: keyboard commands remain the main path, but mouse input works as a comfortable fallback.
+Mouse input is a **first-class citizen**, on equal footing with the keyboard:
+everything in the daily PKM/GTD loop is reachable by mouse. `init-mouse.el`
+owns this layer.
 
-| Gesture | Action |
-|---------|--------|
-| Wheel | Smooth vertical scroll under pointer |
-| `Shift` + wheel | Horizontal scroll |
-| Right-click | Context menu where Emacs supports it |
-| Mouse side buttons | Back / forward navigation |
-| Middle-click paste | Paste at point instead of moving point |
-| Terminal mouse | Enabled in terminal frames |
+| Capability | How |
+|------------|-----|
+| Context menus | Right-click anywhere; org notes get **Task / Note / Supertag** submenus (set state, schedule, tags, refile, insert link, transclusion, supertag fields), the agenda gets entry actions, the Daily sidebar and GTD dashboard get their own menus |
+| Clickable org elements | TODO keywords, checkboxes, priorities, timestamps, and list bullets respond to clicks (org-mouse) |
+| Menu bar | Always on; the **NoteHQ** menu holds the core workflow (Daily, notes, GTD views, AI, terminal, package update/rollback). Toggle with `SPC u b` |
+| Click-driven GTD/Daily | Daily sidebar dates, GTD dashboard rows, and agenda entries all open with a single left click |
+| Drag and drop | Drop files into org buffers to attach/link/insert; drag files out of dired to other programs; drag selected text between buffers and programs; dropped images are saved under `00_Roam/assets/` |
+| Wheel / side buttons | Smooth scroll, `Shift`+wheel horizontal, side buttons back/forward, middle-click paste at point |
+| Terminal mouse | Mouse and context menus also work in terminal frames |
 
-### Top-level
+### Top-level direct actions
 
 | Key | Action |
 |-----|--------|
-| `SPC SPC` | M-x |
-| `SPC .` | Find file |
-| `SPC ,` | Switch buffer |
+| `SPC SPC` | M-x (command palette) |
+| `SPC d` | Open Today's Daily Workspace |
+| `SPC c` | Capture a new note (org-roam) |
+| `SPC m` | Casual menu for the current context |
 | `SPC /` | Project-wide search (ripgrep) |
 | `SPC TAB` | Last buffer |
-| `SPC RET` | Jump to bookmark |
 | `SPC '` | Toggle NoteHQ terminal popup |
 
-### SPC a — Agenda / GTD
+### SPC t — Tasks / GTD
 
 | Key | Action |
 |-----|--------|
-| `SPC a d` | GTD Dashboard (live counts + projects) |
-| `SPC a n` | GTD overview (composite view) |
-| `SPC a p` | Project dashboard |
-| `SPC a w` | Weekly review |
-| `SPC a u` | Upcoming tasks (grouped by day) |
-| `SPC a c` | Org capture |
-| `SPC a e` | State picker (single-keypress) |
-| `SPC a 0` | Inbox |
-| `SPC a 1` | Today |
-| `SPC a 3` | Anytime (NEXT, no schedule) |
-| `SPC a 4` | Waiting |
-| `SPC a 5` | Someday |
-| `SPC a 6` | Logbook (completed) |
-| `SPC a 7` | Context view |
-| `SPC a f` | Focus: start a Vitamin-R-style slice at point |
-| `SPC a F` | Focus: open dashboard with recent slices + stats |
-| `SPC a X` | Focus: abort the currently running slice |
+| `SPC t d` | GTD Dashboard (live counts + projects) |
+| `SPC t o` | GTD overview (composite view) |
+| `SPC t p` | Project dashboard |
+| `SPC t r` | Weekly review |
+| `SPC t u` | Upcoming tasks (grouped by day) |
+| `SPC t c` | Org capture |
+| `SPC t e` | State picker (single-keypress) |
+| `SPC t i` | Inbox |
+| `SPC t t` | Today |
+| `SPC t a` | Anytime (NEXT, no schedule) |
+| `SPC t w` | Waiting |
+| `SPC t s` | Someday |
+| `SPC t l` | Logbook (completed) |
+| `SPC t x` | Context view |
+| `SPC t g` | Agenda dispatcher (`org-agenda`) |
+| `SPC t f` | Focus: start a Vitamin-R-style slice at point |
+| `SPC t F` | Focus: open dashboard with recent slices + stats |
+| `SPC t X` | Focus: abort the currently running slice |
 
 ### SPC n — Notes / org-roam
 
 | Key | Action |
 |-----|--------|
-| `SPC n f` | Search all NoteHQ notes (Deft) |
-| `SPC n F` | Find note (org-roam) |
+| `SPC n s` | Search all NoteHQ notes (Deft) |
+| `SPC n n` | Find note (org-roam) |
 | `SPC n c` | New note (capture) |
 | `SPC n i` | Insert link |
 | `SPC n b` | Toggle backlinks |
@@ -212,8 +226,8 @@ Mouse support follows the same shape as Doom Emacs: keyboard commands remain the
 | `SPC n g` | Graph view |
 | `SPC n a` | Add alias |
 | `SPC n r` | Add ref |
-| `SPC n n` | Node action menu |
-| `SPC n d d` | Open Today's Daily Workspace |
+| `SPC n o` | Node action menu |
+| `SPC n d d` | Open Today's Daily Workspace (same as `SPC d`) |
 | `SPC n d a` | Append or reuse a capture-ready Daily node |
 | `SPC n d t` | Daily note (open today alias) |
 | `SPC n d c` | Daily capture today |
@@ -224,61 +238,58 @@ Mouse support follows the same shape as Doom Emacs: keyboard commands remain the
 | `SPC n q s` | org-ql search |
 | `SPC n q v` | org-ql view |
 
-### SPC n p — org-supertag (data layer)
+### SPC # — org-supertag (data layer)
 
 | Key | Action |
 |-----|--------|
-| `SPC n p p` | Quick action |
-| `SPC n p a` | Add tag |
-| `SPC n p e` | Edit field |
-| `SPC n p x` | Remove tag |
-| `SPC n p l` | List fields |
-| `SPC n p j` | Jump to linked node |
-| `SPC n p k` | Kanban view |
-| `SPC n p s` | Search supertag DB |
-| `SPC n p S` | Sync status |
-| `SPC n p r` | Sync now |
-| `SPC n p R` | Full rebuild (`supertag-sync-full-initialize`) |
+| `SPC # #` | Quick action |
+| `SPC # a` | Add tag |
+| `SPC # e` | Edit field |
+| `SPC # x` | Remove tag |
+| `SPC # l` | List fields |
+| `SPC # j` | Jump to linked node |
+| `SPC # k` | Kanban view |
+| `SPC # s` | Search supertag DB |
+| `SPC # S` | Sync status |
+| `SPC # r` | Sync now |
+| `SPC # R` | Full rebuild (`supertag-sync-full-initialize`) |
+| `SPC # t` | Edit tag schema |
+| `SPC # T` | Reload tag schema |
+| `SPC # c` | Edit capture templates |
+| `SPC # C` | Reload capture templates |
+| `SPC # d` | Create new dashboard |
 
-### SPC n m — Meta (schema, templates, dashboards)
-
-| Key | Action |
-|-----|--------|
-| `SPC n m t` | Edit tag schema |
-| `SPC n m T` | Reload tag schema |
-| `SPC n m c` | Edit capture templates |
-| `SPC n m C` | Reload capture templates |
-| `SPC n m d` | Create new dashboard |
-
-### SPC i — AI
+### SPC a — AI
 
 | Key | Action |
 |-----|--------|
-| `SPC i i` | Send to LLM |
-| `SPC i m` | AI menu (models/params) |
-| `SPC i c` | Chat buffer |
-| `SPC i r` | Rewrite region |
-| `SPC i s` | Summarize note |
-| `SPC i t` | Suggest tags |
-| `SPC i l` | Translate |
-| `SPC i k` | Find connections |
-| `SPC i p` | Improve writing |
-| `SPC i o` | Generate KB overview |
-| `SPC i g` | Init AI context files |
-| `SPC i x` | Toggle NoteHQ Codex CLI popup |
-| `SPC i O` | Toggle NoteHQ OpenCode popup |
-| `SPC i K` | Toggle NoteHQ kimi-cli popup |
+| `SPC a a` | Send to LLM |
+| `SPC a m` | AI menu (models/params) |
+| `SPC a c` | Chat buffer |
+| `SPC a r` | Rewrite region |
+| `SPC a +` | Add context (gptel-add) |
+| `SPC a s` | Summarize note |
+| `SPC a t` | Suggest tags |
+| `SPC a l` | Translate |
+| `SPC a k` | Find connections |
+| `SPC a p` | Improve writing |
+| `SPC a o` | Generate KB overview |
+| `SPC a i` | Init AI context files |
+| `SPC a x` | Toggle NoteHQ Codex CLI popup |
+| `SPC a O` | Toggle NoteHQ OpenCode popup |
+| `SPC a K` | Toggle NoteHQ kimi-cli popup |
+| `SPC a C` | Claude Code transient |
 
 All AI commands are enriched with your **purpose.org** and **schema.org** context files (stored in `~/NoteHQ/00_Roam/`). Edit these files to customize how the LLM understands your knowledge base — no manual repetition needed.
 
-The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom windows rooted at `my/note-home` (`~/NoteHQ/` by default, or `ORG_SEQ_NOTE_HOME` when set). `SPC '` opens the default terminal (`pwsh` on Windows), while `SPC i x`, `SPC i O`, and `SPC i K` open Codex, OpenCode, and kimi-cli. Claude Code also uses its Ghostel backend, and yazi uses the same popup lifecycle. On first use, Ghostel asks before downloading its matching native module; `M-x ghostel-download-module` can trigger that step manually. On Windows, Codex is launched through `pwsh` by default so PowerShell shims and profile-managed PATH entries behave like a local terminal. Customize `my/cli-popup-height`, `my/powershell-command`, and the relevant `my/*-command` / `my/*-arguments` variables when a machine uses different executable names or options.
+The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom windows rooted at `my/note-home` (`~/NoteHQ/` by default, or `ORG_SEQ_NOTE_HOME` when set). `SPC '` opens the default terminal (`pwsh` on Windows), while `SPC a x`, `SPC a O`, and `SPC a K` open Codex, OpenCode, and kimi-cli. Claude Code also uses its Ghostel backend, and yazi uses the same popup lifecycle. On first use, Ghostel asks before downloading its matching native module; `M-x ghostel-download-module` can trigger that step manually. On Windows, Codex is launched through `pwsh` by default so PowerShell shims and profile-managed PATH entries behave like a local terminal. Customize `my/cli-popup-height`, `my/powershell-command`, and the relevant `my/*-command` / `my/*-arguments` variables when a machine uses different executable names or options.
 
 ### Other groups
 
 | Key | Action |
 |-----|--------|
 | `SPC b` | Buffer (switch/kill/save/revert/ibuffer) |
-| `SPC c c` | Casual menu (Transient for current mode) |
+| `SPC m` | Casual menu (Transient for current mode) |
 | `SPC e` | Eval (last-sexp/buffer/region/defun) |
 | `SPC f` | File (open/recent/save/rename/delete/copy-path) |
 | `SPC g` | Git (status/blame/log/diff) |
@@ -287,11 +298,12 @@ The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom win
 | `SPC o` | Open (dirvish/yazi/dired/dashboard/agenda/config) |
 | `SPC f j` | Dired jump (to current file's directory) |
 | `SPC p` | Project (switch/find-file/search/buffer) |
-| `SPC s` | Search (line/ripgrep/imenu/outline/bookmark/replace) |
-| `SPC t` | Toggle (theme/line-numbers/wrap/olivetti/fullscreen) |
+| `SPC s` | Search (line/ripgrep/notes/imenu/outline/bookmark/replace) |
+| `SPC u` | UI toggles (theme/line-numbers/wrap/fullscreen/menu-bar) |
 | `SPC w` | Window (split/close/maximize/navigate/resize) |
 | `SPC q q` | Quit Emacs |
 | `SPC q u` | Update all packages (ELPA + vc) |
+| `SPC q r` | Rollback packages to a snapshot |
 
 Under `SPC l` the most important sidebar controls are:
 
@@ -376,7 +388,7 @@ Under `SPC o` the file-manager entries are:
 
 TODO keywords: `PROJECT` → `TODO` → `NEXT` → `IN-PROGRESS` → `WAITING` / `SOMEDAY` → `DONE` / `CANCELLED`
 
-The GTD Dashboard (`SPC a d`) shows live counts and is the central hub:
+The GTD Dashboard (`SPC t d`) shows live counts and is the central hub:
 - **Inbox / Today / Upcoming / Anytime / Waiting / Someday / Logbook** with task counts
 - **Projects** with status indicators (* stuck, ~ no NEXT, blank = healthy)
 - **Context tags** (@work, @home, etc.) with NEXT task counts
@@ -400,23 +412,68 @@ Load order is fixed in `init.el` (see [AGENTS.md](AGENTS.md)).
 | 10 | `init-languages.el` | R/ESS + Python/eglot + Julia/Quarto tooling |
 | 11 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
 | 12 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
-| 13 | `init-gtd.el` | GTD: dashboard (org-ql), agenda views, state machine, capture hooks |
-| 14 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
-| 15 | `init-pkm.el` | org-supertag configuration + org-transclusion + org-ql |
-| 16 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
-| 17 | `init-daily.el` | Daily Workspace, 14-day sidebar, capture-ready ID nodes, and supertag sync |
-| 18 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
-| 19 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + AI CLI popups + Claude Code + .orgseq AI config + KB overview |
-| 20 | `init-dashboard.el` | Secondary dashboard with Daily Notes first, recent files, and quick actions |
-| 21 | `init-dired.el` | Dired + dirvish + yazi picker (file management, preview, quick-access) |
-| 22 | `init-workspace.el` | Daily-first startup plus Treemacs/imenu-list workspace transitions |
-| 23 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
-| 24 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
-| 25 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
+| 13 | `init-gtd.el` | GTD core: agenda views, state machine, context views, capture hooks |
+| 14 | `init-gtd-dashboard.el` | Live-count *GTD* dashboard buffer (org-ql) + debounced auto-refresh |
+| 15 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
+| 16 | `init-pkm.el` | org-supertag configuration + org-transclusion + org-ql |
+| 17 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
+| 18 | `init-daily.el` | Daily Workspace, 14-day sidebar, capture-ready ID nodes, and supertag sync |
+| 19 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
+| 20 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + .orgseq AI config + KB overview |
+| 21 | `init-ai-cli.el` | AI CLI popups (Codex, OpenCode, kimi-cli) + Claude Code |
+| 22 | `init-dashboard.el` | Secondary dashboard with Daily Notes first, recent files, and quick actions |
+| 23 | `init-dired.el` | Dired + dirvish + yazi picker (file management, preview, quick-access) |
+| 24 | `init-mouse.el` | First-class mouse: context menus, org-mouse, NoteHQ menu bar, drag & drop |
+| 25 | `init-frame.el` | Adaptive GUI frame sizing and centering per monitor |
+| 26 | `init-workspace.el` | Daily-first startup plus Treemacs/imenu-list workspace transitions |
+| 27 | `init-update.el` | Periodic silent package auto-update (ELPA + vc, every 7 days) with pre-update snapshots |
+| 28 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
+| 29 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
 
 `init-packages.el` is the single source inventory for Git-hosted packages,
 including [`modusregel`](https://codeberg.org/jjba23/modusregel). Batch validation
 never installs from the network; owning modules keep package configuration.
+
+Module load order is machine-checked: `my/init-module-requires` in `init.el`
+declares every module's dependencies, startup warns when the order violates
+them, and `scripts/test-init-loader.el` fails when the declarations drift
+from the modules' `;; Requires:` headers.
+
+### Package updates, snapshots, and rollback
+
+Packages auto-update every 7 days (and manually via `SPC q u`). Because ELPA
+archives only serve the latest version, org-seq snapshots the entire `elpa/`
+directory to `~/.emacs.d/package-snapshots/<timestamp>/` **before every
+upgrade**; if the snapshot cannot be created, the upgrade is aborted. If an
+upgrade breaks something:
+
+```
+M-x my/package-snapshot-rollback
+```
+
+restores the chosen snapshot (default: the most recent) and keeps the replaced
+tree as a `-replaced` snapshot so the rollback itself can be undone. Restart
+Emacs after rolling back. The last `my/update-snapshot-keep` (default 2)
+snapshots are retained.
+
+### ELPA signature checking on Windows
+
+MSYS-built GPG binaries (the one bundled with the official Windows Emacs
+build, and the one from Git for Windows) treat Windows-style `--homedir`
+paths as relative paths and fail, which used to force signature checking
+off unconditionally. org-seq now probes at startup for a gpg that can
+actually operate on `package-gnupghome-dir` — first the one epg resolves,
+then known native GnuPG install locations (`C:/Program Files (x86)/GnuPG`,
+`C:/Program Files/GnuPG`). When a working gpg is found, GNU/NonGNU ELPA
+signature verification stays enabled (and `epg-gpg-program` is pointed at
+it if needed); only when none is found is `package-check-signature`
+disabled, with a message. Install native GnuPG to enable verification:
+
+```powershell
+winget install GnuPG.GnuPG
+```
+
+Check `my/package-signature-status` to see which way startup resolved.
 
 ### Optional pyim rime-frost dictionary
 
@@ -430,7 +487,7 @@ The script requires `git` and Python 3 on `PATH`. It clones or updates `gaboolic
 
 ### Bundled subproject: `packages/org-focus-timer/`
 
-`init-focus.el` loads a Vitamin-R-style focus timer that currently lives inside this repository at `packages/org-focus-timer/`. The deploy scripts copy the whole `packages/` tree to `~/.emacs.d/packages/` alongside `lisp/`, and `init-focus.el` resolves the load path relative to `user-emacs-directory`, so no extra configuration is needed — clone the repo, run `deploy.sh` / `deploy.ps1`, and the focus timer is available as `SPC a f` / `SPC a F` / `SPC a X`.
+`init-focus.el` loads a Vitamin-R-style focus timer that currently lives inside this repository at `packages/org-focus-timer/`. The deploy scripts copy the whole `packages/` tree to `~/.emacs.d/packages/` alongside `lisp/`, and `init-focus.el` resolves the load path relative to `user-emacs-directory`, so no extra configuration is needed — clone the repo, run `deploy.sh` / `deploy.ps1`, and the focus timer is available as `SPC t f` / `SPC t F` / `SPC t X`.
 
 The package has no external dependencies beyond stock Emacs Lisp features and no org-seq-specific code inside it, which keeps it portable. When it matures, it will graduate into its own repository and `init-focus.el` will switch to referencing it via `:vc`. Until then, the source lives next to the config that calls it so iteration is fast — edit the file, `M-x eval-buffer`, and changes take effect immediately.
 
@@ -458,7 +515,7 @@ The numeric prefixes (10-step gaps) exist so the sidebar sorts the layers in wor
 
 Classification is by **supertag**, not directory — `00_Roam/` itself is flat. GTD agenda scans `00_Roam/` + `10_Outputs/` + `20_Practice/` (skips `30_Library/` and `40_Archives/`). org-roam, org-mem, and org-supertag all sync against `~/NoteHQ/00_Roam/`.
 
-The graph is **Org-only** (no md-roam). First-time supertag index: `M-x supertag-sync-full-initialize` (or `SPC n p R`).
+The graph is **Org-only** (no md-roam). First-time supertag index: `M-x supertag-sync-full-initialize` (or `SPC # R`).
 
 ## Reference
 

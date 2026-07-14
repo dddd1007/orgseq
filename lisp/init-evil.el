@@ -69,61 +69,61 @@
 
   ;; ═══════════════════════════════════════════════════════════════
   ;; SPC leader key system
+  ;;
+  ;; Ergonomic rules (documented in README "Key Bindings"):
+  ;;   1. Groups are nouns: n notes, t tasks, a AI, f file, u UI, ...
+  ;;   2. Doubled key = the group's primary action: SPC f f find file,
+  ;;      SPC n n find note, SPC t t today, SPC g g git status.
+  ;;   3. Highest-frequency actions are single top-level keys:
+  ;;      SPC d Daily, SPC c capture note, SPC / search, SPC m menu.
   ;; ═══════════════════════════════════════════════════════════════
 
   (my/leader-keys
-    ;; ── Top-level shortcuts ──
+    ;; ── Top-level direct actions ──
     "SPC" '(execute-extended-command :wk "M-x")
-    "."   '(find-file :wk "Find file")
-    ","   '(consult-buffer :wk "Switch buffer")
-    "/"   '(consult-ripgrep :wk "Project search")
+    "d"   '(my/daily-workspace-open :wk "Daily workspace")
+    "c"   '(org-roam-capture :wk "New note")
+    "m"   '(casual-editkit-main-tmenu :wk "Menu (Casual)")
+    "/"   '(consult-ripgrep :wk "Search project")
     "TAB" '(evil-switch-to-windows-last-buffer :wk "Last buffer")
-    "RET" '(bookmark-jump :wk "Jump to bookmark")
     "'"   '(my/terminal-popup-toggle :wk "Terminal popup")
 
-    ;; ── SPC a — Agenda / GTD / Focus ──
-    "a"   '(:ignore t :wk "agenda")
-    "ad"  '(my/org-dashboard :wk "GTD Dashboard")
-    "aa"  '(org-agenda :wk "Dispatcher")
-    "an"  '(my/org-open-task-dashboard :wk "GTD overview")
-    "ap"  '(my/org-open-project-dashboard :wk "Projects")
-    "aw"  '(my/org-open-weekly-review :wk "Weekly review")
-    "ac"  '(org-capture :wk "Capture")
-    "ae"  '(my/gtd-set-state :wk "State picker")
-    "au"  '(my/org-open-upcoming :wk "Upcoming")
-    "a0"  '(my/org-open-inbox :wk "Inbox")
-    "a1"  '(my/org-open-today :wk "Today")
-    "a3"  '(my/org-open-anytime :wk "Anytime")
-    "a4"  '(my/org-open-waiting :wk "Waiting")
-    "a5"  '(my/org-open-someday :wk "Someday")
-    "a6"  '(my/org-open-logbook :wk "Logbook")
-    "a7"  '(my/org-pick-context :wk "Context view")
-    "ar"  '((lambda () (interactive) (my/org-roam-agenda-files t)) :wk "Refresh cache")
+    ;; ── SPC t — Tasks / GTD / Focus ──
+    "t"   '(:ignore t :wk "tasks")
+    "tt"  '(my/org-open-today :wk "Today")
+    "td"  '(my/org-dashboard :wk "GTD Dashboard")
+    "to"  '(my/org-open-task-dashboard :wk "Overview")
+    "tp"  '(my/org-open-project-dashboard :wk "Projects")
+    "tr"  '(my/org-open-weekly-review :wk "Weekly review")
+    "ti"  '(my/org-open-inbox :wk "Inbox")
+    "tu"  '(my/org-open-upcoming :wk "Upcoming")
+    "ta"  '(my/org-open-anytime :wk "Anytime (NEXT)")
+    "tw"  '(my/org-open-waiting :wk "Waiting")
+    "ts"  '(my/org-open-someday :wk "Someday")
+    "tl"  '(my/org-open-logbook :wk "Logbook")
+    "tx"  '(my/org-pick-context :wk "Context view")
+    "tc"  '(org-capture :wk "Capture task")
+    "te"  '(my/gtd-set-state :wk "Set state")
+    "tg"  '(org-agenda :wk "Agenda dispatcher")
+    "tR"  '((lambda () (interactive) (my/org-roam-agenda-files t)) :wk "Refresh cache")
     ;; Focus timer (Vitamin-R-style slices)
-    "af"  '(org-focus-start :wk "Focus: start slice")
-    "aF"  '(org-focus-dashboard :wk "Focus: dashboard")
-    "aX"  '(org-focus-abort :wk "Focus: abort current")
+    "tf"  '(org-focus-start :wk "Focus: start slice")
+    "tF"  '(org-focus-dashboard :wk "Focus: dashboard")
+    "tX"  '(org-focus-abort :wk "Focus: abort current")
 
     ;; ── SPC b — Buffer ──
     "b"   '(:ignore t :wk "buffer")
     "bb"  '(consult-buffer :wk "Switch")
-    "bd"  '(kill-current-buffer :wk "Kill")
+    "bk"  '(kill-current-buffer :wk "Kill")
     "bs"  '(save-buffer :wk "Save")
     "bS"  '(evil-write-all :wk "Save all")
     "bn"  '(evil-buffer-new :wk "New")
     "br"  '(revert-buffer-quick :wk "Revert")
     "bl"  '(ibuffer :wk "List (ibuffer)")
     "bm"  '(bookmark-set :wk "Bookmark set")
+    "bj"  '(bookmark-jump :wk "Jump to bookmark")
     "bp"  '(previous-buffer :wk "Previous")
     "bN"  '(next-buffer :wk "Next")
-
-    ;; ── SPC c — Casual (contextual Transient menus) ──
-    "c"   '(:ignore t :wk "casual")
-    "cc"  '(casual-editkit-main-tmenu :wk "EditKit (global)")
-    "ca"  '(casual-agenda-tmenu :wk "Agenda menu")
-    "cd"  '(casual-dired-tmenu :wk "Dired menu")
-    "cb"  '(casual-bookmarks-tmenu :wk "Bookmarks menu")
-    "cs"  '(casual-isearch-tmenu :wk "I-Search menu")
 
     ;; ── SPC e — Eval / Execute ──
     "e"   '(:ignore t :wk "eval")
@@ -134,11 +134,12 @@
 
     ;; ── SPC f — File ──
     "f"   '(:ignore t :wk "file")
-    "ff"  '(find-file :wk "Open file")
+    "ff"  '(find-file :wk "Find file")
     "fr"  '(consult-recent-file :wk "Recent files")
     "fs"  '(save-buffer :wk "Save")
     "fS"  '(write-file :wk "Save as")
-    "fp"  '((lambda () (interactive) (find-file user-init-file)) :wk "Config")
+    "fp"  '((lambda () (interactive) (find-file user-init-file)) :wk "Config file")
+    "fe"  '((lambda () (interactive) (find-file user-emacs-directory)) :wk "Config dir")
     "fd"  '(consult-find :wk "Find by name (fd)")
     "fR"  '(rename-visited-file :wk "Rename")
     "fD"  '(my/delete-current-file :wk "Delete")
@@ -165,24 +166,24 @@
     "hp"  '(describe-package :wk "Package")
     "ha"  '(apropos :wk "Apropos")
 
-    ;; ── SPC i — AI ──
-    "i"   '(:ignore t :wk "AI")
-    "ii"  '(gptel-send :wk "Send to LLM")
-    "im"  '(gptel-menu :wk "Menu (models/params)")
-    "ic"  '(gptel :wk "Chat buffer")
-    "ir"  '(gptel-rewrite :wk "Rewrite region")
-    "ia"  '(gptel-add :wk "Add context")
-    "is"  '(my/ai-summarize :wk "Summarize")
-    "it"  '(my/ai-suggest-tags :wk "Suggest tags")
-    "il"  '(my/ai-translate :wk "Translate")
-    "ik"  '(my/ai-connections :wk "Find connections")
-    "ip"  '(my/ai-improve :wk "Improve writing")
-    "io"  '(my/ai-overview :wk "KB overview")
-    "ig"  '(my/ai--ensure-context-files :wk "Init AI context")
-    "ix"  '(my/codex-popup-toggle :wk "Codex CLI popup")
-    "iO"  '(my/opencode-toggle :wk "OpenCode popup")
-    "iK"  '(my/kimi-cli-popup-toggle :wk "kimi-cli popup")
-    "iC"  '(claude-code-transient :wk "Claude Code")
+    ;; ── SPC a — AI ──
+    "a"   '(:ignore t :wk "AI")
+    "aa"  '(gptel-send :wk "Send to LLM")
+    "am"  '(gptel-menu :wk "Menu (models/params)")
+    "ac"  '(gptel :wk "Chat buffer")
+    "ar"  '(gptel-rewrite :wk "Rewrite region")
+    "a+"  '(gptel-add :wk "Add context")
+    "as"  '(my/ai-summarize :wk "Summarize")
+    "at"  '(my/ai-suggest-tags :wk "Suggest tags")
+    "al"  '(my/ai-translate :wk "Translate")
+    "ak"  '(my/ai-connections :wk "Find connections")
+    "ap"  '(my/ai-improve :wk "Improve writing")
+    "ao"  '(my/ai-overview :wk "KB overview")
+    "ai"  '(my/ai--ensure-context-files :wk "Init AI context")
+    "ax"  '(my/codex-popup-toggle :wk "Codex CLI popup")
+    "aO"  '(my/opencode-toggle :wk "OpenCode popup")
+    "aK"  '(my/kimi-cli-popup-toggle :wk "kimi-cli popup")
+    "aC"  '(claude-code-transient :wk "Claude Code")
 
     ;; ── SPC l — Layout / workspace ──
     "l"   '(:ignore t :wk "layout")
@@ -203,14 +204,14 @@
 
     ;; ── SPC n — Notes / org-roam ──
     "n"   '(:ignore t :wk "notes")
-    "nn"  '(my/node-action :wk "Node actions")
-    "nf"  '(deft :wk "Search all notes")
-    "nF"  '(org-roam-node-find :wk "Find note (roam)")
-    "ni"  '(org-roam-node-insert :wk "Insert link")
+    "nn"  '(org-roam-node-find :wk "Find note")
     "nc"  '(org-roam-capture :wk "New note")
+    "ns"  '(deft :wk "Search all notes")
+    "n/"  '(my/org-roam-rg-search :wk "Search note text")
+    "ni"  '(org-roam-node-insert :wk "Insert link")
     "nb"  '(org-roam-buffer-toggle :wk "Backlinks")
     "ng"  '(org-roam-ui-mode :wk "Graph view")
-    "n/"  '(my/org-roam-rg-search :wk "Search note text")
+    "no"  '(my/node-action :wk "Node actions")
     "na"  '(org-roam-alias-add :wk "Add alias")
     "nr"  '(org-roam-ref-add :wk "Add ref")
     "nL"  '(org-cliplink :wk "Paste link (cliplink)")
@@ -219,33 +220,32 @@
     "nB"  '(consult-org-roam-backlinks :wk "Backlinks (consult)")
     "n?"  '(consult-org-roam-search :wk "Search (consult)")
 
-    ;; SPC n p — SuperTag (structured data operations)
-    "np"  '(:ignore t :wk "supertag")
-    "npp" '(my/supertag-quick-action :wk "Quick action")
-    "npa" '(org-supertag-tag-add-tag :wk "Add tag")
-    "npe" '(org-supertag-node-edit-field :wk "Edit field")
-    "npx" '(org-supertag-tag-remove :wk "Remove tag")
-    "npl" '(org-supertag-node-list-fields :wk "List fields")
-    "npj" '(org-supertag-node-follow-ref :wk "Jump linked")
-    "npk" '(supertag-view-kanban :wk "Kanban")
-    "nps" '(supertag-search :wk "Search DB")
-    "npS" '(supertag-sync-status :wk "Sync status")
-    "npr" '(supertag-sync-check-now :wk "Sync now")
-    "npR" '(supertag-sync-full-initialize :wk "Full rebuild")
-
     ;; SPC n v — Views / dashboards (read-only query windows)
     "nv"  '(:ignore t :wk "views")
     "nvv" '(my/dashboard-find :wk "Open dashboard")
     "nvw" '(my/dash-review :wk "Weekly review")
     "nvi" '(my/dash-index :wk "Dashboard index")
 
-    ;; SPC n m — Meta: schema, templates, dashboards (extensibility hub)
-    "nm"  '(:ignore t :wk "meta/extend")
-    "nmt" '(my/edit-supertag-schema :wk "Edit tag schema")
-    "nmT" '(my/reload-supertag-schema :wk "Reload tag schema")
-    "nmc" '(my/edit-capture-templates :wk "Edit capture templates")
-    "nmC" '(my/reload-capture-templates :wk "Reload capture templates")
-    "nmd" '(my/dashboard-create :wk "Create new dashboard")
+    ;; ── SPC # — SuperTag (structured data + schema/meta) ──
+    ;; Mirrors the org local-leader `, #` mnemonic: # means supertag.
+    "#"   '(:ignore t :wk "supertag")
+    "##"  '(my/supertag-quick-action :wk "Quick action")
+    "#a"  '(org-supertag-tag-add-tag :wk "Add tag")
+    "#e"  '(org-supertag-node-edit-field :wk "Edit field")
+    "#x"  '(org-supertag-tag-remove :wk "Remove tag")
+    "#l"  '(org-supertag-node-list-fields :wk "List fields")
+    "#j"  '(org-supertag-node-follow-ref :wk "Jump linked")
+    "#k"  '(supertag-view-kanban :wk "Kanban")
+    "#s"  '(supertag-search :wk "Search DB")
+    "#S"  '(supertag-sync-status :wk "Sync status")
+    "#r"  '(supertag-sync-check-now :wk "Sync now")
+    "#R"  '(supertag-sync-full-initialize :wk "Full rebuild")
+    ;; Schema / templates / dashboards (extensibility hub)
+    "#t"  '(my/edit-supertag-schema :wk "Edit tag schema")
+    "#T"  '(my/reload-supertag-schema :wk "Reload tag schema")
+    "#c"  '(my/edit-capture-templates :wk "Edit capture templates")
+    "#C"  '(my/reload-capture-templates :wk "Reload capture templates")
+    "#d"  '(my/dashboard-create :wk "Create new dashboard")
 
     ;; SPC n d — Dailies
     "nd"  '(:ignore t :wk "dailies")
@@ -281,7 +281,6 @@
     "oY"  '(my/yazi-open :wk "Yazi full window")
     "od"  '(dired-jump :wk "Dired (jump to file)")
     "oj"  '(dired :wk "Dired (pick directory)")
-    "oe"  '((lambda () (interactive) (find-file user-emacs-directory)) :wk "Config dir")
     "oN"  '((lambda () (interactive) (dirvish my/note-home)) :wk "Dirvish @ NoteHQ")
 
     ;; ── SPC P — PARA layer navigation ──
@@ -302,6 +301,7 @@
     "s"   '(:ignore t :wk "search")
     "ss"  '(consult-line :wk "Buffer")
     "sp"  '(consult-ripgrep :wk "Project")
+    "sn"  '(my/org-roam-rg-search :wk "Notes text")
     "si"  '(consult-imenu :wk "Imenu")
     "so"  '(consult-outline :wk "Outline")
     "sb"  '(consult-bookmark :wk "Bookmark")
@@ -309,16 +309,17 @@
     "sr"  '(query-replace :wk "Replace")
     "sR"  '(query-replace-regexp :wk "Replace regexp")
 
-    ;; ── SPC t — Toggle ──
-    "t"   '(:ignore t :wk "toggle")
-    "tt"  '(consult-theme :wk "Theme")
-    "tl"  '(display-line-numbers-mode :wk "Line numbers")
-    "tw"  '(visual-line-mode :wk "Word wrap")
-    "tf"  '(toggle-frame-fullscreen :wk "Fullscreen")
-    "ti"  '(org-modern-mode :wk "Org-modern")
-    "tn"  '(org-num-mode :wk "Heading numbers")
-    "tm"  '(mixed-pitch-mode :wk "Mixed pitch")
-    "th"  '(dired-omit-mode :wk "Hide dot-files / AGENTS.md (dired)")
+    ;; ── SPC u — UI / toggles ──
+    "u"   '(:ignore t :wk "UI/toggles")
+    "ut"  '(consult-theme :wk "Theme")
+    "ul"  '(display-line-numbers-mode :wk "Line numbers")
+    "uw"  '(visual-line-mode :wk "Word wrap")
+    "uf"  '(toggle-frame-fullscreen :wk "Fullscreen")
+    "ui"  '(org-modern-mode :wk "Org-modern")
+    "un"  '(org-num-mode :wk "Heading numbers")
+    "um"  '(mixed-pitch-mode :wk "Mixed pitch")
+    "ub"  '(menu-bar-mode :wk "Menu bar")
+    "uh"  '(dired-omit-mode :wk "Hide dot-files / AGENTS.md (dired)")
 
     ;; ── SPC w — Window ──
     "w"   '(:ignore t :wk "window")
@@ -337,10 +338,11 @@
     "w-"  '(evil-window-decrease-height :wk "Height -")
     "wo"  '(other-window :wk "Other window")
 
-    ;; ── SPC q — Quit ──
+    ;; ── SPC q — Quit / session ──
     "q"   '(:ignore t :wk "quit")
     "qq"  '(save-buffers-kill-emacs :wk "Quit Emacs")
-    "qu"  '(my/package-update-all :wk "Update packages"))
+    "qu"  '(my/package-update-all :wk "Update packages")
+    "qr"  '(my/package-snapshot-rollback :wk "Rollback packages"))
 
   ;; Reapply the tested contract last so it describes effective bindings.
   (my/keymap-apply-general-contract))

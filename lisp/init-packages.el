@@ -30,7 +30,7 @@
     (:package claude-code
      :library "claude-code"
      :url "https://github.com/stevemolitor/claude-code.el"
-     :owner init-ai
+     :owner init-ai-cli
      :purpose "Claude Code integration"))
   "Git-hosted package inventory owned by org-seq.
 

@@ -51,12 +51,20 @@ These rules apply to `early-init.el`, `init.el`, root helper `.el` files, and `l
 
 The module load order in `init.el` is intentional:
 
-`init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-focus -> init-pkm -> init-supertag -> init-daily -> init-terminal -> init-ai -> init-dashboard -> init-dired -> init-workspace -> init-update -> init-tty -> init-evil`
+`init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-gtd-dashboard -> init-focus -> init-pkm -> init-supertag -> init-daily -> init-terminal -> init-ai -> init-ai-cli -> init-dashboard -> init-dired -> init-mouse -> init-frame -> init-workspace -> init-update -> init-tty -> init-evil`
+
+Module dependencies are machine-checked: `my/init-module-requires` in `init.el`
+declares each module's dependencies, mirroring the module's `;; Requires:`
+header. Startup emits a warning for order violations, and
+`scripts/test-init-loader.el` fails when the list, the headers, or the order
+drift apart.
 
 When adding a new module:
 
 - Place it deliberately in the dependency chain.
-- Update `init.el`.
+- Update `init.el`: add the module to `my/init-modules-default` and, if it
+  depends on other modules, add a matching `my/init-module-requires` record
+  that agrees with the module's `;; Requires:` header.
 - Update the load-order comment in `init.el` at the same time; do not let comments drift from the actual module list.
 - Update `README.md`, `CONTRIBUTING.md`, and this file if the change is user-visible or affects repo structure.
 
