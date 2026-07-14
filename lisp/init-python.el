@@ -102,12 +102,18 @@ The creation is skipped in noninteractive batch sessions."
   (or (executable-find "python")
       (executable-find "python3")))
 
+(defun my/python--environment-root (python)
+  "Return the environment root containing PYTHON."
+  (let ((executable-dir (file-name-directory python)))
+    (if (eq system-type 'windows-nt)
+        (file-name-as-directory executable-dir)
+      (file-name-as-directory
+       (file-name-directory (directory-file-name executable-dir))))))
+
 (defun my/python--prepend-env-paths (python source)
   "Prepend environment paths for PYTHON from SOURCE to PATH and `exec-path'."
   (when (and python (fboundp 'my/prepend-to-exec-path))
-    (let ((root (file-name-directory
-                 (directory-file-name
-                  (file-name-directory python)))))
+    (let ((root (my/python--environment-root python)))
       (pcase source
         ('conda
          (dolist (dir (reverse

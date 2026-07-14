@@ -23,6 +23,8 @@
 (declare-function my/daily-buffer-p "init-daily" (&optional buffer))
 (declare-function my/daily-initial-buffer "init-daily" ())
 (declare-function my/daily-sidebar-close "init-daily" ())
+(declare-function my/daily-sidebar-open "init-daily" ())
+(declare-function my/daily-sidebar-refresh "init-daily" ())
 (declare-function my/daily-workspace-open "init-daily" ())
 (declare-function my/terminal-popup-toggle "init-terminal" (&optional restart))
 
@@ -572,10 +574,13 @@ does not break other hooks or leave the frame empty."
                      (fboundp 'my/daily-buffer-p)
                      (my/daily-buffer-p target-buffer))
                 (progn
+                  (when (fboundp 'my/workspace-close-treemacs)
+                    (my/workspace-close-treemacs))
                   (when-let ((editor-win (my/workspace--main-window)))
                     (select-window editor-win)
                     (switch-to-buffer target-buffer))
-                  (my/daily-workspace-open))
+                  (my/daily-sidebar-open)
+                  (my/daily-sidebar-refresh))
               (let ((open-sidebar (my/workspace--startup-open-sidebar-p
                                    target-buffer)))
                 (when-let ((editor-win (my/workspace--main-window)))

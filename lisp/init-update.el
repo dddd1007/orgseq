@@ -218,20 +218,20 @@ when the pre-update package snapshot cannot be created."
           (setq upgraded-vc t))
       (error (push (format "vc upgrade: %s" err) errors)))
 
-    ;; Build summary
+    ;; A partial or failed run must not advance the successful-update marker.
+    (when errors
+      (error "org-seq: package update failed: %s"
+             (string-join (nreverse errors) "; ")))
+
+    ;; Build the success summary only after every update stage completed.
     (let ((parts nil))
       (when (> upgraded-elpa 0)
         (push (format "%d ELPA package%s upgraded"
                       upgraded-elpa (if (= upgraded-elpa 1) "" "s"))
               parts))
-      (when (and (eq upgraded-vc t) (null errors))
+      (when (eq upgraded-vc t)
         (push "vc packages checked" parts))
-      (when errors
-        (push (format "%d error%s: %s"
-                      (length errors) (if (= (length errors) 1) "" "s")
-                      (string-join errors "; "))
-              parts))
-      (when (and (= upgraded-elpa 0) (null errors))
+      (when (= upgraded-elpa 0)
         (push "all packages up to date" parts))
       (string-join (nreverse parts) ", "))))
 

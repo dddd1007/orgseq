@@ -1,8 +1,10 @@
 ;;; init-roam.el --- org-roam PKM engine + org-node acceleration -*- lexical-binding: t; -*-
 
-;; Requires: init-org (my/note-home, my/roam-dir)
+;; Requires: init-org (my/note-home, my/roam-dir, PARA paths)
 (defvar my/note-home)  ; forward-declare from init-org
 (defvar my/roam-dir)   ; forward-declare from init-org
+(defvar my/outputs-dir)  ; forward-declare from init-org
+(defvar my/practice-dir) ; forward-declare from init-org
 (defvar my/default-capture-templates)
 (defvar org-roam-dailies-directory)
 (defvar org-roam-dailies-capture-templates)
@@ -242,9 +244,7 @@ up front so first startup does not spam avoidable warnings."
   :config
   ;; Scope org-mem to the actionable PKM layers used by org-roam and GTD.
   (setq org-mem-watch-dirs
-        (list my/roam-dir
-              (expand-file-name "10_Outputs/" my/note-home)
-              (expand-file-name "20_Practice/" my/note-home)))
+        (list my/roam-dir my/outputs-dir my/practice-dir))
 
   ;; Write to org-roam's real DB so org-roam-ui and other extensions work
   (setq org-mem-roamy-do-overwrite-real-db t)
