@@ -349,6 +349,7 @@
     "um"  '(mixed-pitch-mode :wk "Mixed pitch")
     "ub"  '(menu-bar-mode :wk "Menu bar")
     "us"  '(org-sticky-header-mode :wk "Sticky header")
+    "uT"  '(global-tab-line-mode :wk "Buffer tabs")
     "uh"  '(dired-omit-mode :wk "Hide dot-files / AGENTS.md (dired)")
 
     ;; ── SPC w — Window ──

@@ -174,6 +174,7 @@ owns this layer.
 | Clickable org elements | TODO keywords, checkboxes, priorities, timestamps, and list bullets respond to clicks (org-mouse) |
 | Menu bar | Always on; the **NoteHQ** menu holds the core workflow (Daily, notes, GTD views, AI, terminal, package update/rollback). Toggle with `SPC u b` |
 | Click-driven GTD/Daily | Daily sidebar dates, GTD dashboard rows, and agenda entries all open with a single left click |
+| Clickable buffer tabs | The tab-line across the top of each window lists the window's buffers; click a tab to switch, click its `x` to kill. Toggle with `SPC u T` (utility/side buffers are excluded automatically) |
 | Drag and drop | Drop files into org buffers to attach/link/insert; drag files out of dired to other programs; drag selected text between buffers and programs; dropped images are saved under `00_Roam/assets/` |
 | Wheel / side buttons | Smooth scroll, `Shift`+wheel horizontal, side buttons back/forward, middle-click paste at point |
 | Terminal mouse | Mouse and context menus also work in terminal frames |
@@ -309,7 +310,7 @@ The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom win
 | `SPC f j` | Dired jump (to current file's directory) |
 | `SPC p` | Project (switch/find-file/search/buffer) |
 | `SPC s` | Search (line/ripgrep/notes/imenu/outline/bookmark/replace) |
-| `SPC u` | UI toggles (theme/line-numbers/wrap/fullscreen/menu-bar/sticky-header) |
+| `SPC u` | UI toggles (theme/line-numbers/wrap/fullscreen/menu-bar/sticky-header/buffer-tabs) |
 | `SPC w` | Window (split/close/maximize/navigate/resize) |
 | `SPC q q` | Quit Emacs |
 | `SPC q u` | Update all packages (ELPA + vc) |

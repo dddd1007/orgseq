@@ -471,5 +471,53 @@ timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
                eshell-mode-hook))
   (add-hook mode #'my/disable-line-numbers))
 
+;; ---- tab-line: clickable buffer tabs (built-in) ----
+;; Mirror of Sublime/VS Code/Zed/Helix editor tabs.  Each tab is a buffer
+;; in the current window's previous/next ring; the close button (x) kills
+;; the buffer, the tab itself switches to it.  The new-tab button is off
+;; because its semantics ("new buffer") are ambiguous in this workflow.
+;;
+;; Tool/side/utility buffers are excluded so the top of the Daily sidebar,
+;; Treemacs, the outline, terminal popups, and ephemeral messages never
+;; grow meaningless tabs.  This list mirrors
+;; `my/workspace--utility-buffer-p' in init-workspace.el on purpose, but is
+;; duplicated here (not required across modules) because init-ui loads
+;; before init-workspace -- see the module load order in init.el.
+(defvar my/ui-tab-line-excluded-names
+  '("*Daily Notes*"
+    "*Ilist*"
+    "*GTD*"
+    "*dashboard*"
+    "*NoteHQ-terminal*"
+    "*NoteHQ-codex*"
+    "*NoteHQ-opencode*"
+    "*NoteHQ-kimi*"
+    "*org-seq-yazi*"
+    "*Messages*"
+    "*Warnings*")
+  "Buffer names that never appear in the tab-line.
+Kept in sync with `my/workspace--utility-buffer-p' and the special-mode
+exclusion below; update both when a new tool buffer is introduced.")
+
+(defun my/ui-tab-line--excluded-buffer-p (buffer)
+  "Return non-nil when BUFFER should be hidden from the tab-line."
+  (let ((name (buffer-name buffer)))
+    (or (string-prefix-p "*Treemacs" name)
+        (member name my/ui-tab-line-excluded-names)
+        (with-current-buffer buffer
+          (derived-mode-p 'special-mode 'dired-mode 'dashboard-mode)))))
+
+(defun my/ui-tab-line-filtered-tabs ()
+  "Return this window's tab-line tabs with utility buffers removed.
+Wraps the default `tab-line-tabs-window' so the global tab set stays
+the buffer ring Emacs already maintains; we only hide members."
+  (let ((tabs (tab-line-tabs-window)))
+    (seq-remove #'my/ui-tab-line--excluded-buffer-p tabs)))
+
+(setq tab-line-new-button-show nil
+      tab-line-tabs-function #'my/ui-tab-line-filtered-tabs)
+
+(global-tab-line-mode 1)
+
 (provide 'init-ui)
 ;;; init-ui.el ends here
