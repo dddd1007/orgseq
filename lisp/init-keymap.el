@@ -38,6 +38,8 @@ and the highest-frequency actions are single top-level keys
      :description "Terminal popup")
     (:key "d" :command my/daily-workspace-open
      :description "Daily workspace")
+    (:key "j" :command avy-goto-char-timer
+     :description "Jump to char")
     (:key "c" :command org-roam-capture
      :description "New note")
     (:key "td" :command my/org-dashboard

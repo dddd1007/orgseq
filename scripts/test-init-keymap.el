@@ -18,6 +18,7 @@
 (ert-deftest my/keymap-critical-contract-covers-core-workflows ()
   (dolist (expected '(("'" . my/terminal-popup-toggle)
                       ("d" . my/daily-workspace-open)
+                      ("j" . avy-goto-char-timer)
                       ("c" . org-roam-capture)
                       ("td" . my/org-dashboard)
                       ("tt" . my/org-open-today)

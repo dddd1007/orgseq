@@ -187,6 +187,7 @@ owns this layer.
 | `SPC c` | Capture a new note (org-roam) |
 | `SPC m` | Casual menu for the current context |
 | `SPC /` | Project-wide search (ripgrep) |
+| `SPC j` | Jump to any character on screen (avy) |
 | `SPC TAB` | Last buffer |
 | `SPC '` | Toggle NoteHQ terminal popup |
 

@@ -64,6 +64,13 @@
   :config
   (global-evil-surround-mode 1))
 
+;; ---- avy: jump to any character on screen (Helix-style labels) ----
+;; SPC j reads a few chars, then labels every on-screen match with a key.
+(use-package avy
+  :defer t
+  :custom
+  (avy-timeout-seconds 0.4))
+
 ;; ---- general.el: leader key framework ----
 (use-package general
   :demand t
@@ -97,6 +104,7 @@
     "/"   '(consult-ripgrep :wk "Search project")
     "TAB" '(evil-switch-to-windows-last-buffer :wk "Last buffer")
     "'"   '(my/terminal-popup-toggle :wk "Terminal popup")
+    "j"   '(avy-goto-char-timer :wk "Jump to char")
 
     ;; ── SPC t — Tasks / GTD / Focus ──
     "t"   '(:ignore t :wk "tasks")
