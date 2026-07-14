@@ -299,7 +299,7 @@ The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom win
 
 | Key | Action |
 |-----|--------|
-| `SPC b` | Buffer (switch/kill/save/revert/ibuffer) |
+| `SPC b` | Buffer (switch/kill/save/revert/ibuffer/undo-history) |
 | `SPC m` | Casual menu (Transient for current mode) |
 | `SPC e` | Eval (last-sexp/buffer/region/defun) |
 | `SPC f` | File (open/recent/save/rename/delete/copy-path) |

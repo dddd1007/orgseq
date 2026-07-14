@@ -82,6 +82,14 @@
   :config
   (evil-multiedit-default-keybinds))
 
+;; ---- vundo: visual undo tree (VS Code Timeline's kin) ----
+;; Works on top of evil-undo-system 'undo-redo (Emacs native undo), so no
+;; undo-tree needed.  SPC b u opens the tree for the current buffer.
+(use-package vundo
+  :defer t
+  :custom
+  (vundo-glyph-alist vundo-unicode-symbols))
+
 ;; ---- general.el: leader key framework ----
 (use-package general
   :demand t
@@ -153,6 +161,7 @@
     "bj"  '(bookmark-jump :wk "Jump to bookmark")
     "bp"  '(previous-buffer :wk "Previous")
     "bN"  '(next-buffer :wk "Next")
+    "bu"  '(vundo :wk "Undo history")
 
     ;; ── SPC e — Eval / Execute ──
     "e"   '(:ignore t :wk "eval")
