@@ -10,6 +10,7 @@
 (defvar my/roam-dir)
 (defvar org-roam-dailies-directory)
 (defvar org-id-locations-file)
+(defvar my/daily--clock)
 
 (ert-deftest my/daily-date-records-use-fourteen-calendar-days ()
   (let* ((root (make-temp-file "org-seq-daily-dates-" t))
@@ -108,5 +109,37 @@
         (my/daily-note-mode 1)
         (run-hooks 'after-save-hook)
         (should scheduled)))))
+
+(ert-deftest my/daily-sidebar-render-is-read-only-and-actionable ()
+  (let* ((root (make-temp-file "org-seq-daily-sidebar-" t))
+         (my/roam-dir (file-name-as-directory root))
+         (org-roam-dailies-directory "daily/")
+         (my/daily--clock (lambda () (encode-time 0 0 12 14 7 2026))))
+    (unwind-protect
+        (with-current-buffer (get-buffer-create my/daily-sidebar-buffer-name)
+          (my/daily-sidebar-mode)
+          (my/daily-sidebar-refresh)
+          (goto-char (point-min))
+          (search-forward "Today")
+          (should (get-text-property (1- (point)) 'my/daily-time))
+          (should-not (file-exists-p (expand-file-name "daily" root))))
+      (when-let ((buffer (get-buffer my/daily-sidebar-buffer-name)))
+        (kill-buffer buffer))
+      (delete-directory root t))))
+
+(ert-deftest my/daily-sidebar-open-is-idempotent ()
+  (let* ((root (make-temp-file "org-seq-daily-window-" t))
+         (my/roam-dir (file-name-as-directory root))
+         (org-roam-dailies-directory "daily/"))
+    (unwind-protect
+        (save-window-excursion
+          (let ((first (my/daily-sidebar-open))
+                (second (my/daily-sidebar-open)))
+            (should (window-live-p first))
+            (should (eq first second))
+            (should (window-parameter first 'my/daily-sidebar))))
+      (when-let ((buffer (get-buffer my/daily-sidebar-buffer-name)))
+        (kill-buffer buffer))
+      (delete-directory root t))))
 
 ;;; test-init-daily.el ends here

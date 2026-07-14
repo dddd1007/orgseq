@@ -4,6 +4,7 @@
 ;; Requires: init-pkm (my/supertag-schedule-sync)
 
 (require 'calendar)
+(require 'button)
 (require 'cl-lib)
 (require 'org)
 (require 'org-id)
@@ -14,6 +15,9 @@
 
 (declare-function my/org-roam-dailies--file-for-date "init-roam" (time))
 (declare-function my/supertag-schedule-sync "init-pkm" ())
+(declare-function my/daily-workspace-open "init-daily" ())
+(declare-function my/daily-workspace-open-date "init-daily" (time))
+(declare-function my/daily-workspace-choose-date "init-daily" ())
 
 (defcustom my/daily-sidebar-days 14
   "Number of consecutive calendar days shown in the Daily sidebar."
@@ -171,6 +175,91 @@
     (my/daily-note-mode 1)))
 
 (add-hook 'org-mode-hook #'my/daily--maybe-enable-note-mode)
+
+(defconst my/daily-sidebar-buffer-name "*Daily Notes*"
+  "Buffer name for the org-seq Daily sidebar.")
+
+(defvar my/daily--clock #'current-time
+  "Function returning the current time; rebound by tests.")
+
+(defvar-local my/daily-sidebar-records nil)
+
+(defvar-keymap my/daily-sidebar-mode-map
+  :parent special-mode-map
+  "RET" #'my/daily-sidebar-open-at-point
+  "t" #'my/daily-workspace-open
+  "g" #'my/daily-sidebar-refresh
+  "c" #'my/daily-workspace-choose-date
+  "q" #'my/daily-sidebar-close)
+
+(define-derived-mode my/daily-sidebar-mode special-mode "Daily-Notes"
+  "Major mode for recent Daily Note navigation."
+  (setq-local truncate-lines t))
+
+(defun my/daily-sidebar--insert-record (record)
+  "Insert one actionable sidebar row for RECORD."
+  (insert-text-button
+   (format "%s %-10s %s"
+           (if (plist-get record :exists) "*" ".")
+           (plist-get record :label)
+           (plist-get record :date))
+   'follow-link t
+   'my/daily-time (plist-get record :time)
+   'action (lambda (button)
+             (my/daily-workspace-open-date
+              (button-get button 'my/daily-time))))
+  (insert "\n"))
+
+(defun my/daily-sidebar-refresh ()
+  "Refresh the Daily sidebar without creating note files."
+  (interactive)
+  (let ((buffer (get-buffer-create my/daily-sidebar-buffer-name)))
+    (with-current-buffer buffer
+      (unless (derived-mode-p 'my/daily-sidebar-mode)
+        (my/daily-sidebar-mode))
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "Daily Notes\n\n")
+        (setq my/daily-sidebar-records
+              (my/daily-date-records (funcall my/daily--clock)))
+        (dolist (record my/daily-sidebar-records)
+          (my/daily-sidebar--insert-record record))
+        (insert "\nRET open   t today   c calendar   g refresh\n")
+        (goto-char (point-min))))
+    buffer))
+
+(defun my/daily-sidebar-window ()
+  "Return the live Daily sidebar window in the selected frame."
+  (cl-find-if (lambda (window)
+                (window-parameter window 'my/daily-sidebar))
+              (window-list nil 'no-minibuffer)))
+
+(defun my/daily-sidebar-open ()
+  "Open or reuse the persistent Daily sidebar and return its window."
+  (interactive)
+  (my/daily-sidebar-refresh)
+  (or (my/daily-sidebar-window)
+      (let ((window
+             (display-buffer-in-side-window
+              (get-buffer my/daily-sidebar-buffer-name)
+              `((side . left) (slot . -2)
+                (window-width . ,my/daily-sidebar-width)))))
+        (set-window-parameter window 'my/daily-sidebar t)
+        (set-window-dedicated-p window t)
+        window)))
+
+(defun my/daily-sidebar-close ()
+  "Close only the org-seq Daily sidebar in the selected frame."
+  (interactive)
+  (when-let ((window (my/daily-sidebar-window)))
+    (delete-window window)))
+
+(defun my/daily-sidebar-open-at-point ()
+  "Open the Daily date represented at point."
+  (interactive)
+  (if-let ((time (get-text-property (point) 'my/daily-time)))
+      (my/daily-workspace-open-date time)
+    (user-error "No Daily date at point")))
 
 (provide 'init-daily)
 ;;; init-daily.el ends here
