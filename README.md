@@ -330,6 +330,16 @@ In Org the single-char inline markers are surround pairs already, so
 visual-select then `S =` wraps as verbatim, `cs = *` swaps verbatim to
 bold, and `ds *` removes the bold.
 
+| Key | Action |
+|-----|--------|
+| `M-d` | Select next occurrence of the word under point (evil-multiedit) |
+| `M-D` | Select previous occurrence |
+| `R` (visual) | Select every occurrence inside the region |
+
+`M-d` here lives in evil normal/visual state. The Corfu completion popup
+also binds `M-d` to toggle its doc window, but only while the candidate
+menu is visible (insert state), so the two bindings never collide.
+
 Under `SPC l` the most important sidebar controls are:
 
 | Key | Action |

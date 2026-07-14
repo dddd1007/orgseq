@@ -71,6 +71,17 @@
   :custom
   (avy-timeout-seconds 0.4))
 
+;; ---- evil-multiedit: select/edit occurrences like Sublime Ctrl+D ----
+;; M-d adds the next match under point to the edit, M-D the previous one,
+;; and visual R selects every match inside the region.  The M-d binding
+;; lives in evil normal/visual state; the corfu completion popup also uses
+;; M-d inside corfu-map, but only while a candidate menu is visible (insert
+;; state), so the two never collide.
+(use-package evil-multiedit
+  :after evil
+  :config
+  (evil-multiedit-default-keybinds))
+
 ;; ---- general.el: leader key framework ----
 (use-package general
   :demand t
