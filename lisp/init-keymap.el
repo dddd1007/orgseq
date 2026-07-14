@@ -5,6 +5,8 @@
 (require 'subr-x)
 
 (declare-function general-define-key "general" (&rest arguments))
+(declare-function evil-local-mode "evil" (&optional arg))
+(declare-function evil-normal-state "evil" ())
 
 (defconst my/leader-prefixes
   '((:key "a" :description "agenda")
@@ -74,14 +76,22 @@
             (mapcar #'char-to-string (string-to-list key))
             " "))))
 
+
+(defun my/keymap--effective-leader-command (key)
+  "Resolve compact leader KEY in an Evil normal-state buffer."
+  (if (and (fboundp 'evil-local-mode)
+           (fboundp 'evil-normal-state))
+      (with-temp-buffer
+        (evil-local-mode 1)
+        (evil-normal-state)
+        (key-binding (my/keymap--leader-key-sequence key)))
+    (key-binding (my/keymap--leader-key-sequence key))))
 (defun my/keymap-audit-results (&optional resolver)
   "Return audit results for critical leader bindings.
 
 RESOLVER receives each compact leader key and returns its effective command.
-When nil, inspect the active keymaps with `key-binding'."
-  (let ((resolve (or resolver
-                     (lambda (key)
-                       (key-binding (my/keymap--leader-key-sequence key))))))
+When nil, inspect an Evil normal-state buffer with `key-binding'."
+  (let ((resolve (or resolver #'my/keymap--effective-leader-command)))
     (mapcar
      (lambda (spec)
        (let* ((key (plist-get spec :key))

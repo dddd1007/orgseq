@@ -161,9 +161,11 @@ Add `scripts/check.ps1` as the canonical Windows validation entry point. It:
 - removes generated `.elc` files in `finally`;
 - returns a non-zero process exit code when a required check fails;
 - emits a concise object-based summary of passed, failed, warnings, and cleanup
-  state.
-- serializes guarded module failures and non-passing doctor results for
-  object-first PowerShell inspection;
+  state;
+- accepts an explicit deployed `package-user-dir` without contaminating the
+  default isolated source check;
+- serializes guarded module failures, non-passing doctor results, and keymap
+  drift for object-first PowerShell inspection;
 - supports strict deployed-readiness gates without turning optional tools into
   required dependencies.
 

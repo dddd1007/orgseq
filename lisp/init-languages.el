@@ -4,6 +4,8 @@
 ;; every language backend registered here).
 ;; Requires: init-python (my/python-command)
 
+(require 'cl-lib)
+
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; ESS: R as primary, with Julia/SAS/Stata secondary via the same package
 ;; ═══════════════════════════════════════════════════════════════════════════
@@ -43,12 +45,43 @@
               (when (and (file-directory-p bin) (fboundp 'my/prepend-to-exec-path))
                 (my/prepend-to-exec-path bin)))))))))
 
+;; NOTE(compat): MELPA poly-noweb still emits legacy (KEY . BINDING)
+;; arguments, while Emacs 30 define-keymap requires alternating pairs.
+(defun my/polymode--normalize-define-keymap-args (arguments)
+  "Flatten legacy cons bindings in define-keymap ARGUMENTS."
+  (cl-mapcan
+   (lambda (argument)
+     (if (and (consp argument)
+              (stringp (car argument)))
+         (list (car argument) (cdr argument))
+       (list argument)))
+   arguments))
+
+(defun my/polymode--require-poly-r ()
+  "Load poly-R with a temporary Emacs 30 keymap compatibility adapter."
+  (unless (featurep 'poly-R)
+    (advice-add 'define-keymap :filter-args
+                #'my/polymode--normalize-define-keymap-args)
+    (unwind-protect
+        (require 'poly-R)
+      (advice-remove 'define-keymap
+                     #'my/polymode--normalize-define-keymap-args)))
+  t)
+
+(declare-function poly-markdown+r-mode "poly-R" ())
+
+(defun my/poly-markdown+r-mode ()
+  "Load poly-R safely, then enter `poly-markdown+r-mode'."
+  (interactive)
+  (my/polymode--require-poly-r)
+  (poly-markdown+r-mode))
+
 ;; ---- poly-R: polymode for Rmarkdown (.Rmd) and Quarto (.qmd) ----
 (use-package poly-R
   :defer t
   :after ess
-  :mode (("\\.[rR]md\\'" . poly-markdown+r-mode)
-         ("\\.qmd\\'"    . poly-markdown+r-mode)))
+  :mode (("\\.[rR]md\\'" . my/poly-markdown+r-mode)
+         ("\\.qmd\\'"    . my/poly-markdown+r-mode)))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Python: built-in python.el + eglot + pyright (via pip/npm)

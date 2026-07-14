@@ -38,6 +38,7 @@
 (defvar my/roam-dir)  ; forward-declare from init-org
 
 (declare-function my/vc-package-ensure "init-packages" (package))
+(declare-function supertag-save-store "supertag-core-store" ())
 (declare-function my/vc-package-install-command "init-packages" (package))
 (declare-function my/vc-package-install-error "init-packages" (package))
 
@@ -136,7 +137,8 @@ same fixes."
 ;; Bootstrap source metadata and error handling live in init-packages.
 (my/vc-package-ensure 'org-supertag)
 
-(my/supertag-apply-compat-patches)
+(unless noninteractive
+  (my/supertag-apply-compat-patches))
 
 ;; WORKAROUND for org-supertag recursive load: preload the low-level
 ;; modules that the top-level org-supertag.el requires, so they are
@@ -165,6 +167,10 @@ same fixes."
   :config
   (setq org-supertag-sync-directories (list my/roam-dir))
   (setq org-supertag-bridge-enable-ai t))
+
+(with-eval-after-load 'org-supertag
+  (when noninteractive
+    (remove-hook 'kill-emacs-hook #'supertag-save-store)))
 
 (unless (locate-library "org-supertag")
   (run-with-idle-timer 2 nil

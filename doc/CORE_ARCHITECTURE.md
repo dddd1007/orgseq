@@ -15,12 +15,13 @@ later modules from being attempted.
 - `M-x my/doctor` checks requirements without installing, downloading, or
   creating user directories.
 - `scripts/check.ps1` is the canonical Windows contributor check.
-  It serializes guarded module status and non-passing doctor results into one
-  structured startup audit. The default mode reports missing runtime
-  dependencies without downloading them; passing `-RequireAllModules` and
-  `-RequireDependencies` turns module errors and required dependency failures
-  into a deployed-readiness gate. Optional tools remain warnings in both
-  modes.
+  It serializes guarded module status, non-passing doctor results, and actual
+  normal-state leader bindings into one structured startup audit. The default mode reports missing runtime
+  dependencies without downloading them. `-PackageUserDir` exposes an explicit
+  deployed package set while keeping source validation isolated;
+  `-RequireAllModules -RequireDependencies` turns module errors and required
+  dependency failures into a deployed-readiness gate. Optional tools remain
+  warnings in both modes.
 
 `init-doctor` loads first so the diagnostic commands survive failures in later
 feature modules.

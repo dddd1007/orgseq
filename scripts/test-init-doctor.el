@@ -90,6 +90,58 @@
           (set 'my/note-home previous)
         (makunbound 'my/note-home)))))
 
+
+(ert-deftest my/doctor-ghostel-module-check-defers-without-elisp ()
+  (cl-letf (((symbol-function 'locate-library) #'ignore))
+    (let ((payload (my/doctor--check-ghostel-module)))
+      (should (eq (plist-get payload :status) 'warn))
+      (should (string-match-p "cannot inspect"
+                              (downcase (plist-get payload :detail)))))))
+
+(ert-deftest my/doctor-ghostel-module-check-reports-missing-binary ()
+  (let ((root (make-temp-file "org-seq-ghostel-missing-" t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'locate-library)
+                   (lambda (library)
+                     (when (equal library "ghostel-module-install")
+                       (expand-file-name "ghostel-module-install.el" root)))))
+          (let ((payload (my/doctor--check-ghostel-module)))
+            (should (eq (plist-get payload :status) 'fail))
+            (should (string-match-p "not found"
+                                    (downcase (plist-get payload :detail))))))
+      (delete-directory root t))))
+
+(ert-deftest my/doctor-ghostel-module-check-accepts-installed-pair ()
+  (let* ((root (make-temp-file "org-seq-ghostel-ready-" t))
+         (module (expand-file-name
+                  (concat "ghostel-module" module-file-suffix) root))
+         (sidecar (expand-file-name "ghostel-module.version" root)))
+    (unwind-protect
+        (progn
+          (write-region "" nil module nil 'silent)
+          (write-region "test-version\n" nil sidecar nil 'silent)
+          (cl-letf (((symbol-function 'locate-library)
+                     (lambda (library)
+                       (when (equal library "ghostel-module-install")
+                         (expand-file-name "ghostel-module-install.el" root)))))
+            (let ((payload (my/doctor--check-ghostel-module)))
+              (should (eq (plist-get payload :status) 'pass))
+              (should (string-match-p "test-version"
+                                      (plist-get payload :detail))))))
+      (delete-directory root t))))
+
+(ert-deftest my/doctor-poly-r-check-reports-load-errors ()
+  (cl-letf (((symbol-function 'locate-library)
+             (lambda (library) (and (equal library "poly-R") "poly-R.el")))
+            ((symbol-function 'require)
+             (lambda (feature &optional _filename _noerror)
+               (if (eq feature 'poly-R)
+                   (error "incompatible dependency")
+                 t))))
+    (let ((payload (my/doctor--check-poly-r)))
+      (should (eq (plist-get payload :status) 'warn))
+      (should (string-match-p "incompatible dependency"
+                              (plist-get payload :detail))))))
 (ert-deftest my/doctor-vc-package-check-reports-missing-inventory ()
   (cl-letf (((symbol-function 'my/vc-package-statuses)
              (lambda ()

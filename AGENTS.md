@@ -94,10 +94,12 @@ a clean source checkout remains testable without network access. For a deployed
 or release-readiness check, run:
 
 ```powershell
-pwsh -NoLogo -NoProfile -File scripts/check.ps1 -RequireAllModules -RequireDependencies
+pwsh -NoLogo -NoProfile -File scripts/check.ps1 `
+  -PackageUserDir "$HOME\.emacs.d\elpa" `
+  -RequireAllModules -RequireDependencies
 ```
 
-Strict mode fails on guarded module errors and required doctor failures.
+Strict mode fails on guarded module errors, keymap drift, and required doctor failures.
 
 - After editing any `.el` file, byte-compile the changed file.
 - Before a commit or after a multi-file refactor, run a full repo byte-compile pass.

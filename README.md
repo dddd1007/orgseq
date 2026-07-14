@@ -20,8 +20,8 @@ Primary target: **Windows, Linux, and macOS**.
 ## Diagnostics
 
 - `M-x my/doctor` checks Emacs, SQLite, NoteHQ paths, module failures,
-  Ghostel, registered Git packages, configured shells, and optional
-  command-line tools without changing the system or downloading anything.
+  Ghostel Elisp/native readiness, package load health, configured shells, and
+  optional tools without changing the system or downloading anything.
 - `M-x my/init-report` shows whether each module loaded and how long it took.
 - `M-x my/keymap-audit` verifies the effective critical SPC bindings.
 - `M-x my/vc-package-audit` shows Git package status, source, and owner module.
@@ -39,10 +39,12 @@ Primary target: **Windows, Linux, and macOS**.
   the strict readiness gate:
 
   ```powershell
-  pwsh -NoLogo -NoProfile -File scripts/check.ps1 -RequireAllModules -RequireDependencies
+  pwsh -NoLogo -NoProfile -File scripts/check.ps1 `
+    -PackageUserDir "$HOME\.emacs.d\elpa" `
+    -RequireAllModules -RequireDependencies
   ```
 
-  Strict mode fails on guarded module errors or required doctor failures.
+  Strict mode fails on guarded module errors, keymap drift, or required doctor failures.
 
 ## Quick Start
 

@@ -63,6 +63,21 @@
       (should (equal (plist-get (cdr binding) :wk)
                      "Terminal popup")))))
 
+
+(ert-deftest my/keymap-default-resolver-uses-evil-normal-state ()
+  (let ((my/leader-critical-bindings
+         '((:key "'" :command my/terminal-popup-toggle
+            :description "Terminal popup")))
+        local-mode normal-state)
+    (cl-letf (((symbol-function 'evil-local-mode)
+               (lambda (&optional _arg) (setq local-mode t)))
+              ((symbol-function 'evil-normal-state)
+               (lambda () (setq normal-state t)))
+              ((symbol-function 'key-binding)
+               (lambda (_key) 'my/terminal-popup-toggle)))
+      (should (eq (plist-get (car (my/keymap-audit-results)) :status) 'pass))
+      (should local-mode)
+      (should normal-state))))
 (ert-deftest my/keymap-audit-results-report-mismatches ()
   (let ((results
          (my/keymap-audit-results

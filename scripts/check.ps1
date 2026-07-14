@@ -4,6 +4,9 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$EmacsPath,
 
+    [ValidateNotNullOrEmpty()]
+    [string]$PackageUserDir,
+
     [switch]$SkipErt,
 
     [switch]$SkipCompile,
@@ -137,6 +140,21 @@ function Add-CheckResult {
     }
 }
 
+function Remove-OrgSeqByteCode {
+    [CmdletBinding()]
+    param()
+
+    $removed = 0
+    $byteCode = Get-ChildItem -LiteralPath $RepoRoot -Filter '*.elc' -File -Recurse -ErrorAction SilentlyContinue
+    foreach ($file in $byteCode) {
+        Remove-Item -LiteralPath $file.FullName -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path -LiteralPath $file.FullName)) {
+            $removed++
+        }
+    }
+    return $removed
+}
+
 $emacs = Find-OrgSeqEmacs -ExplicitPath $EmacsPath
 if (-not $emacs) {
     [pscustomobject]@{
@@ -149,6 +167,26 @@ if (-not $emacs) {
     exit 1
 }
 
+$resolvedPackageUserDir = $null
+$packageUserDirSetup = ''
+if ($PackageUserDir) {
+    if (-not (Test-Path -LiteralPath $PackageUserDir -PathType Container)) {
+        [pscustomobject]@{
+            Passed = @()
+            Failed = @('Locate package user directory')
+            Warnings = @("Package user directory not found: $PackageUserDir")
+            CleanedByteCode = 0
+            EmacsPath = $emacs
+            PackageUserDir = $null
+        }
+        exit 1
+    }
+
+    $resolvedPackageUserDir = (Resolve-Path -LiteralPath $PackageUserDir -ErrorAction Stop).Path
+    $packageUserDirForElisp = ($resolvedPackageUserDir -replace '\\', '/') + '/'
+    $packageUserDirSetup = '(setq package-user-dir "{0}")' -f $packageUserDirForElisp
+}
+
 $repoForElisp = ($RepoRoot -replace '\\', '/') + '/'
 $loadArguments = @('-L', $RepoRoot, '-L', (Join-Path $RepoRoot 'lisp'))
 $packageDirectories = Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'packages') -Directory -ErrorAction SilentlyContinue
@@ -159,6 +197,19 @@ foreach ($directory in $packageDirectories) {
 try {
     $validationRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("org-seq-check-{0}" -f [guid]::NewGuid())
     $null = New-Item -ItemType Directory -Path $validationRoot -Force
+    $noteDirectories = @(
+        '00_Roam',
+        '00_Roam/daily',
+        '00_Roam/capture',
+        '00_Roam/dashboards',
+        '10_Outputs',
+        '20_Practice',
+        '30_Library',
+        '40_Archives'
+    )
+    foreach ($directory in $noteDirectories) {
+        $null = New-Item -ItemType Directory -Path (Join-Path $validationRoot $directory) -Force
+    }
     $childEnvironment = @{ ORG_SEQ_NOTE_HOME = $validationRoot }
 
     $version = Invoke-OrgSeqNative -FilePath $emacs -Arguments @(
@@ -197,13 +248,14 @@ try {
         $files += Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'packages') -Filter '*.el' -File -Recurse -ErrorAction SilentlyContinue |
             ForEach-Object FullName
 
-        $disableInstall = "(progn (require 'package) (package-initialize) (require 'use-package) (setq use-package-ensure-function #'ignore))"
+        $disableInstall = "(progn (require 'package) $packageUserDirSetup (package-initialize) (require 'use-package) (setq use-package-ensure-function #'ignore))"
         $arguments = @('--batch', '-Q') + $loadArguments + @(
             '--eval', $disableInstall,
             '-f', 'batch-byte-compile'
         ) + $files
         $result = Invoke-OrgSeqNative -FilePath $emacs -Arguments $arguments -Environment $childEnvironment
         Add-CheckResult -Name 'Full byte compilation' -Result $result
+        $cleanedByteCode += Remove-OrgSeqByteCode
     }
 
     if (-not $SkipStartup) {
@@ -223,15 +275,35 @@ try {
              (lambda (result)
                (or (eq (plist-get result :status) 'pass)
                    (eq (plist-get result :id) 'module-loads)))
-             (my/doctor-run))))))
+             (my/doctor-run)))))
+         (keymap-issues
+          (vconcat
+           (mapcar
+            (lambda (result)
+              `((key . ,(plist-get result :key))
+                (expected . ,(symbol-name (plist-get result :expected)))
+                (actual . ,(format "%s" (plist-get result :actual)))
+                (status . ,(symbol-name (plist-get result :status)))))
+            (seq-remove
+             (lambda (result)
+               (eq (plist-get result :status) 'pass))
+             (my/keymap-audit-results))))))
+    (princ "\nORG_SEQ_AUDIT_BEGIN\n")
     (princ
      (json-encode
       `((modules . ,failed-modules)
-        (doctor . ,doctor-issues))))))
+        (doctor . ,doctor-issues)
+        (keymap . ,keymap-issues)))))
+    (princ "\nORG_SEQ_AUDIT_END\n")))
 '@
         $arguments = @(
             '--batch', '-Q',
-            '--eval', ('(setq user-emacs-directory "{0}")' -f $repoForElisp),
+            '--eval', ('(setq user-emacs-directory "{0}")' -f $repoForElisp)
+        )
+        if ($packageUserDirSetup) {
+            $arguments += @('--eval', $packageUserDirSetup)
+        }
+        $arguments += @(
             '-l', (Join-Path $RepoRoot 'init.el'),
             '--eval', $startupAudit
         )
@@ -239,7 +311,14 @@ try {
         if ($result.ExitCode -eq 0) {
             $passed.Add('Batch startup')
             try {
-                $audit = $result.StdOut.Trim() | ConvertFrom-Json -AsHashtable -ErrorAction Stop
+                $auditMatch = [regex]::Match(
+                    $result.StdOut,
+                    '(?s)ORG_SEQ_AUDIT_BEGIN\r?\n(?<json>.*?)\r?\nORG_SEQ_AUDIT_END'
+                )
+                if (-not $auditMatch.Success) {
+                    throw 'Startup audit markers were not found in Emacs stdout.'
+                }
+                $audit = $auditMatch.Groups['json'].Value | ConvertFrom-Json -AsHashtable -ErrorAction Stop
                 $failedModules = @($audit.modules | Where-Object { $_ })
                 if ($failedModules.Count -eq 0) {
                     $passed.Add('Module load audit')
@@ -265,6 +344,19 @@ try {
                         $failed.Add('Dependency audit')
                     }
                 }
+
+                $keymapIssues = @($audit.keymap | Where-Object { $_ })
+                if ($keymapIssues.Count -eq 0) {
+                    $passed.Add('Keymap audit')
+                }
+                else {
+                    $keymapSummary = $keymapIssues |
+                        ForEach-Object { '{0}:{1}' -f $_.key, $_.actual }
+                    $warnings.Add("Keymap audit: $($keymapSummary -join ', ')")
+                    if ($RequireAllModules) {
+                        $failed.Add('Keymap audit')
+                    }
+                }
             }
             catch {
                 $failed.Add('Startup audit serialization')
@@ -281,13 +373,7 @@ catch {
     $warnings.Add($_.Exception.Message)
 }
 finally {
-    $byteCode = Get-ChildItem -LiteralPath $RepoRoot -Filter '*.elc' -File -Recurse -ErrorAction SilentlyContinue
-    foreach ($file in $byteCode) {
-        Remove-Item -LiteralPath $file.FullName -Force -ErrorAction SilentlyContinue
-        if (-not (Test-Path -LiteralPath $file.FullName)) {
-            $cleanedByteCode++
-        }
-    }
+    $cleanedByteCode += Remove-OrgSeqByteCode
 
     if ($validationRoot) {
         $resolvedTemp = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
@@ -313,6 +399,7 @@ $summary = [pscustomobject]@{
     Warnings = $warnings.ToArray()
     CleanedByteCode = $cleanedByteCode
     EmacsPath = $emacs
+    PackageUserDir = $resolvedPackageUserDir
 }
 $summary
 

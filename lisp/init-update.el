@@ -14,6 +14,7 @@
 ;; third-party package loads.
 
 (use-package compile-angel
+  :if (not noninteractive)
   :demand t
   :custom
   (compile-angel-verbose nil)
@@ -165,7 +166,8 @@ Shows progress in the echo area."
                              #'my/update--maybe-run)))
 
 ;; Schedule on startup (one-shot idle timer; re-arms only on next restart)
-(add-hook 'emacs-startup-hook #'my/update-enable-auto)
+(unless noninteractive
+  (add-hook 'emacs-startup-hook #'my/update-enable-auto))
 
 (provide 'init-update)
 ;;; init-update.el ends here

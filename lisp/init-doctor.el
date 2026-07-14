@@ -6,12 +6,14 @@
 (defvar my/--init-errors nil)
 (defvar my/--init-results nil)
 (defvar my/note-home)
+(defvar ghostel-module-directory)
 (defvar my/terminal-popup-command)
 (defvar my/codex-command)
 (defvar my/opencode-command)
 (defvar my/kimi-cli-command)
 
 (declare-function my/init-results "init" ())
+(declare-function my/polymode--require-poly-r "init-languages" ())
 (declare-function my/vc-package-statuses "init-packages" ())
 
 (defvar my/doctor-checks nil
@@ -233,6 +235,78 @@ REQUIRED makes a missing executable a failure instead of a warning."
      "Ghostel Elisp library is unavailable"
      "Install Ghostel through package.el; first use handles the native module.")))
 
+(defun my/doctor--ghostel-resource-root ()
+  "Return Ghostel's resource root without loading or downloading it."
+  (when-let* ((library (locate-library "ghostel-module-install"))
+              (lisp-dir (file-name-directory library)))
+    (let ((parent (file-name-directory (directory-file-name lisp-dir))))
+      (cond
+       ((file-directory-p (expand-file-name "etc" lisp-dir)) lisp-dir)
+       ((file-directory-p (expand-file-name "etc" parent)) parent)
+       (t lisp-dir)))))
+
+(defun my/doctor--check-ghostel-module ()
+  "Check the on-disk Ghostel native module pair without loading it."
+  (if-let ((root (my/doctor--ghostel-resource-root)))
+      (let* ((configured
+              (and (boundp 'ghostel-module-directory)
+                   (stringp ghostel-module-directory)
+                   (not (string-empty-p ghostel-module-directory))
+                   ghostel-module-directory))
+             (directory (file-name-as-directory
+                         (expand-file-name (or configured root))))
+             (module (and module-file-suffix
+                          (expand-file-name
+                           (concat "ghostel-module" module-file-suffix)
+                           directory)))
+             (sidecar (expand-file-name "ghostel-module.version" directory)))
+        (cond
+         ((not module-file-suffix)
+          (my/doctor--payload
+           'fail "Dynamic module suffix is unavailable"
+           "Use an Emacs build with dynamic module support."))
+         ((not (file-readable-p module))
+          (my/doctor--payload
+           'fail (format "Native module not found: %s" module)
+           "Run M-x ghostel-download-module, then rerun the doctor."))
+         ((not (file-readable-p sidecar))
+          (my/doctor--payload
+           'fail (format "Native module version file not found: %s" sidecar)
+           "Run M-x ghostel-download-module to install a complete module pair."))
+         (t
+          (let ((version (string-trim
+                          (with-temp-buffer
+                            (insert-file-contents sidecar)
+                            (buffer-string)))))
+            (if (string-empty-p version)
+                (my/doctor--payload
+                 'fail "Ghostel native module version is empty"
+                 "Re-download the native module with M-x ghostel-download-module.")
+              (my/doctor--payload
+               'pass (format "Native module %s: %s" version module)))))))
+    (my/doctor--payload
+     'warn "Cannot inspect the native module until Ghostel Elisp is available"
+     "Install Ghostel through package.el, then rerun the doctor.")))
+
+
+(defun my/doctor--check-poly-r ()
+  "Check whether the optional poly-R integration can actually load."
+  (if (not (locate-library "poly-R"))
+      (my/doctor--payload
+       'warn "poly-R is unavailable"
+       "Install or update poly-R to edit R Markdown and Quarto polymode buffers.")
+    (condition-case err
+        (progn
+          (if (fboundp 'my/polymode--require-poly-r)
+              (my/polymode--require-poly-r)
+            (require 'poly-R))
+          (my/doctor--payload 'pass "poly-R loads successfully"))
+      (error
+       (my/doctor--payload
+        'warn
+        (format "poly-R failed to load: %s" (error-message-string err))
+        "Update poly-R and polymode dependencies, then rerun the doctor.")))))
+
 (defun my/doctor--check-vc-packages ()
   "Check registered Git package availability without installing anything."
   (if (not (fboundp 'my/vc-package-statuses))
@@ -281,6 +355,10 @@ REQUIRED makes a missing executable a failure instead of a warning."
          :check my/doctor--check-module-loads)
         (:id ghostel :label "Ghostel"
          :check my/doctor--check-ghostel)
+        (:id ghostel-module :label "Ghostel native module"
+         :check my/doctor--check-ghostel-module)
+        (:id poly-r :label "R Markdown integration"
+         :check my/doctor--check-poly-r)
         (:id shell :label "Terminal shell"
          :check my/doctor--check-shell)
         (:id git :label "Git"
