@@ -303,7 +303,7 @@ The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom win
 | `SPC m` | Casual menu (Transient for current mode) |
 | `SPC e` | Eval (last-sexp/buffer/region/defun) |
 | `SPC f` | File (open/recent/save/rename/delete/copy-path) |
-| `SPC g` | Git (status/blame/log/diff) |
+| `SPC g` | Git (status/blame/log/diff/next-hunk/prev-hunk) |
 | `SPC h` | Help (function/variable/key/mode/info) |
 | `SPC l` | Layout (workspace/sidebar/outline/dashboard) |
 | `SPC o` | Open (dirvish/yazi/dired/dashboard/agenda/config) |

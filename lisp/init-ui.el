@@ -456,6 +456,25 @@ timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
 (global-display-line-numbers-mode 1)
 (column-number-mode 1)
 
+;; ---- diff-hl: VC change indicators in the fringe/margin (VS Code gutter) ----
+;; Shows added/changed/deleted hunks beside each line.  flydiff-mode mirrors
+;; unsaved edits in real time; magit refresh hooks keep the gutter in sync
+;; after a commit.
+;; NOTE(daemon): margin-vs-fringe is decided once at load time from the
+;; current `display-graphic-p'.  A daemon started on a TTY then asked for a
+;; GUI frame stays on the margin path; this is an acceptable simplification
+;; and avoids per-frame fringe bookkeeping.
+(use-package diff-hl
+  :init
+  (global-diff-hl-mode 1)
+  :config
+  (diff-hl-flydiff-mode 1)
+  (unless (display-graphic-p)
+    (diff-hl-margin-mode 1))
+  (with-eval-after-load 'magit
+    (add-hook 'magit-pre-refresh-hook #'diff-hl-magit-pre-refresh)
+    (add-hook 'magit-post-refresh-hook #'diff-hl-magit-post-refresh)))
+
 ;; Disable line numbers in prose/terminal modes
 (defun my/disable-line-numbers ()
   "Disable `display-line-numbers-mode'."

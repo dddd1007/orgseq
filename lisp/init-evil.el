@@ -182,6 +182,8 @@
     "gl"  '(magit-log-current :wk "Log")
     "gd"  '(magit-diff-dwim :wk "Diff")
     "gf"  '(magit-file-dispatch :wk "File ops")
+    "gn"  '(diff-hl-next-hunk :wk "Next hunk")
+    "gp"  '(diff-hl-previous-hunk :wk "Previous hunk")
 
     ;; ── SPC h — Help (helpful-powered where available) ──
     "h"   '(:ignore t :wk "help")
