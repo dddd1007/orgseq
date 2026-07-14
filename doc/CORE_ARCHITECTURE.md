@@ -16,9 +16,10 @@ later modules from being attempted.
   creating user directories.
 - `scripts/check.ps1` is the canonical Windows contributor check.
   It serializes guarded module status, non-passing doctor results, and actual
-  normal-state leader bindings into one structured startup audit. The default mode reports missing runtime
-  dependencies without downloading them. `-PackageUserDir` exposes an explicit
-  deployed package set while keeping source validation isolated;
+  normal-state leader bindings into one structured startup audit. The default
+  mode reports missing runtime dependencies without downloading them.
+  `-PackageUserDir` exposes an explicit deployed package set while keeping
+  source validation isolated;
   `-RequireAllModules -RequireDependencies` turns module errors and required
   dependency failures into a deployed-readiness gate. Optional tools remain
   warnings in both modes.

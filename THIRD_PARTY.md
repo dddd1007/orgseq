@@ -32,7 +32,10 @@ Third-party packages installed through package.el or package-vc remain separate
 works and are not vendored into this repository. Their source URLs and owning
 org-seq modules are inspectable with `M-x my/vc-package-audit`. In particular,
 [Ghostel](https://dakra.github.io/ghostel/) is the terminal dependency; its
-source is not copied into org-seq.
+source is not copied into org-seq. The narrow adapter in
+`lisp/init-languages.el` converts the legacy keylist shape emitted by
+poly-noweb for Emacs 30; it does not copy polymode or poly-noweb source, and
+its temporary advice is removed immediately after loading poly-R.
 
 ## Maintenance Rule
 

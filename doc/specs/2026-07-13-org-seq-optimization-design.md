@@ -4,9 +4,9 @@ Date: 2026-07-13
 
 ## Status
 
-Approved by the user's standing request to continue optimizing the project. The
-implementation remains subject to the repository validation and no-automatic-
-commit rules.
+Completed and verified on 2026-07-14. The isolated source check and the strict
+deployed-readiness check both pass with Emacs 30.2. The strict check reports
+only the optional AI CLI availability warning.
 
 ## Objective
 
@@ -327,3 +327,19 @@ it is independently useful and attribution is preserved. Reimplement Spacemacs
 ideas without copying GPL source. Translate LazyVim architecture rather than
 copying Lua. Reconsider GPL-3.0-or-later only if a future approved change
 deliberately incorporates Spacemacs implementation code.
+
+## Completion Audit
+
+The final evidence for the completion criteria is:
+
+- `scripts/test-provenance.el` verifies Ghostel ownership, EAF removal, module
+  order, documentation references, and upstream provenance.
+- `scripts/test-init-loader.el`, `scripts/test-init-doctor.el`,
+  `scripts/test-init-popup.el`, `scripts/test-init-keymap.el`, and
+  `scripts/test-init-packages.el` cover the core contracts.
+- `scripts/test-startup-policy.el` verifies that every numeric deferred load
+  has a reviewed `NOTE(startup):` rationale.
+- `scripts/check.ps1` passes the complete ERT suite, full byte compilation,
+  batch startup, module audit, doctor audit, and effective keymap audit.
+- The strict deployed check passes with the explicit package directory and
+  leaves no `.elc` files in the repository.
