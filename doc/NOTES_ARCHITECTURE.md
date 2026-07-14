@@ -39,13 +39,13 @@
 
 整个架构的存在理由只有一个：服务下面这个四阶段日常工作流。如果某个设计决策回答不了"它在这个工作流里起什么作用"，那它就不应该进入配置。读完这一节再回头看其他章节的具体决策——你会发现每一条都能回溯到这四个阶段中的某一个。
 
-### 阶段 1：启动 — GTD 主导今日工作
+### 阶段 1：启动与定向 — Daily-first，GTD 辅助校准
 
-打开 Emacs 的第一个动作不是打开笔记，也不是写东西——而是按 `SPC t d` 进入 GTD Dashboard，确认今天要推进的项目和具体任务。这个先后顺序很重要：**GTD 系统决定"今天做什么"，笔记系统不参与这个决策**。把"计划今天"和"写想法"分成两个独立动作，可以避免一个常见的陷阱——你本来打算 10 分钟计划一下今天，结果在笔记里东翻西找两个小时还没开始干活。
+Emacs 默认打开今天的 Daily Workspace，并在左侧显示只读的 14 日导航栏。先在今日 Daily 中落下当前上下文；需要制定或复核优先级时，再按 `SPC t d` 打开 GTD Dashboard。Daily 是默认入口和执行记录面，GTD 仍负责回答“今天优先推进什么”，二者不再要求人为先打开 GTD 才能开始工作。
 
 ### 阶段 2：执行与记录 — Daily 笔记作为思维流与任务录入入口
 
-按 `SPC d` 进入当天的 daily 笔记。这个文件同时承担两个职责：
+启动后已经位于当天的 Daily；也可随时按 `SPC d` 返回。这个文件同时承担两个职责：
 
 **职责 A：思维流捕捉**。一边做事一边记录进展、观察、临时想法、半成形的洞察。文字写法不严谨，可以是流水账、问句、断句。每条记录前可以用时间戳标记（手动 `[2026-04-09 14:30]` 或 `SPC b j` 插入）。
 
@@ -275,7 +275,7 @@ Capture 模板分两层：
 
 `init-supertag.el` 是 supertag 相关基础设施的上层胶水层，提供以下五类职责：
 
-1. **PARA 路径常量**：`my/outputs-dir` / `my/practice-dir` / `my/library-dir` / `my/archives-dir` / `my/dashboards-dir` / `my/schema-file`。这些常量从 `my/note-home`（`init-org.el` 中的 defcustom）派生。注意：`my/roam-dir` 本身定义在 `init-org.el`，因为 `init-roam.el` / `init-pkm.el` / `init-ai.el` 都要先于 `init-supertag.el` 加载并引用它。
+1. **消费集中路径常量**：`my/outputs-dir` / `my/practice-dir` / `my/library-dir` / `my/archives-dir` / `my/dashboards-dir` / `my/schema-file` 全部在 `init-org.el` 中从 `my/note-home` 派生。`init-supertag.el` 只通过 `defvar` 前向声明并消费这些变量，不重新拼接 PARA 子目录。
 
 2. **Schema 编辑与重载**：`my/edit-supertag-schema`（打开 `supertag-schema.el`）和 `my/reload-supertag-schema`（`load` 文件，无需重启）。对应 leader key：`SPC # t` / `SPC # T`。
 

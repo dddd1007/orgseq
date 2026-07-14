@@ -4,7 +4,7 @@ Whether you're sending a PR or returning to the codebase later, this is the orie
 
 ## Project shape
 
-- **~3,500 lines of elisp** across `lisp/init-*.el`
+- **29 ordered Elisp modules** across `lisp/init-*.el`
 - **Emacs 30+** required for the actively supported configuration
 - **Windows-first**, but keep Linux and macOS working at the boundaries
 - Output is a deployable `~/.emacs.d/` configuration, not a standalone application

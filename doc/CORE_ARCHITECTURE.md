@@ -34,6 +34,17 @@ the order disagree.
 `init-doctor` loads first so the diagnostic commands survive failures in later
 feature modules.
 
+## Deployment Safety
+
+`deploy.ps1` and `deploy.sh` resolve their target before any mutation and
+refuse a filesystem root, the user's home directory, or any path overlapping
+the source tree. PowerShell exposes `SupportsShouldProcess`, so `-WhatIf` is
+the canonical dry run. Existing targets are backed up unless the user explicitly
+disables that step. Byte-compilation is a completion gate: missing Emacs or a nonzero compile
+result aborts the deployer before it prints the completion summary. The
+timestamped backup is the rollback boundary; move a failed target aside before
+restoring that backup.
+
 ## Git Package Governance
 
 `lisp/init-packages.el` is the single source inventory for packages installed
@@ -50,6 +61,17 @@ URL, owner module, and purpose.
 Feature-specific `use-package` forms stay in the owner module. Use
 `M-x my/vc-package-audit` for read-only status, ownership, and source details.
 The doctor reports missing or failed records without installing them.
+
+### org-supertag compatibility exception
+
+`init-pkm` contains a narrow compatibility manager for org-supertag 5.8.1 at
+revision `7e98ed9ad01f985881afced0fdc4a1ef3fedfa2a`. It accepts only the recorded
+original or patched Git blob hashes, creates revision-specific backups outside
+the package directory, rewrites through same-directory temporary files, and
+removes stale bytecode. Unknown versions, revisions, or source hashes are never
+mutated. `M-x my/supertag-rollback-compat-patches` restores the verified
+originals. The source-level diff and GPL boundary are recorded in
+`patches/org-supertag-5.8.1-emacs-30.patch` and `THIRD_PARTY.md`.
 
 ## Popup Policy
 
@@ -114,6 +136,14 @@ Other timers implement concrete behavior such as dashboard recentering,
 workspace rebalancing, focus-package loading, update scheduling, or delayed
 warning visibility. Do not replace those timers solely to improve an
 unmeasured startup number.
+
+## AI Send Boundary
+
+The in-buffer summarize, tag-suggestion, and connection helpers prefer an
+active region. If no region is active, `my/ai--get-text` confirms before
+returning the entire buffer while `my/ai-confirm-full-buffer-send` is non-nil.
+This confirmation is the privacy boundary; callers must not bypass it when
+adding another whole-note request.
 
 ## User Override Order
 

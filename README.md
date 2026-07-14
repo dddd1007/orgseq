@@ -67,6 +67,12 @@ Primary target: **Windows, Linux, and macOS**.
    ```
 
    Options: `-NoBackup` / `--no-backup`, `-Force` / `--force`, `-SkipChecks` / `--skip-checks`, `-Target DIR` / `--target DIR`
+   PowerShell also supports `-WhatIf` for a dry run.
+
+   Both deployers refuse filesystem roots, the home directory, and the source
+   tree or any of its ancestors as targets. A deployment is reported complete
+   only after byte compilation succeeds; verification failures exit nonzero
+   and leave the timestamped pre-deployment backup available for rollback.
 
 3. Launch Emacs — packages will auto-install on first run (needs internet).
    Startup opens Today's capture-ready Daily Workspace with a read-only
@@ -283,6 +289,10 @@ owns this layer.
 | `SPC a C` | Claude Code transient |
 
 All AI commands are enriched with your **purpose.org** and **schema.org** context files (stored in `~/NoteHQ/00_Roam/`). Edit these files to customize how the LLM understands your knowledge base — no manual repetition needed.
+Summarize, tag-suggestion, and connection commands send an active region
+directly; without a region they confirm before sending the entire buffer.
+Customize `my/ai-confirm-full-buffer-send` to change that default.
+
 
 The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom windows rooted at `my/note-home` (`~/NoteHQ/` by default, or `ORG_SEQ_NOTE_HOME` when set). `SPC '` opens the default terminal (`pwsh` on Windows), while `SPC a x`, `SPC a O`, and `SPC a K` open Codex, OpenCode, and kimi-cli. Claude Code also uses its Ghostel backend, and yazi uses the same popup lifecycle. On first use, Ghostel asks before downloading its matching native module; `M-x ghostel-download-module` can trigger that step manually. On Windows, Codex is launched through `pwsh` by default so PowerShell shims and profile-managed PATH entries behave like a local terminal. Customize `my/cli-popup-height`, `my/powershell-command`, and the relevant `my/*-command` / `my/*-arguments` variables when a machine uses different executable names or options.
 
@@ -455,7 +465,7 @@ Load order is fixed in `init.el` (see [AGENTS.md](AGENTS.md)).
 | 13 | `init-gtd.el` | GTD core: agenda views, state machine, context views, capture hooks |
 | 14 | `init-gtd-dashboard.el` | Live-count *GTD* dashboard buffer (org-ql) + debounced auto-refresh |
 | 15 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
-| 16 | `init-pkm.el` | org-supertag configuration + org-transclusion + org-ql |
+| 16 | `init-pkm.el` | org-supertag bootstrap and governed compatibility + org-transclusion + org-ql |
 | 17 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
 | 18 | `init-daily.el` | Daily Workspace, 14-day sidebar, capture-ready ID nodes, and supertag sync |
 | 19 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
@@ -494,7 +504,20 @@ M-x my/package-snapshot-rollback
 restores the chosen snapshot (default: the most recent) and keeps the replaced
 tree as a `-replaced` snapshot so the rollback itself can be undone. Restart
 Emacs after rolling back. The last `my/update-snapshot-keep` (default 2)
-snapshots are retained.
+snapshots are retained. If archive refresh or either upgrade stage fails, the
+successful-update timestamp is not advanced.
+
+org-supertag 5.8.1 at revision
+`7e98ed9ad01f985881afced0fdc4a1ef3fedfa2a` needs three Emacs 30 source fixes.
+org-seq applies them only when version, revision, and complete source hashes
+match. Originals are backed up under
+`~/.emacs.d/.cache/org-seq/compat-backups/`; unknown or locally modified source
+is left untouched. The auditable upstream patch is
+`patches/org-supertag-5.8.1-emacs-30.patch`. Restore the original files with:
+
+```
+M-x my/supertag-rollback-compat-patches
+```
 
 ### ELPA signature checking on Windows
 
