@@ -30,6 +30,38 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+resolve_safe_target() {
+    local requested="$1"
+    local resolved
+    local parent
+    local base
+
+    if [[ -d "$requested" ]]; then
+        resolved="$(cd "$requested" && pwd -P)"
+    else
+        parent="$(dirname "$requested")"
+        base="$(basename "$requested")"
+        if [[ ! -d "$parent" ]]; then
+            printf 'Refusing deployment target with missing parent: %s\n' "$requested" >&2
+            return 1
+        fi
+        resolved="$(cd "$parent" && pwd -P)/$base"
+    fi
+
+    local home_resolved
+    home_resolved="$(cd "$HOME" && pwd -P)"
+    if [[ "$resolved" == "/" ||
+          "$resolved" == "$home_resolved" ||
+          "$resolved" == "$SCRIPT_DIR" ||
+          "$resolved" == "$SCRIPT_DIR/"* ||
+          "$SCRIPT_DIR" == "$resolved/"* ]]; then
+        printf 'Refusing unsafe deployment target: %s\n' "$resolved" >&2
+        return 1
+    fi
+
+    printf '%s\n' "$resolved"
+}
+
 pass()    { printf "  \033[32m✓\033[0m %s\n" "$1"; }
 warn()    { printf "  \033[33m⚠\033[0m %s\n" "$1"; }
 fail()    { printf "  \033[31m✗\033[0m %s\n" "$1"; }
@@ -171,8 +203,8 @@ verify_deployment() {
     section "Verifying deployment"
 
     if ! command -v emacs &>/dev/null; then
-        warn "Emacs not found, skipping byte-compile check"
-        return
+        fail "Emacs not found; deployment cannot be verified."
+        return 1
     fi
 
     local lisp_dir="$TARGET/lisp"
@@ -200,9 +232,12 @@ verify_deployment() {
     status=$?
     set -e
 
+    find "$TARGET" -name '*.elc' -delete 2>/dev/null || true
+
     if [[ "$status" -ne 0 ]]; then
-        warn "Byte-compile check failed (exit code $status)"
+        fail "Byte-compile check failed (exit code $status)"
         [[ -n "$output" ]] && printf '%s\n' "$output"
+        return "$status"
     elif printf '%s\n' "$output" | grep -qi "warning"; then
         warn "Byte-compile produced warnings:"
         printf '%s\n' "$output"
@@ -210,7 +245,6 @@ verify_deployment() {
         pass "All files byte-compile cleanly"
     fi
 
-    find "$TARGET" -name '*.elc' -delete 2>/dev/null || true
 }
 
 # ── Summary ──
@@ -238,15 +272,16 @@ print_summary() {
     fi
     echo ""
     echo "  Key bindings:"
-    echo "    SPC         → leader menu         SPC a d  → GTD dashboard"
-    echo "    SPC n c     → new note            SPC n m  → extend (templates/schema)"
-    echo "    SPC P o/p/l → PARA navigation     SPC n v  → dashboards"
+    echo "    SPC d       → Daily workspace     SPC t d  → GTD dashboard"
+    echo "    SPC n c     → new note            SPC # t/c → schema/templates"
+    echo "    SPC P o/p/l → PARA navigation     SPC n v v → dashboards"
     echo ""
 }
 
 # ── Main ──
 
 echo "org-seq deploy"
+TARGET="$(resolve_safe_target "$TARGET")"
 echo "Source: $SCRIPT_DIR"
 echo "Target: $TARGET"
 

@@ -14,6 +14,7 @@
 .PARAMETER Force
     Continue even when required dependency checks fail.
 #>
+[CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$Target,
     [switch]$SkipChecks,
@@ -23,6 +24,103 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+function Test-DeploymentPathWithin {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Candidate,
+
+        [Parameter(Mandatory)]
+        [string]$Parent,
+
+        [Parameter(Mandatory)]
+        [System.StringComparison]$Comparison
+    )
+
+    $candidatePath = $Candidate.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    $parentPath = $Parent.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    if ([string]::Equals($candidatePath, $parentPath, $Comparison)) {
+        return $true
+    }
+
+    $prefix = $parentPath + [System.IO.Path]::DirectorySeparatorChar
+    return $candidatePath.StartsWith($prefix, $Comparison)
+}
+
+function Resolve-SafeDeploymentTarget {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Path
+    )
+
+    $resolved = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+    $fullPath = [System.IO.Path]::GetFullPath($resolved)
+    $root = [System.IO.Path]::GetPathRoot($fullPath)
+    $homePath = [System.IO.Path]::GetFullPath(
+        $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath('~')
+    )
+    $sourcePath = [System.IO.Path]::GetFullPath($ScriptDir)
+    $comparison = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    $trimmed = $fullPath.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+
+    foreach ($dangerous in @($root, $homePath)) {
+        $candidate = $dangerous.TrimEnd(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        )
+        if ([string]::Equals($trimmed, $candidate, $comparison)) {
+            throw "Refusing unsafe deployment target: $fullPath"
+        }
+    }
+
+    if ((Test-DeploymentPathWithin -Candidate $fullPath -Parent $sourcePath -Comparison $comparison) -or
+        (Test-DeploymentPathWithin -Candidate $sourcePath -Parent $fullPath -Comparison $comparison)) {
+        throw "Refusing deployment target that overlaps the source tree: $fullPath"
+    }
+
+    return $fullPath
+}
+
+function Assert-DeploymentCheckResult {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [int]$ExitCode,
+
+        [Parameter(Mandatory)]
+        [string]$Context,
+
+        [object[]]$Output = @()
+    )
+
+    if ($ExitCode -eq 0) {
+        return
+    }
+
+    $detail = $Output |
+        ForEach-Object { "$_".Trim() } |
+        Where-Object { $_ } |
+        Select-Object -First 1
+    $suffix = if ($detail) { ": $detail" } else { '' }
+    throw "$Context failed (exit code $ExitCode)$suffix"
+}
 
 function Write-Pass($msg) { Write-Host "  ✓ $msg" -ForegroundColor Green }
 function Write-Warn($msg) { Write-Host "  ⚠ $msg" -ForegroundColor Yellow }
@@ -397,8 +495,7 @@ function Test-Deployment {
 
     $emacs = if ($script:EmacsExe) { $script:EmacsExe } else { Find-Emacs }
     if (-not $emacs) {
-        Write-Warn "Emacs not found, skipping byte-compile check"
-        return
+        throw "Emacs not found; deployment cannot be verified."
     }
 
     $lispDir = Join-Path $Target "lisp"
@@ -431,13 +528,11 @@ function Test-Deployment {
 
         $compileExitCode = $proc.ExitCode
         $warnings = $output | Where-Object { $_ -match "Warning|warning" }
-        if ($compileExitCode -ne 0) {
-            Write-Warn "Byte-compile check failed (exit code $compileExitCode)"
-            if ($output) {
-                $output | ForEach-Object { Write-Host "    $_" -ForegroundColor Yellow }
-            }
-        }
-        elseif ($warnings) {
+        Assert-DeploymentCheckResult `
+            -ExitCode $compileExitCode `
+            -Context 'Byte compilation' `
+            -Output $output
+        if ($warnings) {
             Write-Warn "Byte-compile warnings:"
             $warnings | ForEach-Object { Write-Host "    $_" -ForegroundColor Yellow }
         }
@@ -446,7 +541,7 @@ function Test-Deployment {
         }
     }
     catch {
-        Write-Warn "Byte-compile check failed: $_"
+        throw "Deployment verification failed: $($_.Exception.Message)"
     }
     finally {
         if (Test-Path $packageInitFile) {
@@ -485,24 +580,29 @@ function Write-PostInstall {
     }
     Write-Host ""
     Write-Host "  Key bindings:" -ForegroundColor DarkGray
-    Write-Host "    SPC         → leader menu         SPC a d  → GTD dashboard" -ForegroundColor DarkGray
-    Write-Host "    SPC n c     → new note            SPC n m  → extend (templates/schema)" -ForegroundColor DarkGray
-    Write-Host "    SPC P o/p/l → PARA navigation     SPC n v  → dashboards" -ForegroundColor DarkGray
+    Write-Host "    SPC d       → Daily workspace     SPC t d  → GTD dashboard" -ForegroundColor DarkGray
+    Write-Host "    SPC n c     → new note            SPC # t/c → schema/templates" -ForegroundColor DarkGray
+    Write-Host "    SPC P o/p/l → PARA navigation     SPC n v v → dashboards" -ForegroundColor DarkGray
     Write-Host ""
 }
 
 # ── Main ──
 
-Write-Host "org-seq deploy" -ForegroundColor White
-if (-not $Target) {
-    $Target = Resolve-DefaultTarget
-}
-Write-Host "Source: $ScriptDir"
-Write-Host "Target: $Target"
+if ($MyInvocation.InvocationName -ne '.') {
+    Write-Host "org-seq deploy" -ForegroundColor White
+    if (-not $Target) {
+        $Target = Resolve-DefaultTarget
+    }
+    $Target = Resolve-SafeDeploymentTarget -Path $Target
+    Write-Host "Source: $ScriptDir"
+    Write-Host "Target: $Target"
 
-if (-not $SkipChecks) { Test-Prerequisites }
-Backup-ExistingConfig
-Deploy-Config
-Install-StartMenuShortcuts
-Test-Deployment
-Write-PostInstall
+    if (-not $SkipChecks) { Test-Prerequisites }
+    if ($PSCmdlet.ShouldProcess($Target, 'Deploy org-seq configuration')) {
+        Backup-ExistingConfig
+        Deploy-Config
+        Install-StartMenuShortcuts
+        Test-Deployment
+        Write-PostInstall
+    }
+}

@@ -226,15 +226,31 @@ try {
     }
 
     if (-not $SkipErt) {
-        $ertFiles = Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'scripts') -Filter 'test-*.el' -File |
+        $pwsh = (Get-Process -Id $PID -ErrorAction Stop).Path
+        $powerShellTests = Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'scripts') -Filter 'test-*.ps1' -File |
             Sort-Object Name
+        foreach ($testFile in $powerShellTests) {
+            $result = Invoke-OrgSeqNative -FilePath $pwsh -Arguments @(
+                '-NoLogo', '-NoProfile', '-File', $testFile.FullName
+            ) -Environment $childEnvironment
+            Add-CheckResult -Name "PowerShell scripts/$($testFile.Name)" -Result $result
+        }
+
+        $ertFiles = @(
+            Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'scripts') -Filter 'test-*.el' -File
+            Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'packages') -Filter 'test-*.el' -File -Recurse -ErrorAction SilentlyContinue
+        ) | Sort-Object FullName
         foreach ($testFile in $ertFiles) {
             $arguments = @('--batch', '-Q') + $loadArguments + @(
                 '-l', $testFile.FullName,
                 '-f', 'ert-run-tests-batch-and-exit'
             )
             $result = Invoke-OrgSeqNative -FilePath $emacs -Arguments $arguments -Environment $childEnvironment
-            Add-CheckResult -Name "ERT scripts/$($testFile.Name)" -Result $result
+            $relativeTest = [System.IO.Path]::GetRelativePath(
+                $RepoRoot,
+                $testFile.FullName
+            ).Replace('\\', '/')
+            Add-CheckResult -Name "ERT $relativeTest" -Result $result
         }
     }
 

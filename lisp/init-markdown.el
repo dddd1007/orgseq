@@ -1,5 +1,7 @@
 ;;; init-markdown.el --- Markdown editing with Obsidian interop -*- lexical-binding: t; -*-
 
+(require 'subr-x)
+
 ;; Requires: init-ui (my/centered-compute-width, my/centered-apply-face-remaps)
 ;;
 ;; Full Markdown editing experience with Obsidian-compatible features
@@ -22,6 +24,10 @@
 (defcustom my/markdown-body-width-scale 0.72
   "Markdown body width as a fraction of the current window width."
   :type 'float :group 'org-seq)
+
+(defcustom my/markdown-confirm-overwrite t
+  "When non-nil, confirm before replacing an existing Org conversion."
+  :type 'boolean :group 'org-seq)
 
 (defun my/markdown-refresh-window (&optional window)
   "Refresh visual fill layout in Markdown WINDOW."
@@ -141,15 +147,50 @@
   (save-buffer)
   (let* ((md-file buffer-file-name)
          (org-file (concat (file-name-sans-extension md-file) ".org"))
-         (exit-code (call-process "pandoc" nil nil nil
+         (target-buffer (get-file-buffer org-file)))
+    (when (and (buffer-live-p target-buffer)
+               (buffer-modified-p target-buffer))
+      (user-error "Existing Org target has unsaved changes: %s" org-file))
+    (when (and my/markdown-confirm-overwrite
+               (file-exists-p org-file)
+               (not (yes-or-no-p
+                     (format "Replace existing %s? "
+                             (file-name-nondirectory org-file)))))
+      (user-error "Markdown conversion cancelled; existing Org file preserved"))
+    (let ((temp-file (make-temp-file
+                      (expand-file-name ".org-seq-pandoc-"
+                                        (file-name-directory org-file))
+                      nil ".org"))
+          exit-code
+          diagnostic)
+      (unwind-protect
+          (progn
+            (with-temp-buffer
+              (setq exit-code
+                    (call-process "pandoc" nil (list (current-buffer) t) nil
                                   "-f" "gfm" "-t" "org"
                                   "--wrap=preserve"
-                                  "-o" org-file md-file)))
-    (if (zerop exit-code)
-        (progn
-          (find-file org-file)
-          (message "Converted to %s" (file-name-nondirectory org-file)))
-      (user-error "pandoc conversion failed (exit %d)" exit-code))))
+                                  "-o" temp-file md-file)
+                    diagnostic (string-trim (buffer-string))))
+            (unless (and (integerp exit-code)
+                         (zerop exit-code)
+                         (file-exists-p temp-file))
+              (user-error "pandoc conversion failed (exit %s)%s"
+                          exit-code
+                          (if (string-empty-p diagnostic)
+                              ""
+                            (format ": %s" diagnostic))))
+            (rename-file temp-file org-file t)
+            (setq temp-file nil)
+            (if (buffer-live-p target-buffer)
+                (progn
+                  (with-current-buffer target-buffer
+                    (revert-buffer :ignore-auto :noconfirm))
+                  (switch-to-buffer target-buffer))
+              (find-file org-file))
+            (message "Converted to %s" (file-name-nondirectory org-file)))
+        (when (and temp-file (file-exists-p temp-file))
+          (delete-file temp-file))))))
 
 ;; ---- Local leader keys for Markdown buffers ----
 (with-eval-after-load 'general
