@@ -2,7 +2,7 @@
 
 A Vitamin-R–style focus timer for org-mode. Drop it into any buffer, let it count down to the next round clock mark, record how the slice felt, and watch your focus habits accumulate into a simple text-based dashboard over the weeks.
 
-> **Status**: This package currently lives as a bundled subproject inside [`org-seq`](../..), an Emacs PKM configuration. Once its API and log format stabilize, it will graduate to its own standalone repository. Until then, the package source here is fully self-contained — zero org-seq-specific code, zero dependencies beyond Emacs 29+. If you want to use it today in a different Emacs setup, copy `org-focus-timer.el` anywhere on your `load-path` and `(require 'org-focus-timer)`.
+> **Status**: The API and log format are still stabilizing, but the package is self-contained and has no dependencies beyond Emacs 29+. Put `org-focus-timer.el` anywhere on your `load-path` and `(require 'org-focus-timer)`.
 
 ## Why another timer?
 
@@ -16,12 +16,6 @@ This package mimics the snapping behavior of [Vitamin-R](https://www.publicspace
 - No external dependencies
 
 ## Installation
-
-### Inside org-seq (the current home)
-
-Nothing to do — `lisp/init-focus.el` already references this file via `:load-path` pointing at `<user-emacs-directory>/packages/org-focus-timer/`. After running `deploy.sh` or `deploy.ps1` from the org-seq repo, the package is available as `SPC a f` (start), `SPC a F` (dashboard), and `SPC a X` (abort).
-
-### Standalone (for use outside org-seq)
 
 Drop `org-focus-timer.el` anywhere on your `load-path` and load it:
 
@@ -88,8 +82,6 @@ Example — snap to 5-minute boundaries instead of 15, and point the log file at
       org-focus-log-file "~/NoteHQ/.orgseq/focus-log.org")
 ```
 
-> When used as part of org-seq, `lisp/init-focus.el` already sets the log file and other defaults via `use-package :custom`. The values above apply if you use the package standalone.
-
 ## Log file format
 
 Each day is a level-1 heading; each completed slice is a level-2 heading with a property drawer. The log is plain org, so you can edit it by hand, query it with `org-ql`, version it with git, or pipe it through any tool that reads text:
@@ -149,7 +141,7 @@ Inside the dashboard:
 
 - `g` refresh
 - `RET` open the raw log file in another window
-- `s` start a new focus slice (useful if you came to the dashboard from a buffer you already closed)
+- `s` choose a writable buffer and start a new focus slice there
 - `q` quit
 
 ## Modeline indicator
@@ -158,18 +150,19 @@ While a slice is running, the modeline shows a live countdown: `[FOCUS 12:34]`. 
 
 ## Commands
 
-| Command | Binding in org-seq | What it does |
-|---|---|---|
-| `org-focus-start` | `SPC a f` | Start a slice at point, snap to nearest boundary |
-| `org-focus-start` with `C-u` | `C-u SPC a f` | Start a slice with a custom duration |
-| `org-focus-abort` | `SPC a X` | Cancel the running slice without recording |
-| `org-focus-dashboard` | `SPC a F` | Open the visualization buffer |
+| Command | What it does |
+|---|---|
+| `org-focus-start` | Start a slice at point, snap to nearest boundary |
+| `org-focus-start` with `C-u` | Start a slice with a custom duration |
+| `org-focus-abort` | Cancel the running slice without recording |
+| `org-focus-dashboard` | Open the visualization buffer |
+| `org-focus-dashboard-start` | Choose a writable buffer and start a slice there |
 
 ## Design notes
 
 The package is small on purpose. There is one state variable (`org-focus--current`) holding the active slice plist, two timers (the end timer and the modeline tick timer), and a single log file. There is no database, no async worker, no minor mode — when nothing is running, the package consumes zero resources beyond the loaded bytes.
 
-**The package knows nothing about org-seq.** All org-seq-specific defaults (log file location at `~/NoteHQ/.orgseq/`, the `SPC a f` keybinding, the 10/30/15 parameter choices) live in `lisp/init-focus.el` inside the org-seq repository, not here. This separation is intentional: when this package graduates to its own repo, `git mv packages/org-focus-timer/ ../org-focus-timer/` should work without touching a single line of code inside the package directory.
+Configuration-specific paths, key bindings, and defaults belong in the consuming Emacs configuration. The package itself only exposes generic commands and `org-focus-*` customization variables.
 
 If you want to extend it:
 

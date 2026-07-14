@@ -31,6 +31,8 @@
 ;; If you are looking for "where does the supertag schema editing
 ;; function live?" the answer is init-supertag.el, not here.
 
+(require 'subr-x)
+
 (defvar org-supertag-bridge-enable-ai)
 
 ;; Requires: init-org (my/roam-dir)
@@ -75,64 +77,253 @@
 ;; ht: hash-table library required by org-supertag
 (use-package ht :ensure t)
 
-(defun my/supertag--patch-file (file replacements)
-  "Apply literal REPLACEMENTS to FILE when the old text is present.
-Return non-nil if FILE was changed."
+(defcustom my/supertag-compat-backup-directory
+  (expand-file-name ".cache/org-seq/compat-backups/" user-emacs-directory)
+  "Directory for backups made before org-supertag compatibility patches."
+  :type 'directory
+  :group 'org-seq)
+
+(defconst my/supertag--compat-version "5.8.1")
+(defconst my/supertag--compat-commit
+  "7e98ed9ad01f985881afced0fdc4a1ef3fedfa2a")
+
+(defconst my/supertag--compat-specs
+  '((:file "supertag-services-capture.el"
+     :original-hash "a25cf03a81389b72eecfe804cc709e6a74961263"
+     :patched-hash "6cc1a20017f1d025035f447b54325b07114eb176"
+     :replacements
+     (("(mapconcat (lambda (t) (concat \"#\" t))"
+       . "(mapconcat (lambda (tag) (concat \"#\" tag))")))
+    (:file "supertag-view-framework.el"
+     :original-hash "69867c7583b0e5759ac3874675721b5e4bc6f077"
+     :patched-hash "ef27071bf7e3dc1a7946ea4b9996df8cfbab3a77"
+     :replacements
+     (("(list :type :list :items (\"Task A\" \"Task B\" \"Task C\"))"
+       . "(list :type :list :items (list \"Task A\" \"Task B\" \"Task C\"))")))
+    (:file "supertag-view-effort-distribution.el"
+     :original-hash "e03ff3ae1a4afbd6bb306983809786d0567aa3f1"
+     :patched-hash "831bad737a3ee5be53f37229cea4203cf94cc0a7"
+     :replacements
+     (("        (dolist (t node-tags)\n          (when (and (stringp t) (not (equal t tag-name)))\n            (let ((entry (assoc t tag-groups)))\n              (if entry\n                  (setcdr entry (+ (cdr entry) effort))\n                (push (cons t effort) tag-groups)))))))"
+       . "        (dolist (tag node-tags)\n          (when (and (stringp tag) (not (equal tag tag-name)))\n            (let ((entry (assoc tag tag-groups)))\n              (if entry\n                  (setcdr entry (+ (cdr entry) effort))\n                (push (cons tag effort) tag-groups)))))))"))))
+  "Exact source states and replacements for the supported upstream revision.")
+
+(defun my/supertag--git-blob-sha1 (file)
+  "Return FILE's Git blob SHA-1 after normalizing CRLF to LF."
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (insert-file-contents-literally file)
+    (goto-char (point-min))
+    (while (search-forward "\r\n" nil t)
+      (replace-match "\n" t t))
+    (let* ((content (buffer-string))
+           (header (encode-coding-string
+                    (format "blob %d%c" (string-bytes content) 0)
+                    'binary)))
+      (secure-hash 'sha1 (concat header content)))))
+
+(defun my/supertag--read-match (file regexp)
+  "Return the first REGEXP capture from FILE, or nil."
   (when (file-readable-p file)
     (with-temp-buffer
       (insert-file-contents file)
-      (let ((changed nil))
-        (dolist (replacement replacements)
-          (goto-char (point-min))
-          (when (search-forward (car replacement) nil t)
-            (replace-match (cdr replacement) t t)
-            (setq changed t)))
-        (when changed
-          (write-region (point-min) (point-max) file nil 'silent)
-          (let ((elc (concat file "c")))
-            (when (file-exists-p elc)
-              (delete-file elc))))
-        changed))))
+      (goto-char (point-min))
+      (when (re-search-forward regexp nil t)
+        (string-trim (match-string-no-properties 1))))))
+
+(defun my/supertag--metadata (directory)
+  "Return org-supertag version and commit metadata for DIRECTORY."
+  (list
+   :version
+   (my/supertag--read-match
+    (expand-file-name "org-supertag.el" directory)
+    "^;; Version:[ \\t]*\\(.+\\)$")
+   :commit
+   (my/supertag--read-match
+    (expand-file-name "org-supertag-pkg.el" directory)
+    ":commit[ \\t]+\"\\([[:xdigit:]]+\\)\"")))
+
+(defun my/supertag--compat-directory ()
+  "Return the installed org-supertag directory, or nil."
+  (when-let ((main (locate-library "org-supertag")))
+    (file-name-directory main)))
+
+(defun my/supertag--supported-metadata-p (metadata)
+  "Return non-nil when METADATA is the explicitly supported upstream source."
+  (and (equal (plist-get metadata :version) my/supertag--compat-version)
+       (equal (plist-get metadata :commit) my/supertag--compat-commit)))
+
+(defun my/supertag--compat-backup-root ()
+  "Return the revision-specific compatibility backup directory."
+  (expand-file-name
+   (format "org-supertag-%s-%s/"
+           my/supertag--compat-version
+           (substring my/supertag--compat-commit
+                      0 (min 12 (length my/supertag--compat-commit))))
+   my/supertag-compat-backup-directory))
+
+(defun my/supertag--rewrite-atomically (source target replacements)
+  "Write SOURCE to TARGET atomically after literal REPLACEMENTS."
+  (make-directory (file-name-directory target) t)
+  (let ((temp (make-temp-file
+               (expand-file-name ".org-seq-supertag-"
+                                 (file-name-directory target))))
+        (modes (file-modes source)))
+    (unwind-protect
+        (progn
+          (with-temp-buffer
+            (insert-file-contents source)
+            (let ((coding buffer-file-coding-system))
+              (dolist (replacement replacements)
+                (goto-char (point-min))
+                (unless (search-forward (car replacement) nil t)
+                  (error "Expected compatibility source not found in %s"
+                         source))
+                (replace-match (cdr replacement) t t))
+              (let ((coding-system-for-write coding))
+                (write-region (point-min) (point-max) temp nil 'silent))))
+          (when modes
+            (set-file-modes temp modes))
+          (rename-file temp target t)
+          (setq temp nil))
+      (when (and temp (file-exists-p temp))
+        (delete-file temp)))))
+
+(defun my/supertag--copy-atomically (source target)
+  "Copy SOURCE to TARGET through a same-directory temporary file."
+  (make-directory (file-name-directory target) t)
+  (let ((temp (make-temp-file
+               (expand-file-name ".org-seq-supertag-"
+                                 (file-name-directory target)))))
+    (unwind-protect
+        (progn
+          (copy-file source temp t t nil t)
+          (rename-file temp target t)
+          (setq temp nil))
+      (when (and temp (file-exists-p temp))
+        (delete-file temp)))))
+
+(defun my/supertag--classify-sources (directory)
+  "Return compatibility source states for DIRECTORY."
+  (mapcar
+   (lambda (spec)
+     (let* ((file (expand-file-name (plist-get spec :file) directory))
+            (hash (and (file-readable-p file)
+                       (my/supertag--git-blob-sha1 file)))
+            (state (cond
+                    ((equal hash (plist-get spec :original-hash)) 'original)
+                    ((equal hash (plist-get spec :patched-hash)) 'patched)
+                    (t 'unknown))))
+       (cons spec state)))
+   my/supertag--compat-specs))
+
+(defun my/supertag--known-sources-p (states)
+  "Return non-nil when every entry in STATES is recognized."
+  (let ((known t))
+    (dolist (entry states known)
+      (when (eq (cdr entry) 'unknown)
+        (setq known nil)))))
+
+(defun my/supertag--ensure-backups (directory states)
+  "Create and verify compatibility backups for DIRECTORY and STATES."
+  (let ((backup-root (my/supertag--compat-backup-root)))
+    (dolist (entry states)
+      (let* ((spec (car entry))
+             (state (cdr entry))
+             (source (expand-file-name (plist-get spec :file) directory))
+             (backup (expand-file-name (plist-get spec :file) backup-root)))
+        (unless (file-exists-p backup)
+          (pcase state
+            ('original
+             (my/supertag--copy-atomically source backup))
+            ('patched
+             (my/supertag--rewrite-atomically
+              source backup
+              (mapcar (lambda (replacement)
+                        (cons (cdr replacement) (car replacement)))
+                      (plist-get spec :replacements))))))
+        (unless (and (file-readable-p backup)
+                     (equal (my/supertag--git-blob-sha1 backup)
+                            (plist-get spec :original-hash)))
+          (error "Invalid org-supertag compatibility backup: %s" backup))))))
 
 (defun my/supertag-apply-compat-patches ()
-  "Patch known org-supertag upstream byte-compile errors.
-The fixes are intentionally tiny and only apply when exact old source
-patterns are still present.  They can be removed once upstream ships the
-same fixes."
-  (when-let* ((main (locate-library "org-supertag"))
-              (dir (file-name-directory main)))
-    (let ((patched nil))
-      (setq patched
-            (or (my/supertag--patch-file
-                 (expand-file-name "supertag-services-capture.el" dir)
-                 '(("(mapconcat (lambda (t) (concat \"#\" t))"
-                    . "(mapconcat (lambda (tag) (concat \"#\" tag))")))
-                patched))
-      (setq patched
-            (or (my/supertag--patch-file
-                 (expand-file-name "supertag-view-framework.el" dir)
-                 '(("(list :type :list :items (\"Task A\" \"Task B\" \"Task C\"))"
-                    . "(list :type :list :items (list \"Task A\" \"Task B\" \"Task C\"))")))
-                patched))
-      (setq patched
-            (or (my/supertag--patch-file
-                 (expand-file-name "supertag-view-effort-distribution.el" dir)
-                 (list
-                  (cons (concat "        (dolist (t node-tags)\n"
-                                "          (when (and (stringp t) (not (equal t tag-name)))\n"
-                                "            (let ((entry (assoc t tag-groups)))\n"
-                                "              (if entry\n"
-                                "                  (setcdr entry (+ (cdr entry) effort))\n"
-                                "                (push (cons t effort) tag-groups)))))))")
-                        (concat "        (dolist (tag node-tags)\n"
-                                "          (when (and (stringp tag) (not (equal tag tag-name)))\n"
-                                "            (let ((entry (assoc tag tag-groups)))\n"
-                                "              (if entry\n"
-                                "                  (setcdr entry (+ (cdr entry) effort))\n"
-                                "                (push (cons tag effort) tag-groups)))))))"))))
-                patched))
-      (when patched
-        (message "org-seq: applied org-supertag Emacs 30 compatibility patches")))))
+  "Apply the governed org-supertag 5.8.1 Emacs 30 compatibility patch.
+Return `patched', `current', `missing', `unsupported', or `error'."
+  (interactive)
+  (if-let ((directory (my/supertag--compat-directory)))
+      (let* ((metadata (my/supertag--metadata directory))
+             (states (my/supertag--classify-sources directory)))
+        (cond
+         ((not (my/supertag--supported-metadata-p metadata))
+          (message "WARNING org-seq: refusing org-supertag compatibility patch for version %s commit %s"
+                   (or (plist-get metadata :version) "unknown")
+                   (or (plist-get metadata :commit) "unknown"))
+          'unsupported)
+         ((not (my/supertag--known-sources-p states))
+          (message "WARNING org-seq: refusing org-supertag compatibility patch because source hashes drifted")
+          'unsupported)
+         (t
+          (condition-case err
+              (let ((changed nil))
+                (my/supertag--ensure-backups directory states)
+                (dolist (entry states)
+                  (when (eq (cdr entry) 'original)
+                    (let* ((spec (car entry))
+                           (file (expand-file-name
+                                  (plist-get spec :file) directory)))
+                      (my/supertag--rewrite-atomically
+                       file file (plist-get spec :replacements))
+                      (let ((elc (concat file "c")))
+                        (when (file-exists-p elc)
+                          (delete-file elc)))
+                      (setq changed t))))
+                (when changed
+                  (message "org-seq: applied governed org-supertag Emacs 30 compatibility patch"))
+                (if changed 'patched 'current))
+            (error
+             (message "WARNING org-seq: org-supertag compatibility patch failed: %s"
+                      (error-message-string err))
+             'error)))))
+    'missing))
+
+(defun my/supertag-rollback-compat-patches ()
+  "Restore org-supertag sources from the governed compatibility backup."
+  (interactive)
+  (if-let ((directory (my/supertag--compat-directory)))
+      (let* ((metadata (my/supertag--metadata directory))
+             (states (my/supertag--classify-sources directory))
+             (backup-root (my/supertag--compat-backup-root)))
+        (cond
+         ((not (my/supertag--supported-metadata-p metadata)) 'unsupported)
+         ((not (my/supertag--known-sources-p states)) 'unsupported)
+         (t
+          (condition-case err
+              (progn
+                (dolist (spec my/supertag--compat-specs)
+                  (let ((backup (expand-file-name
+                                 (plist-get spec :file) backup-root)))
+                    (unless (and (file-readable-p backup)
+                                 (equal (my/supertag--git-blob-sha1 backup)
+                                        (plist-get spec :original-hash)))
+                      (error "Missing or invalid compatibility backup: %s"
+                             backup))))
+                (dolist (spec my/supertag--compat-specs)
+                  (let* ((file (expand-file-name
+                                (plist-get spec :file) directory))
+                         (backup (expand-file-name
+                                  (plist-get spec :file) backup-root)))
+                    (my/supertag--copy-atomically backup file)
+                    (let ((elc (concat file "c")))
+                      (when (file-exists-p elc)
+                        (delete-file elc)))))
+                (message "org-seq: restored org-supertag sources from compatibility backup")
+                'restored)
+            (error
+             (message "WARNING org-seq: org-supertag compatibility rollback failed: %s"
+                      (error-message-string err))
+             'error)))))
+    'missing))
 
 ;; Bootstrap source metadata and error handling live in init-packages.
 (my/vc-package-ensure 'org-supertag)

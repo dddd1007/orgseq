@@ -349,10 +349,20 @@ when working with notes.")
 
     (message "AI request failed: %s" (plist-get info :status))))
 
+(defcustom my/ai-confirm-full-buffer-send t
+  "When non-nil, confirm before sending an entire buffer to an AI service."
+  :type 'boolean
+  :group 'org-seq)
+
 (defun my/ai--get-text ()
-  "Return the active region or the entire buffer as text."
+  "Return the active region or a confirmed full-buffer selection as text."
   (if (use-region-p)
       (buffer-substring-no-properties (region-beginning) (region-end))
+    (when (and my/ai-confirm-full-buffer-send
+               (not (yes-or-no-p
+                     (format "Send entire buffer %s (%d characters) to AI? "
+                             (buffer-name) (buffer-size)))))
+      (user-error "AI request cancelled; full buffer was not sent"))
     (buffer-substring-no-properties (point-min) (point-max))))
 
 (defun my/ai-summarize ()

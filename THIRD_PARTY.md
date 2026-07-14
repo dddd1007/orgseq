@@ -1,8 +1,11 @@
 # Third-Party Provenance
 
-org-seq is distributed under the MIT License. This file records source-level
-adaptations separately from design-only inspiration so future changes can keep
-license and attribution boundaries explicit.
+org-seq is distributed under the MIT License, except where a file carries an
+explicit third-party license notice. This file records source-level adaptations
+separately from design-only inspiration so future changes can keep license and
+attribution boundaries explicit. In particular, the org-supertag compatibility
+patch below is GPL-3.0-only and is not relicensed under the repository's MIT
+license.
 
 ## Source-Level Adaptations
 
@@ -10,6 +13,7 @@ license and attribution boundaries explicit.
 |---|---|---|---|
 | [Doom Emacs](https://github.com/doomemacs/doomemacs), historical Org/org-roam integration | MIT | `lisp/init-roam.el` | The Evil insertion-position advice and Vertico candidate-width advice were adapted to ordinary `define-advice` forms, renamed with the `my/` prefix, and detached from Doom macros and module APIs. |
 | [Doom Emacs](https://github.com/doomemacs/doomemacs), Org appearance defaults | MIT | `lisp/init-org.el` | Small org-modern checkbox and hidden-star compatibility adjustments were retained in native `use-package` configuration without Doom macros. |
+| [org-supertag 5.8.1](https://github.com/yibie/org-supertag), revision `7e98ed9ad01f985881afced0fdc4a1ef3fedfa2a` | GPL-3.0-only | `patches/org-supertag-5.8.1-emacs-30.patch` | Three minimal Emacs 30 byte-compilation fixes are stored as an auditable patch. `lisp/init-pkm.el` applies them only to exact known source hashes, backs up originals outside the package tree, and exposes `M-x my/supertag-rollback-compat-patches`. |
 
 The local files retain comments beside these adaptations. No Doom package
 manager, macro layer, profile loader, popup DSL, or module runtime is included.

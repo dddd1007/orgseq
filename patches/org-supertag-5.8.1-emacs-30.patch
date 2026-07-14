@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Upstream: https://github.com/yibie/org-supertag
+# Revision: 7e98ed9ad01f985881afced0fdc4a1ef3fedfa2a
+# Purpose: Emacs 30 byte-compilation compatibility for org-supertag 5.8.1.
+
+diff --git a/supertag-services-capture.el b/supertag-services-capture.el
+index a25cf03..6cc1a20 100644
+--- a/supertag-services-capture.el
++++ b/supertag-services-capture.el
+@@ -661,7 +661,7 @@ capture DSL."
+                                (replace-regexp-in-string
+                                 "\\(?:^\\|\\s-\\)#[^[:space:]#]+" "" title)))
+                              (tag-string
+-                              (mapconcat (lambda (t) (concat "#" t))
++                              (mapconcat (lambda (tag) (concat "#" tag))
+                                          unique-tags " "))
+                              (new-title
+                               (string-trim
+diff --git a/supertag-view-effort-distribution.el b/supertag-view-effort-distribution.el
+index e03ff3a..831bad7 100644
+--- a/supertag-view-effort-distribution.el
++++ b/supertag-view-effort-distribution.el
+@@ -65,12 +65,12 @@ Returns an alist of (related-tag . effort)."
+                         (supertag-view--get-global-field node-id "effort_hours" 0)
+                         0)))
+         ;; Accumulate by each tag (except the main one)
+-        (dolist (t node-tags)
+-          (when (and (stringp t) (not (equal t tag-name)))
+-            (let ((entry (assoc t tag-groups)))
++        (dolist (tag node-tags)
++          (when (and (stringp tag) (not (equal tag tag-name)))
++            (let ((entry (assoc tag tag-groups)))
+               (if entry
+                   (setcdr entry (+ (cdr entry) effort))
+-                (push (cons t effort) tag-groups)))))))
++                (push (cons tag effort) tag-groups)))))))
+     ;; Sort by effort descending
+     (sort tag-groups (lambda (a b) (> (cdr a) (cdr b))))))
+ 
+diff --git a/supertag-view-framework.el b/supertag-view-framework.el
+index 69867c7..ef27071 100644
+--- a/supertag-view-framework.el
++++ b/supertag-view-framework.el
+@@ -897,7 +897,7 @@ Widget definition:
+                  (list :type :progress-bar
+                        :value (lambda (ctx)
+                                 (or (plist-get (car (plist-get ctx :nodes)) :progress) 0)))
+-                 (list :type :list :items ("Task A" "Task B" "Task C"))))))))
++                 (list :type :list :items (list "Task A" "Task B" "Task C"))))))))
+ 
+ ;; ============================================================================
+ ;; Initialization

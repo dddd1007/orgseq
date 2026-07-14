@@ -386,12 +386,29 @@ The inline marker in the source buffer is left in place but not completed."
 ;; Dashboard
 ;; ═══════════════════════════════════════════════════════════════════════════
 
+(defun org-focus-dashboard-start ()
+  "Choose a writable buffer and start a focus slice there."
+  (interactive)
+  (let* ((default-buffer (other-buffer (current-buffer) t))
+         (selected-name
+          (read-buffer "Start focus in buffer: "
+                       (and (buffer-live-p default-buffer)
+                            (buffer-name default-buffer))
+                       t))
+         (target (get-buffer selected-name)))
+    (unless (buffer-live-p target)
+      (user-error "No live buffer selected"))
+    (when (buffer-local-value 'buffer-read-only target)
+      (user-error "Selected buffer is read-only: %s" (buffer-name target)))
+    (pop-to-buffer target)
+    (call-interactively #'org-focus-start)))
+
 (defvar org-focus-dashboard-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "g") #'org-focus-dashboard)
     (define-key map (kbd "q") #'quit-window)
     (define-key map (kbd "RET") #'org-focus--dashboard-open-log)
-    (define-key map (kbd "s") #'org-focus-start)
+    (define-key map (kbd "s") #'org-focus-dashboard-start)
     map)
   "Keymap for `org-focus-dashboard-mode'.")
 
@@ -400,7 +417,7 @@ The inline marker in the source buffer is left in place but not completed."
 \\<org-focus-dashboard-mode-map>
 \\[org-focus-dashboard] refresh
 \\[org-focus--dashboard-open-log] open the raw log file
-\\[org-focus-start] start a new slice (in the current buffer)
+\\[org-focus-dashboard-start] choose a buffer and start a new slice
 \\[quit-window] quit"
   (setq truncate-lines t
         buffer-read-only t))
@@ -437,7 +454,7 @@ The inline marker in the source buffer is left in place but not completed."
         (progn
           (insert "  No focus slices recorded yet.\n\n")
           (insert "  Put the cursor anywhere in an org buffer and run\n")
-          (insert "  M-x org-focus-start (or SPC a f in org-seq) to begin.\n"))
+          (insert "  M-x org-focus-start to begin.\n"))
       (insert (propertize "Daily timeline\n" 'face 'bold))
       (insert "   legend: ")
       (insert (propertize "flow" 'face '(:foreground "#2ca02c" :weight bold)))
