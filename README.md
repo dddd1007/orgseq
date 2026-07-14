@@ -284,6 +284,15 @@ All AI commands are enriched with your **purpose.org** and **schema.org** contex
 
 The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom windows rooted at `my/note-home` (`~/NoteHQ/` by default, or `ORG_SEQ_NOTE_HOME` when set). `SPC '` opens the default terminal (`pwsh` on Windows), while `SPC a x`, `SPC a O`, and `SPC a K` open Codex, OpenCode, and kimi-cli. Claude Code also uses its Ghostel backend, and yazi uses the same popup lifecycle. On first use, Ghostel asks before downloading its matching native module; `M-x ghostel-download-module` can trigger that step manually. On Windows, Codex is launched through `pwsh` by default so PowerShell shims and profile-managed PATH entries behave like a local terminal. Customize `my/cli-popup-height`, `my/powershell-command`, and the relevant `my/*-command` / `my/*-arguments` variables when a machine uses different executable names or options.
 
+### Project-wide edit (search results batch edit)
+
+[wgrep](https://github.com/mhayashi1121/Emacs-wgrep) lets you edit search results in place and write the changes back to every matching file, like the VS Code Search Editor or Zed's multibuffer:
+
+1. `SPC /` to run `consult-ripgrep` across the project.
+2. In the minibuffer, press `C-.` (`embark-act`) then `E` (`embark-export`) to land the matches in an editable buffer.
+3. In that buffer, press `C-c C-p` to enter `wgrep` mode, then edit the matches directly (all of them, or a region).
+4. Press `C-c C-c` to write the changes back to all affected files (auto-saved); `C-c C-k` to abort.
+
 ### Other groups
 
 | Key | Action |

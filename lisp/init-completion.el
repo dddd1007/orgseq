@@ -58,6 +58,14 @@
 (use-package embark-consult
   :hook (embark-collect-mode . consult-preview-at-point-mode))
 
+;; ---- wgrep: edit grep/embark-export buffers in place ----
+;; Workflow: SPC / (consult-ripgrep) -> C-. E (embark-act, then export)
+;; -> C-c C-p (wgrep-change-to-wgrep-mode) -> edit -> C-c C-c.
+(use-package wgrep
+  :defer t
+  :custom
+  (wgrep-auto-save-buffer t))
+
 ;; ---- Corfu: in-buffer completion popup (sibling of vertico) ----
 ;; Picks up completion-at-point-functions from eglot, ESS, cape, etc.
 (use-package corfu
