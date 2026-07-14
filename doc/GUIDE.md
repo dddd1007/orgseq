@@ -1294,7 +1294,11 @@ SPC g b        → Git blame（查看每行的提交历史）
 SPC g l        → Git log（提交历史）
 SPC g d        → Git diff（查看变更）
 SPC g f        → Git 文件操作（多种选项）
+SPC g n        → 跳到下一个改动块（diff-hl）
+SPC g p        → 跳到上一个改动块（diff-hl）
 ```
+
+侧边栏的 fringe 标记（TTY 下是 margin 标记）会实时显示未提交的增删改，flydiff 模式连未保存的改动也会反映出来。非 git 仓库的文件（如 NoteHQ 中不在版本控制下的笔记）diff-hl 自动不处理。
 
 ---
 
@@ -1328,7 +1332,12 @@ SPC u w        → 显示/隐藏自动换行
 SPC t o        → 显示/隐藏 Olivetti（居中）模式
 SPC u f        → 全屏切换
 SPC u i        → 显示/隐藏 org-modern 美化效果
+SPC u s        → 显示/隐藏 Org 顶部标题面包屑（org-sticky-header，VS Code Sticky Scroll）
+SPC u T        → 显示/隐藏可点击的 buffer 标签页（tab-line）
+SPC u a        → 开关失焦/空闲自动保存（auto-save-visited-mode，间隔 2 秒）
 ```
+
+`SPC u T` 控制的标签页会自动排除工具型缓冲区（Treemacs、Daily 侧栏、outline、终端/AI 雷神窗、Messages/Warnings 以及 special/dired/dashboard 模式），只显示真正的编辑缓冲区。`SPC u a` 打开时，Daily 笔记保存会触发去抖的 supertag 同步（增量，只重扫改动文件），编辑本仓库的 Elisp 文件则会触发 compile-angel 的保存时编译（属预期行为，只是更频繁）。
 
 ### 15.4 Olivetti（居中阅读模式）
 
@@ -1462,6 +1471,7 @@ M-x customize-group RET org-seq RET
 | `SPC f f` | 打开文件 |
 | `SPC b b` | 切换 buffer |
 | `SPC /` | 项目全文搜索 |
+| `SPC j` | 屏幕内跳转到任意字符（avy） |
 | `SPC TAB` | 切换到上一个 buffer |
 | `SPC b j` | 跳转到书签 |
 | `SPC '` | 开关终端雷神窗 |
@@ -1501,6 +1511,7 @@ M-x customize-group RET org-seq RET
 | `SPC b m` | 设书签 |
 | `SPC b p` | 上一个 |
 | `SPC b N` | 下一个 |
+| `SPC b u` | 可视化撤销历史（vundo） |
 
 ### SPC f — 文件
 
@@ -1526,6 +1537,8 @@ M-x customize-group RET org-seq RET
 | `SPC g l` | Git Log |
 | `SPC g d` | Git Diff |
 | `SPC g f` | 文件操作 |
+| `SPC g n` | 下一改动块（diff-hl） |
+| `SPC g p` | 上一改动块（diff-hl） |
 
 ### SPC h — 帮助
 
@@ -1708,6 +1721,9 @@ M-x customize-group RET org-seq RET
 | `SPC t o` | Olivetti |
 | `SPC u f` | 全屏 |
 | `SPC u i` | Org-modern |
+| `SPC u s` | Org 顶部标题面包屑（sticky header） |
+| `SPC u T` | 可点击 buffer 标签页（tab-line） |
+| `SPC u a` | 失焦/空闲自动保存 |
 
 ### SPC w — 窗口
 
