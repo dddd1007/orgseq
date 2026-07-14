@@ -314,6 +314,21 @@ The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom win
 | `SPC q u` | Update all packages (ELPA + vc) |
 | `SPC q r` | Rollback packages to a snapshot |
 
+### Editing (non-leader)
+
+These bindings live in their mode's own keymaps rather than under `SPC`:
+
+| Key | Action |
+|-----|--------|
+| `ys{motion}{char}` | Add a surround around a motion (evil-surround) |
+| `cs{old}{new}` | Change a surround from `{old}` to `{new}` |
+| `ds{char}` | Delete the surround `{char}` |
+| `S{char}` (visual) | Surround the selection with `{char}` |
+
+In Org the single-char inline markers are surround pairs already, so
+visual-select then `S =` wraps as verbatim, `cs = *` swaps verbatim to
+bold, and `ds *` removes the bold.
+
 Under `SPC l` the most important sidebar controls are:
 
 | Key | Action |

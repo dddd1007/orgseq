@@ -54,6 +54,16 @@
   :config (evil-collection-init
            '(bookmark dired ibuffer info magit org org-roam)))
 
+;; ---- evil-surround: manage delimiters/pairs (vim-surround) ----
+;; ys/cs/ds add/change/delete surroundings; visual S surrounds a selection.
+;; In org, the single-char inline markers are pairs already (= ~ * / _ +),
+;; so `S =` wraps a selection as verbatim, `cs = *` swaps to bold, `ds *`
+;; removes the bold.
+(use-package evil-surround
+  :after evil
+  :config
+  (global-evil-surround-mode 1))
+
 ;; ---- general.el: leader key framework ----
 (use-package general
   :demand t
