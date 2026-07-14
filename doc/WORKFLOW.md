@@ -6,13 +6,16 @@
 
 ### 1. 启动 Emacs
 
-启动后你会看到一个轻量布局：左侧是 treemacs 侧栏，显示着你的 NoteHQ 目录树；右侧是 Dashboard，列出最近编辑过的文件和几个快捷入口按钮。这个布局会在首屏就让你看到两件事——最近在写什么，以及今天可以做什么。
+启动后直接进入今日 Daily Workspace：主编辑区是今天的 Daily 文件，左侧是最近 14 个自然日的只读导航栏。先在当前时间节点里写下一句话；Dashboard 是 `SPC l d` 下的次级入口，Treemacs 三栏工作区仍由 `SPC l l` 打开。
 
 ### 2. 晨间回顾（2 分钟）
 
-一天的第一件事不是打开任何一个具体的文件，而是看一眼 GTD Dashboard：
+先在已经打开的 Today 节点里捕捉工作意图，不急着分类；需要结构化时再添加 supertag 和字段。然后看一眼 GTD Dashboard：
 
 ```
+SPC n d a  → 新建或复用一个时间节点
+, # a      → 稍后给当前节点添加 supertag
+, # e      → 编辑该 supertag 的字段
 SPC a d    → 打开 GTD Dashboard
 ```
 
@@ -24,14 +27,24 @@ Dashboard 左侧的每一行都是一个视图入口，带着实时计算出来�
 
 ### 3. Daily 笔记：思维流与任务录入
 
-接下来进入当天的 daily 笔记：
+Daily Workspace 是当天持续使用的低摩擦入口：
 
 ```
-SPC n d d  → 打开今日 daily note（主入口，直接编辑）
+SPC n d d  → 打开今日 Daily Workspace（主入口）
+SPC n d a  → 追加或复用一个带 ID 的时间节点
 SPC n d c  → 在今日 daily note 中 capture（需要模板时）
 ```
 
 这些文件放在 `~/NoteHQ/00_Roam/daily/` 下，以日期命名。Daily 笔记是这套系统里最"多功能"的一类文件，它同时承担两个看起来不相关但实际上高度互补的职责。
+Daily 文件只是一天的容器；每次快速记录位于一个带 `:ID:` 的一级时间标题下。
+先写内容，不必在捕捉瞬间决定结构。需要整理时，把光标放回该标题，
+使用 `, # a` 添加 supertag，再用 `, # e` 填写字段。保存 Daily
+文件会复用现有的防抖同步，不需要单独维护另一套数据库。
+
+左侧 Daily sidebar 始终列出最近 14 个自然日，缺失日期也会显示，但仅渲染
+sidebar 不会创建文件。它适合快速回到近期上下文；需要按目录浏览整个
+NoteHQ 时，再用 `SPC l l` 切换到 Treemacs 工作区。
+
 
 第一个职责是**思维流捕捉**：一边做事一边记录进展、观察、临时想法、未成形的疑问。这里的文字不需要严谨——可以是流水账、半截的句子、给自己的追问。重点是降低写作门槛，让想法在出现的瞬间就能被抓住。
 
@@ -223,7 +236,8 @@ SPC n t t  → 开启/关闭 transclusion 模式（实时渲染嵌入内容）
 ### Daily Notes 导航
 
 ```
-SPC n d d  → 打开今日 daily note（主入口）
+SPC n d d  → 打开今日 Daily Workspace（主入口）
+SPC n d a  → 追加或复用一个时间节点
 SPC n d t  → 打开今日 daily note（兼容别名）
 SPC n d c  → Capture today（用 daily 模板写入）
 SPC n d C  → Capture date（选择日期写入）
@@ -233,6 +247,10 @@ SPC n d p  → 上一篇 daily note
 SPC n d n  → 下一篇 daily note
 SPC n d f  → 按日期查找
 ```
+
+Daily sidebar 内使用 `RET` 打开日期、`t` 回到 Today、`g` 刷新、
+`c` 选择日期、`q` 关闭。打开已有历史日期默认只浏览；只有显式
+追加节点或打开缺失日期时才写入文件。
 
 ---
 

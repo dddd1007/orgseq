@@ -641,10 +641,11 @@ SPC n g        → 在浏览器中打开 org-roam-ui 交互图谱
 
 ### 8.7 Daily Notes（每日笔记）
 
-每日笔记是你的数字日记本和临时收集箱：
+每日笔记是默认启动入口，也是你的数字日记本和临时收集箱：
 
 ```
-SPC n d d      → 打开今日笔记（主入口，直接编辑）
+SPC n d d      → 打开今日 Daily Workspace
+SPC n d a      → 追加或复用一个带 ID 的时间节点
 SPC n d t      → 打开今日笔记（兼容别名）
 SPC n d y      → 打开昨天的笔记
 SPC n d T      → 打开明天的笔记
@@ -654,6 +655,16 @@ SPC n d f      → 按日期查找
 SPC n d c      → 在今日笔记中 capture
 SPC n d C      → 选择日期并 capture
 ```
+
+Daily 文件是日期容器，不是单一 org-roam 节点。`SPC n d a` 会在文件
+末尾新建或复用一个一级时间标题，并确保它有 `:ID:`；每个一级标题都可
+独立使用 `, # a` 添加 supertag，再用 `, # e` 编辑字段。建议先捕捉，
+等内容值得整理时再加结构。
+
+Daily sidebar 显示最近 14 个自然日，包括尚未创建的日期。`RET` 打开日期，
+`t` 回到 Today，`g` 刷新，`c` 选择日期，`q` 关闭。单纯
+刷新 sidebar 不会创建缺失文件，已有历史日期默认以浏览方式打开。
+
 
 Daily capture 有三种模板：
 - `d`：默认（带时间戳的快速记录）
@@ -1033,20 +1044,18 @@ org-seq 完整支持 Markdown 编辑，与 Obsidian 互操作（wiki 链接、GF
 
 ### 12.1 默认启动布局
 
-启动 Emacs 后自动进入轻量布局：
+启动 Emacs 后自动进入今日 Daily Workspace：
 
 ```
-┌──────────┬────────────────────────┐
-│ dirvish- │     Dashboard          │
-│  side    │  (启动面板 + 最近文件)   │
-└──────────┴────────────────────────┘
+┌──────────────┬────────────────────────┐
+│ Daily Notes  │ 今日 Daily 文件         │
+│ 最近 14 天    │ 当前时间节点可直接编辑    │
+└──────────────┴────────────────────────┘
 ```
 
-Dashboard 显示：
-- ASCII art 标题
-- 最近编辑的 5 个文件
-- 快捷按钮：Today / Find / Tasks / Review / Last File
-- 底部随机名言
+左侧是只读的近期日期导航，右侧是普通 Org 编辑缓冲区。`SPC l d` 打开
+次级 Dashboard，其中 Daily Notes 排在最近文件之前；`SPC l l` 切换到
+Treemacs + 编辑器 + Outline 的完整目录工作区。
 
 ### 12.2 完整三栏布局
 
@@ -1586,6 +1595,7 @@ M-x customize-group RET org-seq RET
 | 键位 | 功能 |
 |------|------|
 | `SPC n d d` | 打开今天 |
+| `SPC n d a` | 追加/复用时间节点 |
 | `SPC n d t` | 打开今天（别名） |
 | `SPC n d y` | 昨天 |
 | `SPC n d T` | 明天 |

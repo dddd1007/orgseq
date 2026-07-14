@@ -4,8 +4,8 @@ Date: 2026-07-14
 
 ## Status
 
-Approved in conversation. Awaiting the user's review of this written
-specification before implementation planning begins.
+Implemented and verified on 2026-07-14 with Emacs 30.2 in both isolated and
+strict deployed validation modes.
 
 ## Objective
 

@@ -142,6 +142,8 @@ For `.org` files anywhere in the repo:
 - Preserve `:ID:` properties; do not rewrite or remove them casually.
 - Prefer `[[id:...][title]]` links over `file:` links for inter-note references.
 - Keep dashboard `.org` files query-only; do not turn them into data-entry files.
+- Keep Daily sidebar rendering read-only; rendering must not create missing notes.
+- Test Daily rendering and mutation boundaries with temporary NoteHQ roots.
 - Keep the TODO sequence aligned with org-seq's configured states:
   `PROJECT -> TODO -> NEXT -> IN-PROGRESS -> WAITING / SOMEDAY -> DONE / CANCELLED`
 

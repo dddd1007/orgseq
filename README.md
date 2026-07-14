@@ -69,6 +69,8 @@ Primary target: **Windows, Linux, and macOS**.
    Options: `-NoBackup` / `--no-backup`, `-Force` / `--force`, `-SkipChecks` / `--skip-checks`, `-Target DIR` / `--target DIR`
 
 3. Launch Emacs — packages will auto-install on first run (needs internet).
+   Startup opens Today's capture-ready Daily Workspace with a read-only
+   14-calendar-day sidebar. The Dashboard remains available at `SPC l d`.
 
    NoteHQ defaults to `~/NoteHQ/`. To use a shared or synced directory, set `ORG_SEQ_NOTE_HOME` before launching Emacs:
 
@@ -211,7 +213,8 @@ Mouse support follows the same shape as Doom Emacs: keyboard commands remain the
 | `SPC n a` | Add alias |
 | `SPC n r` | Add ref |
 | `SPC n n` | Node action menu |
-| `SPC n d d` | Daily note (open today) |
+| `SPC n d d` | Open Today's Daily Workspace |
+| `SPC n d a` | Append or reuse a capture-ready Daily node |
 | `SPC n d t` | Daily note (open today alias) |
 | `SPC n d c` | Daily capture today |
 | `SPC n d C` | Daily capture date |
@@ -294,6 +297,7 @@ Under `SPC l` the most important sidebar controls are:
 
 | Key | Action |
 |-----|--------|
+| `SPC l d` | Open the secondary Dashboard (Daily Notes first) |
 | `SPC l l` | Open adaptive workspace: treemacs left, editor center, outline right |
 | `SPC l =` | Rebalance adaptive workspace panes |
 | `SPC l F` | Fit and center frame on current monitor |
@@ -307,6 +311,11 @@ Under `SPC l` the most important sidebar controls are:
 | `SPC l c` | Collapse all treemacs nodes |
 | `SPC l w` | Set sidebar width |
 | `SPC l W` | Toggle sidebar width lock |
+
+The Daily Workspace opens its own read-only recent-date sidebar. In that
+sidebar, use `RET` to open a date, `t` for Today, `g` to refresh, `c`
+to choose a date, and `q` to close it. Rendering the 14 calendar days never
+creates missing historical files.
 
 Under `SPC o` the file-manager entries are:
 
@@ -395,14 +404,15 @@ Load order is fixed in `init.el` (see [AGENTS.md](AGENTS.md)).
 | 14 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
 | 15 | `init-pkm.el` | org-supertag configuration + org-transclusion + org-ql |
 | 16 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
-| 17 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
-| 18 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + AI CLI popups + Claude Code + .orgseq AI config + KB overview |
-| 19 | `init-dashboard.el` | Startup dashboard with vertical centering + random quotes |
-| 20 | `init-dired.el` | Dired + dirvish + yazi picker (file management, preview, quick-access) |
-| 21 | `init-workspace.el` | Workspace: treemacs sidebar + imenu-list outline |
-| 22 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
-| 23 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
-| 24 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
+| 17 | `init-daily.el` | Daily Workspace, 14-day sidebar, capture-ready ID nodes, and supertag sync |
+| 18 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
+| 19 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + AI CLI popups + Claude Code + .orgseq AI config + KB overview |
+| 20 | `init-dashboard.el` | Secondary dashboard with Daily Notes first, recent files, and quick actions |
+| 21 | `init-dired.el` | Dired + dirvish + yazi picker (file management, preview, quick-access) |
+| 22 | `init-workspace.el` | Daily-first startup plus Treemacs/imenu-list workspace transitions |
+| 23 | `init-update.el` | Periodic silent package auto-update: ELPA + vc (every 7 days) |
+| 24 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
+| 25 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
 
 `init-packages.el` is the single source inventory for Git-hosted packages,
 including [`modusregel`](https://codeberg.org/jjba23/modusregel). Batch validation

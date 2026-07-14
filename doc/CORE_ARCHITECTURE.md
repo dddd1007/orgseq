@@ -59,6 +59,21 @@ Use `my/popup-display-buffer` when a workflow needs a per-call size override.
 Ghostel popup lifecycle remains in `init-terminal`; the popup module controls
 placement, not terminal process management.
 
+## Persistent Daily Sidebar
+
+`lisp/init-daily.el` owns the persistent left sidebar used by the Daily
+Workspace. It is a `special-mode` navigation buffer, not a popup rule:
+rendering computes 14 calendar-date records without creating files, and opening
+a missing date is the explicit mutation boundary. Each Daily file remains a
+plain Org container; capture-ready top-level headings receive normal Org IDs
+and participate in the existing supertag sync path.
+
+`init-workspace` owns the transition between persistent sidebars. Opening
+the Daily Workspace closes only Treemacs in the selected frame; opening the
+ordinary `SPC l l` workspace closes only the Daily sidebar before restoring
+Treemacs and the optional outline. `init-popup` remains responsible only
+for bottom/side popup placement and does not register the Daily sidebar.
+
 ## Leader-Key Contract
 
 `lisp/init-keymap.el` contains two data sets:

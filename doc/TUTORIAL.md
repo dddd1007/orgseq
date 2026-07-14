@@ -129,7 +129,7 @@ ORG_SEQ_CLIENT=tty ~/.emacs.d/ec file.org
 
 ### 工作区布局
 
-默认启动是轻量布局：treemacs 侧栏 + Dashboard。需要完整写作环境时，`SPC l l` 展开三栏布局：
+默认启动是 Today + 最近 14 日 sidebar 的 Daily Workspace。需要目录树和大纲时，`SPC l l` 展开下面的三栏布局；`SPC l d` 随时打开次级 Dashboard：
 
 ```
 ┌──────────┬────────────────────────┬────────────┐
@@ -192,11 +192,17 @@ org-seq 现在把 `pyim` 和 `sis` 组合在一起使用：`pyim` 负责真正�
 
 ### 每日笔记：工作流的入口
 
-`SPC n d d` 打开今天的 daily note，文件不存在时自动创建，带 `:daily:` filetag。Daily note 是一天的思维起点——在这里记录零散想法、做决策、写日记，然后把值得保留的内容链接到永久笔记。
+`SPC n d d` 打开今天的 Daily Workspace；启动 Emacs 时它已经是默认入口。
+`SPC n d a` 会在日期文件末尾新建或复用一个一级时间标题，并确保该标题有
+`:ID:`。日期文件只是容器，每个一级标题才是可链接、可添加 supertag 的
+org-roam 节点。先记录内容，稍后用 `, # a` 添加 supertag、`, # e` 填字段。
 
 每日笔记支持三种 capture 子模板：`d`（默认条目，带时间）、`t`（任务，带 SCHEDULED）、`j`（日记，带时间戳）。用 `SPC n d c` 触发带模板的捕获写入当日文件。
 
-翻看历史：`SPC n d y` 昨天、`SPC n d T` 明天、`SPC n d f` 按日期选择、`SPC n d p/n` 上一篇/下一篇。
+左侧 Daily sidebar 显示最近 14 个自然日，缺失日期也会出现，但刷新
+列表不会创建文件。用 `RET` 打开日期、`t` 回 Today、`g` 刷新、
+`c` 选日期、`q` 关闭。键盘导航仍可用：`SPC n d y` 昨天、
+`SPC n d T` 明天、`SPC n d f` 选日期、`SPC n d p/n` 上一篇/下一篇。
 
 ### 查找笔记
 
@@ -648,19 +654,21 @@ eglot 是 Emacs 29+ 内置的 LSP 客户端，轻量。对于 R，安装 R 包 `
 ### 晨间启动
 
 ```
-emacsclient -s org-seq -c    ← 连接 daemon，Dashboard 出现
+emacsclient -s org-seq -c    ← 连接 daemon，今日 Daily Workspace 出现
 ```
 
-1. 点击 "Tasks" 或 `SPC a d`，扫描 GTD Dashboard：
+1. Emacs 已经停在 Today 的时间节点。直接写下今天的工作意图；需要第二条记录时按 `SPC n d a`。
+
+2. 捕捉完成后再整理：把光标放在该一级标题上，`, # a` 选择一个已有 supertag，再用 `, # e` 填写它的字段。不要为了结构打断第一步的书写。
+
+3. 在左侧 Daily sidebar 按 `RET` 打开昨天，或按 `t` 回到 Today，把仍有价值的想法链接回来。
+
+4. 点击 "Tasks" 或 `SPC a d` 扫描 GTD Dashboard：
    - Inbox 有什么需要处理？
    - Today 有哪些计划任务？
    - Projects 有没有 `*` 卡壳的？
 
-2. `SPC n d d` 打开今日 daily note，写下今天的工作意图，翻看昨天的链接：
-   - `SPC n d y` 查看昨天
-   - 把昨天的未完成想法链接到相关笔记
-
-3. 选一个 NEXT 任务，`, q` → `i`，标记为 IN-PROGRESS，`SPC a f` 开始专注计时。
+5. 选一个 NEXT 任务，`, q` → `i`，标记为 IN-PROGRESS，`SPC a f` 开始专注计时。
 
 ### 文献阅读
 
@@ -737,6 +745,7 @@ emacsclient -s org-seq -c    ← 连接 daemon，Dashboard 出现
 | 键位 | 效果 |
 |------|------|
 | `SPC n d d` | 今日 daily note |
+| `SPC n d a` | 追加/复用带 ID 的时间节点 |
 | `SPC n d y` | 昨天 |
 | `SPC n d T` | 明天 |
 | `SPC n d f` | 按日期选择 |
