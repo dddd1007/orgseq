@@ -95,7 +95,10 @@ function Resolve-SafeDeploymentTarget {
         throw "Refusing deployment target that overlaps the source tree: $fullPath"
     }
 
-    return $fullPath
+    # Keep the canonical target free of a trailing separator. Appending the
+    # backup suffix to a path ending in "\" would otherwise place the backup
+    # inside the target and make Copy-Item recurse into its own output.
+    return $trimmed
 }
 
 function Assert-DeploymentCheckResult {
@@ -249,7 +252,9 @@ function Backup-ExistingConfig {
     }
 
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $backupDir = "$Target.backup-$timestamp"
+    $targetParent = Split-Path -Parent $Target
+    $targetLeaf = Split-Path -Leaf $Target
+    $backupDir = Join-Path $targetParent "$targetLeaf.backup-$timestamp"
     Write-Host "  Backing up to: $backupDir"
     Copy-Item -Recurse -Force $Target $backupDir
 

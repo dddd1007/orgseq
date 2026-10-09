@@ -54,11 +54,28 @@ $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("org-seq-deploy-test-{0
 try {
     $null = New-Item -ItemType Directory -Path $testRoot -Force
     $safeTarget = Join-Path $testRoot '.emacs.d'
-    $resolved = Resolve-SafeDeploymentTarget -Path $safeTarget
+    $safeTargetWithSeparator = $safeTarget + [System.IO.Path]::DirectorySeparatorChar
+    $resolved = Resolve-SafeDeploymentTarget -Path $safeTargetWithSeparator
     Assert-True -Condition (
         [System.IO.Path]::GetFullPath($resolved) -eq
         [System.IO.Path]::GetFullPath($safeTarget)
     ) -Message 'A nested deployment target should be accepted and normalized.'
+    Assert-True -Condition (-not $resolved.EndsWith([System.IO.Path]::DirectorySeparatorChar)) `
+        -Message 'A deployment target must not retain a trailing directory separator.'
+
+    $backupTarget = Join-Path $testRoot 'backup-target'
+    $null = New-Item -ItemType Directory -Path $backupTarget -Force
+    Set-Content -LiteralPath (Join-Path $backupTarget 'marker.txt') -Value 'original'
+    $Target = Resolve-SafeDeploymentTarget -Path ($backupTarget + [System.IO.Path]::DirectorySeparatorChar)
+    $NoBackup = $false
+    Backup-ExistingConfig
+    $backups = @(Get-ChildItem -LiteralPath $testRoot -Directory -Filter 'backup-target.backup-*')
+    Assert-True -Condition ($backups.Count -eq 1) `
+        -Message 'Backup must be created next to the deployment target.'
+    Assert-True -Condition (Test-Path -LiteralPath (Join-Path $backups[0].FullName 'marker.txt')) `
+        -Message 'Sibling backup must contain the original target content.'
+    Assert-True -Condition (-not (Get-ChildItem -LiteralPath $backupTarget -Directory -Filter '.backup-*')) `
+        -Message 'Backup must never be created inside the deployment target.'
 
     $rootPath = [System.IO.Path]::GetPathRoot($testRoot)
     Assert-Throws -Action { Resolve-SafeDeploymentTarget -Path $rootPath } `
@@ -103,5 +120,5 @@ Assert-True -Condition ($bashSource -match 'return "\$status"') `
 
 [pscustomobject]@{
     Passed = $true
-    Checks = 15
+    Checks = 19
 }
