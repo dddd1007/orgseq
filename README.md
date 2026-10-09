@@ -448,6 +448,12 @@ The GTD Dashboard (`SPC t d`) shows live counts and is the central hub:
 
 Load order is fixed in `init.el` (see [AGENTS.md](AGENTS.md)).
 
+`lisp/init-platform.el` loads before this table. It is a bootstrap-phase
+module required directly by `init.el`: it repairs `exec-path` for GUI
+sessions and resolves ELPA signature checking, both of which must happen
+before the first package is installed. It is deliberately outside the
+guarded module list below.
+
 | # | Module | Purpose |
 |---|--------|---------|
 | 1 | `init-doctor.el` | Read-only dependency diagnostics + observable module-load report |

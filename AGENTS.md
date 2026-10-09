@@ -49,6 +49,12 @@ These rules apply to `early-init.el`, `init.el`, root helper `.el` files, and `l
 
 ## Load Order
 
+`lisp/init-platform.el` is a bootstrap-phase module. `init.el` requires it
+directly, before package management, because `exec-path` repair and the ELPA
+signature probe must run before the first package is installed. It has no
+org-seq module dependencies, must not require another `init-*` module, and is
+intentionally absent from `my/init-modules-default`.
+
 The module load order in `init.el` is intentional:
 
 `init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-gtd-dashboard -> init-focus -> init-pkm -> init-supertag -> init-daily -> init-terminal -> init-ai -> init-ai-cli -> init-dashboard -> init-dired -> init-mouse -> init-frame -> init-workspace -> init-update -> init-tty -> init-evil`
