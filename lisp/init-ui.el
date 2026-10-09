@@ -190,9 +190,9 @@
   :config
   (setq modus-themes-mixed-fonts t
         modus-themes-italic-constructs t
+        ;; Since modus-themes 5.3, prompts and completion matches are bold
+        ;; whenever bold constructs are enabled.
         modus-themes-bold-constructs t
-        modus-themes-prompts '(bold)
-        modus-themes-completions '((t . (bold)))
         modus-themes-org-blocks 'tinted-background
         ;; Tana-like heading hierarchy: clean graduated sizes, no overline,
         ;; variable-pitch on all levels for a document-editor feel.
@@ -510,7 +510,6 @@ timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
 ;; `:if (locate-library "diff-hl")'.
 (declare-function diff-hl-flydiff-mode "diff-hl-flydiff" (&optional arg))
 (declare-function diff-hl-magit-post-refresh "diff-hl" ())
-(declare-function diff-hl-magit-pre-refresh "diff-hl" ())
 (declare-function diff-hl-margin-mode "diff-hl-margin" (&optional arg))
 (declare-function global-diff-hl-mode "diff-hl" (&optional arg))
 
@@ -521,8 +520,8 @@ timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
   (diff-hl-flydiff-mode 1)
   (unless (display-graphic-p)
     (diff-hl-margin-mode 1))
+  ;; diff-hl 1.11 made the pre-refresh hook a no-op; only post-refresh remains.
   (with-eval-after-load 'magit
-    (add-hook 'magit-pre-refresh-hook #'diff-hl-magit-pre-refresh)
     (add-hook 'magit-post-refresh-hook #'diff-hl-magit-post-refresh)))
 
 ;; Disable line numbers in prose/terminal modes
