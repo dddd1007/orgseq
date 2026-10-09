@@ -48,7 +48,13 @@
     (when-let* ((latin (my/first-available-font my/latin-font-candidates)))
       (set-face-attribute 'default nil
                           :family latin
-                          :height 130))
+                          :height 130)
+      ;; `fixed-pitch' defaults to the generic "Monospace" family, which
+      ;; Windows resolves to Courier New.  mixed-pitch renders Org code,
+      ;; tables, and inline code with it, so keep it on the editor font.
+      (set-face-attribute 'fixed-pitch nil
+                          :family latin
+                          :height 1.0))
 
     (when-let* ((cjk (my/first-available-font my/cjk-font-candidates)))
       (dolist (charset '(kana han symbol cjk-misc bopomofo))
@@ -264,8 +270,35 @@
 ;; ---- nerd-icons ----
 ;; Windows: after install, run M-x nerd-icons-install-fonts
 ;; then manually install the downloaded .ttf files (right-click -> Install)
+;; Any patched Nerd Font carries the same icon glyphs, so when the symbols-only
+;; font is missing, icons fall back to the first installed Nerd Font instead
+;; of rendering as empty boxes.
+(defcustom my/nerd-icons-font-candidates
+  '("Symbols Nerd Font Mono" "Symbols Nerd Font"
+    "JetBrainsMono Nerd Font Mono" "FiraCode Nerd Font Mono"
+    "Hack Nerd Font Mono" "CaskaydiaCove Nerd Font Mono")
+  "Nerd Font families used for icons, in preference order."
+  :type '(repeat string)
+  :group 'org-seq)
+
+(defvar nerd-icons-font-family)
+(declare-function nerd-icons-set-font "nerd-icons" (&optional font-family frame))
+
+(defun my/nerd-icons-pick-font ()
+  "Point `nerd-icons-font-family' at the first installed Nerd Font.
+Also map the icon code-point ranges in the fontset, so raw glyphs inserted
+outside the nerd-icons functions render with the same font."
+  (when (display-graphic-p)
+    (when-let* ((family (my/first-available-font my/nerd-icons-font-candidates)))
+      (setq nerd-icons-font-family family)
+      (nerd-icons-set-font family))))
+
 (use-package nerd-icons
-  :demand t)
+  :demand t
+  :config
+  (if (daemonp)
+      (add-hook 'server-after-make-frame-hook #'my/nerd-icons-pick-font)
+    (my/nerd-icons-pick-font)))
 
 ;; ---- modusregel mode-line ----
 ;; Codeberg-only package; source metadata lives in init-packages.
