@@ -5,10 +5,15 @@
 (defvar server-use-tcp)
 
 ;; ---- Restore reasonable GC after startup ----
+;; gcmh (configured below) keeps the threshold high while typing and
+;; collects during idle time (Doom-style).  Without gcmh installed, fall
+;; back to a fixed 16MB threshold.
 (add-hook 'emacs-startup-hook
           (lambda ()
-            (setq gc-cons-threshold (* 16 1024 1024)  ; 16MB
-                  gc-cons-percentage 0.1)
+            (setq gc-cons-percentage 0.1)
+            (if (fboundp 'gcmh-mode)
+                (gcmh-mode 1)
+              (setq gc-cons-threshold (* 16 1024 1024)))  ; 16MB
             (message "Emacs loaded in %s with %d garbage collections."
                      (emacs-init-time) gcs-done)))
 
@@ -91,6 +96,90 @@ so byte-compilation and load tests never block on network traffic."
       use-package-always-ensure (not my/noninteractive-init)
       use-package-expand-minimally t
       use-package-verbose nil)
+
+;; ---- Garbage collection: collect on idle instead of mid-typing ----
+;; Enabled from the emacs-startup-hook above, after startup GC suppression.
+(use-package gcmh
+  :defer t
+  :custom
+  (gcmh-idle-delay 'auto)                 ; idle delay scales with GC cost
+  (gcmh-auto-idle-delay-factor 10)
+  (gcmh-high-cons-threshold (* 64 1024 1024)))
+
+;; ---- First-event hooks: defer non-critical packages past startup ----
+;; Doom-style incremental loading, implemented independently.  Modules attach
+;; packages that are not needed to paint the first frame:
+;;
+;;   :hook (my/first-input . which-key-mode)   ; first command or short idle
+;;   :hook (my/first-file  . global-diff-hl-mode) ; first visited file
+;;
+;; Each hook runs once and is then cleared.  Batch and daemon sessions have
+;; no interactive "first" event, so both hooks run right after the modules
+;; load (see the end of the module loader), keeping validation deterministic.
+;; A failing function is reported through `M-x my/init-errors' and does not
+;; stop the rest of the hook.
+(defvar my/first-input-hook nil
+  "Hook run once on the first command, or after `my/first-input-idle-delay'.")
+
+(defvar my/first-file-hook nil
+  "Hook run once, just before the first file is visited.")
+
+(defcustom my/first-input-idle-delay 1.5
+  "Idle seconds after startup before `my/first-input-hook' runs anyway.
+Loading on idle means deferred UI (which-key, completion) is usually ready
+before the first key press; nil waits for the first command."
+  :type '(choice (number :tag "Seconds") (const :tag "First command only" nil))
+  :group 'org-seq)
+
+(defvar my/--init-errors)
+
+(defun my/--first-event-absent-autoload-p (fn)
+  "Return non-nil when FN is an autoload whose package is not installed.
+Absent optional packages are skipped silently, matching module loading."
+  (and (symbolp fn)
+       (autoloadp (symbol-function fn))
+       (not (locate-library (cadr (symbol-function fn))))))
+
+(defun my/run-first-event-hook (hook)
+  "Run each function on HOOK once, recording errors, then clear HOOK."
+  (let ((functions (default-value hook)))
+    (set-default hook nil)
+    (dolist (fn functions)
+      (unless (or (eq fn t) (my/--first-event-absent-autoload-p fn))
+        (condition-case err
+            (funcall fn)
+          (error
+           (push (cons (intern (format "%s/%s" hook fn)) err) my/--init-errors)
+           (message "WARNING org-seq: %s failed in %s: %s (inspect with M-x my/init-errors)"
+                    fn hook (error-message-string err))))))))
+
+(defun my/first-event-trigger (hook)
+  "Return a one-shot trigger that runs HOOK and detaches itself."
+  (let (trigger)
+    (setq trigger
+          (lambda (&rest _)
+            (remove-hook 'pre-command-hook trigger)
+            (advice-remove 'after-find-file trigger)
+            (my/run-first-event-hook hook)))
+    trigger))
+
+(defun my/first-event-install ()
+  "Arm the interactive triggers for the first-event hooks."
+  (let ((input (my/first-event-trigger 'my/first-input-hook))
+        (file (my/first-event-trigger 'my/first-file-hook)))
+    (add-hook 'pre-command-hook input -90)
+    (when my/first-input-idle-delay
+      (add-hook 'emacs-startup-hook
+                (lambda ()
+                  (run-with-idle-timer my/first-input-idle-delay nil input))))
+    ;; Advise `after-find-file' rather than using `find-file-hook' so modes
+    ;; enabled here (save-place, diff-hl) already see the first file.
+    (advice-add 'after-find-file :before file)))
+
+(defun my/first-event-run-all ()
+  "Run both first-event hooks immediately (batch and daemon sessions)."
+  (my/run-first-event-hook 'my/first-input-hook)
+  (my/run-first-event-hook 'my/first-file-hook))
 
 ;; ---- Pre-module variable setup ----
 ;; Declare a few early-set variables so byte-compilation catches real issues
@@ -184,6 +273,33 @@ so byte-compilation and load tests never block on network traffic."
 
 ;; Winner mode: undo/redo window layouts
 (winner-mode +1)
+
+;; so-long: degrade gracefully on minified / single-line huge files (Doom)
+(global-so-long-mode 1)
+
+;; ws-butler: trim trailing whitespace only on lines you edited, so saving
+;; (including auto-save-visited below) never rewrites untouched lines (Doom).
+;; Markdown is exempt because two trailing spaces are a hard line break.
+(use-package ws-butler
+  :hook (my/first-file . ws-butler-global-mode)
+  :custom
+  (ws-butler-keep-whitespace-before-point nil)
+  (ws-butler-global-exempt-modes
+   '(special-mode comint-mode term-mode eshell-mode diff-mode
+     markdown-mode gfm-mode)))
+
+;; dtrt-indent: adopt the indentation style of the file being edited (Doom).
+;; Lisp indentation is structural, so Lisp modes keep their own rules.
+(declare-function dtrt-indent-mode "dtrt-indent" (&optional arg))
+(use-package dtrt-indent
+  :hook (prog-mode . my/dtrt-indent-maybe)
+  :custom
+  (dtrt-indent-verbosity 0)
+  :preface
+  (defun my/dtrt-indent-maybe ()
+    "Enable `dtrt-indent-mode' outside Lisp modes."
+    (unless (derived-mode-p 'lisp-data-mode)
+      (dtrt-indent-mode 1))))
 
 ;; Auto-chmod scripts on save (cross-platform; no-op on Windows)
 (add-hook 'after-save-hook
@@ -390,6 +506,12 @@ Return non-nil when MODULE loads successfully."
 
 (dolist (module my/init-modules)
   (my/--require-module module))
+
+;; Deferred packages: interactive sessions wait for the first event; batch
+;; and daemon sessions have none, so load everything now.
+(if (or my/noninteractive-init (daemonp))
+    (my/first-event-run-all)
+  (my/first-event-install))
 
 (when my/--init-errors
   (run-with-idle-timer

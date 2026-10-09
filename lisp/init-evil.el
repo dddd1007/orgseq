@@ -171,6 +171,13 @@ with SPC as the prefix and M-SPC as the global prefix."
     "TAB" '(evil-switch-to-windows-last-buffer :wk "Last buffer")
     "'"   '(my/terminal-popup-toggle :wk "Terminal popup")
     "j"   '(evil-avy-goto-char-timer :wk "Jump to char")
+    ;; Doom-compatible aliases; they only fill keys org-seq leaves free.
+    "."   '(find-file :wk "Find file")
+    ","   '(consult-buffer :wk "Switch buffer")
+    ":"   '(execute-extended-command :wk "M-x")
+    "`"   '(evil-switch-to-windows-last-buffer :wk "Last buffer")
+    "x"   '(scratch-buffer :wk "Scratch buffer")
+    "X"   '(org-capture :wk "Capture task")
 
     ;; ── SPC t — Tasks / GTD / Focus ──
     "t"   '(:ignore t :wk "tasks")
@@ -444,10 +451,11 @@ with SPC as the prefix and M-SPC as the global prefix."
              magit-diff-dwim magit-file-dispatch))
 
 ;; ---- which-key: key hint popup (built-in on Emacs 30+) ----
+;; Enabled on `my/first-input-hook' (init.el): after a short startup idle or
+;; on the first command, whichever comes first.
 (use-package which-key
   :ensure nil
-  :demand t
-  :init (which-key-mode)
+  :hook (my/first-input . which-key-mode)
   :config (setq which-key-idle-delay 0.3))
 
 ;; ---- Auto-dismiss which-key popup after 10s of inactivity ----

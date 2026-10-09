@@ -1,9 +1,10 @@
 ;;; init-completion.el --- Vertico completion stack -*- lexical-binding: t; -*-
 
 ;; ---- Vertico: vertical completion UI ----
+;; Enabled on `my/first-input-hook' (init.el): the first command runs that
+;; hook before it reads the minibuffer, so vertico is always ready in time.
 (use-package vertico
-  :demand t
-  :init (vertico-mode)
+  :hook (my/first-input . vertico-mode)
   :config
   (setq vertico-count 15
         vertico-cycle t
@@ -48,7 +49,7 @@
 
 ;; ---- Marginalia: rich annotations for completion candidates ----
 (use-package marginalia
-  :init (marginalia-mode))
+  :hook (my/first-input . marginalia-mode))
 
 ;; ---- Embark: contextual actions (right-click menu concept) ----
 (use-package embark
@@ -70,8 +71,9 @@
 
 ;; ---- Corfu: in-buffer completion popup (sibling of vertico) ----
 ;; Picks up completion-at-point-functions from eglot, ESS, cape, etc.
+;; Enabled on `my/first-input-hook' (init.el), before any typing happens.
 (use-package corfu
-  :demand t
+  :hook (my/first-input . global-corfu-mode)
   :custom
   (corfu-cycle t)
   (corfu-auto t)                          ; popup without manual M-TAB
@@ -80,8 +82,6 @@
   (corfu-quit-no-match 'separator)
   (corfu-preview-current nil)
   (corfu-popupinfo-delay '(0.4 . 0.2))    ; doc popup timing (show . update)
-  :init
-  (global-corfu-mode)
   :config
   (when (fboundp 'corfu-popupinfo-mode)
     (corfu-popupinfo-mode 1))             ; inline doc for current candidate

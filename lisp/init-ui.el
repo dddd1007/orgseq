@@ -469,9 +469,10 @@ timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
 ;; current `display-graphic-p'.  A daemon started on a TTY then asked for a
 ;; GUI frame stays on the margin path; this is an acceptable simplification
 ;; and avoids per-frame fringe bookkeeping.
-;; `:if' keeps the whole form (including the :init global-diff-hl-mode) a
+;; `:if' keeps the whole form (including the global-diff-hl-mode hook) a
 ;; no-op on a clean checkout without diff-hl installed, so batch validation
-;; does not trip on a void `global-diff-hl-mode'.
+;; does not trip on a void `global-diff-hl-mode'.  The mode is enabled on
+;; `my/first-file-hook' (init.el), just before the first file is visited.
 ;; diff-hl is optional; every call below is already guarded by
 ;; `:if (locate-library "diff-hl")'.
 (declare-function diff-hl-flydiff-mode "diff-hl-flydiff" (&optional arg))
@@ -482,8 +483,7 @@ timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
 
 (use-package diff-hl
   :if (locate-library "diff-hl")
-  :init
-  (global-diff-hl-mode 1)
+  :hook (my/first-file . global-diff-hl-mode)
   :config
   (diff-hl-flydiff-mode 1)
   (unless (display-graphic-p)

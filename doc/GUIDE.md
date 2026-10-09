@@ -1476,6 +1476,8 @@ M-x customize-group RET org-seq RET
 | `SPC b j` | 跳转到书签 |
 | `SPC '` | 开关终端雷神窗 |
 
+另有几个与 Doom Emacs 一致的别名，只占用 org-seq 未使用的键：`SPC .` 打开文件、`SPC ,` 切换 buffer、`SPC :` M-x、`` SPC ` `` 上一个 buffer、`SPC x` scratch buffer、`SPC X` 捕获任务。
+
 ### SPC t — 任务与 GTD
 
 | 键位 | 功能 |
@@ -1833,7 +1835,7 @@ M-x customize-group RET org-seq RET
 | AI 命令报错 "No API key" | 检查 `~/.authinfo` | 确认有 `machine openrouter.ai login apikey password sk-or-XXX` |
 | Transient 版本太旧 | 检查 `package-install-upgrade-built-in` | 确认为 `t` |
 | 图标显示为方块 | `M-x nerd-icons-install-fonts` | Windows 需右键安装 .ttf |
-| which-key 不弹出 | 按 SPC 后等 0.3 秒 | 确认在 Normal 模式（不是 Insert） |
+| which-key 不弹出 | 按 SPC 后等 0.3 秒；which-key 在启动后空闲 1.5 秒或第一次按键时才加载 | 确认在 Normal 模式（不是 Insert） |
 | 窗口布局搞乱了 | `C-c <left>` | Winner mode 撤销窗口变化 |
 
 ---

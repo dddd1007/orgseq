@@ -124,4 +124,48 @@
       (should (equal (sort (copy-sequence declared) #'string<)
                      (sort (copy-sequence contract) #'string<))))))
 
+;; ---- First-event hooks ----
+
+(defvar my/test-loader--first-hook nil
+  "Scratch hook for first-event tests.")
+
+(ert-deftest my/first-event-hook-runs-once-and-isolates-errors ()
+  "A failing function is recorded; the rest of the hook still runs once."
+  (let ((my/--init-errors nil)
+        (calls nil))
+    (setq my/test-loader--first-hook
+          (list (lambda () (push 'first calls))
+                (lambda () (error "deferred boom"))
+                (lambda () (push 'last calls))))
+    (let ((inhibit-message t))
+      (my/run-first-event-hook 'my/test-loader--first-hook)
+      (my/run-first-event-hook 'my/test-loader--first-hook))
+    (should (equal calls '(last first)))
+    (should-not my/test-loader--first-hook)
+    (should (= (length my/--init-errors) 1))
+    (should (equal (error-message-string (cdar my/--init-errors))
+                   "deferred boom"))))
+
+(ert-deftest my/first-event-hook-skips-absent-autoloads ()
+  "Autoloads into uninstalled packages are skipped, not reported."
+  (let ((my/--init-errors nil)
+        (fn (make-symbol "my-test-absent-mode")))
+    (fset fn '(autoload "org-seq-test-no-such-library" nil t))
+    (setq my/test-loader--first-hook (list fn))
+    (my/run-first-event-hook 'my/test-loader--first-hook)
+    (should-not my/--init-errors)
+    (should-not my/test-loader--first-hook)))
+
+(ert-deftest my/first-event-trigger-detaches-itself ()
+  "The trigger runs its hook and removes itself from `pre-command-hook'."
+  (let ((pre-command-hook nil)
+        (ran 0))
+    (setq my/test-loader--first-hook (list (lambda () (cl-incf ran))))
+    (let ((trigger (my/first-event-trigger 'my/test-loader--first-hook)))
+      (add-hook 'pre-command-hook trigger)
+      (run-hooks 'pre-command-hook)
+      (should-not (memq trigger pre-command-hook))
+      (funcall trigger))
+    (should (= ran 1))))
+
 ;;; test-init-loader.el ends here

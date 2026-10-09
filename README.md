@@ -208,6 +208,10 @@ owns this layer.
 | `SPC TAB` | Last buffer |
 | `SPC '` | Toggle NoteHQ terminal popup |
 
+Doom-compatible aliases fill keys org-seq leaves free, so Doom muscle memory
+keeps working: `SPC .` find file, `SPC ,` switch buffer, `SPC :` M-x,
+`` SPC ` `` last buffer, `SPC x` scratch buffer, `SPC X` capture task.
+
 ### SPC t — Tasks / GTD
 
 | Key | Action |

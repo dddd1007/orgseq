@@ -25,7 +25,7 @@ from these entries was copied into the repository.
 
 | Upstream | License | design-only ideas reimplemented locally |
 |---|---|---|
-| [Doom Emacs](https://github.com/doomemacs/doomemacs) | MIT | Observable module loading, actionable diagnostics, centralized popup policy, and small core interfaces. |
+| [Doom Emacs](https://github.com/doomemacs/doomemacs) | MIT | Observable module loading, actionable diagnostics, centralized popup policy, small core interfaces, first-input / first-file deferred loading hooks (`init.el`), idle-time GC via gcmh, and Doom-compatible top-level leader aliases. |
 | [Spacemacs](https://github.com/syl20bnr/spacemacs) | GPL-3.0 | Mnemonic leader namespaces, discoverable command groups, and consistent local-leader concepts. No GPL implementation code was copied. |
 | [LazyVim](https://github.com/LazyVim/LazyVim) | Apache-2.0 | Data-first metadata, explicit ownership, conditional activation, and documented override precedence. No Lua was translated line by line. |
 | [GNU Emacs](https://www.gnu.org/software/emacs/manual/) | GPL-3.0-or-later | Built-in `use-package`, `display-buffer-alist`, ERT, byte compilation, and batch startup mechanisms are used through their public interfaces. |
