@@ -254,7 +254,11 @@ Excludes the current heading itself."
     (save-excursion
       (org-back-to-heading t)
       (forward-line 1)
-      (while (re-search-forward org-heading-regexp subtree-end t)
+      ;; A childless heading leaves point past SUBTREE-END (the next sibling
+      ;; starts on the following line), and `re-search-forward' rejects a
+      ;; bound behind point.  Check the bound before every search.
+      (while (and (< (point) subtree-end)
+                  (re-search-forward org-heading-regexp subtree-end t))
         (when (my/gtd--active-state-p (org-get-todo-state))
           (push (point-marker) markers))))
     markers))
@@ -263,7 +267,8 @@ Excludes the current heading itself."
   "Mark task DONE, handling child tasks with confirmation."
   (interactive)
   (unless (equal (org-get-todo-state) "DONE")
-    (let* ((markers (my/gtd--collect-active-children))
+    (let* ((parent (save-excursion (org-back-to-heading t) (point-marker)))
+           (markers (my/gtd--collect-active-children))
            (count (length markers)))
       (unwind-protect
           (if (> count 0)
@@ -276,10 +281,16 @@ Excludes the current heading itself."
                     (with-current-buffer (marker-buffer m)
                       (goto-char m)
                       (org-todo "DONE"))))
+                ;; Return through the marker, not `org-back-to-heading'.
+                ;; Closing a child moves point onto that child and the DONE
+                ;; sink may have reordered the subtree, so recomputing the
+                ;; heading from point would close the child a second time and
+                ;; leave this task open.
                 (save-excursion
-                  (org-back-to-heading t)
+                  (goto-char parent)
                   (org-todo "DONE")))
             (org-todo "DONE"))
+        (set-marker parent nil)
         (dolist (m markers)
           (set-marker m nil))))))
 
@@ -287,7 +298,8 @@ Excludes the current heading itself."
   "Mark task CANCELLED, handling child tasks with confirmation."
   (interactive)
   (unless (equal (org-get-todo-state) "CANCELLED")
-    (let* ((markers (my/gtd--collect-active-children))
+    (let* ((parent (save-excursion (org-back-to-heading t) (point-marker)))
+           (markers (my/gtd--collect-active-children))
            (count (length markers)))
       (unwind-protect
           (if (> count 0)
@@ -300,10 +312,16 @@ Excludes the current heading itself."
                     (with-current-buffer (marker-buffer m)
                       (goto-char m)
                       (org-todo "CANCELLED"))))
+                ;; Return through the marker, not `org-back-to-heading'.
+                ;; Closing a child moves point onto that child and the DONE
+                ;; sink may have reordered the subtree, so recomputing the
+                ;; heading from point would close the child a second time and
+                ;; leave this task open.
                 (save-excursion
-                  (org-back-to-heading t)
+                  (goto-char parent)
                   (org-todo "CANCELLED")))
             (org-todo "CANCELLED"))
+        (set-marker parent nil)
         (dolist (m markers)
           (set-marker m nil))))))
 
