@@ -130,6 +130,29 @@
                                       (plist-get payload :detail))))))
       (delete-directory root t))))
 
+(ert-deftest my/doctor-ghostel-module-check-rejects-outdated-module ()
+  "A module older than Ghostel's declared minimum version fails."
+  (let* ((root (make-temp-file "org-seq-ghostel-old-" t))
+         (module (expand-file-name
+                  (concat "ghostel-module" module-file-suffix) root))
+         (sidecar (expand-file-name "ghostel-module.version" root))
+         (source (expand-file-name "ghostel-module-install.el" root)))
+    (unwind-protect
+        (progn
+          (write-region "" nil module nil 'silent)
+          (write-region "0.43.0\n" nil sidecar nil 'silent)
+          (write-region "(defconst ghostel--minimum-module-version \"0.56.0\"\n  \"Doc.\")\n"
+                        nil source nil 'silent)
+          (cl-letf (((symbol-function 'locate-library)
+                     (lambda (library)
+                       (when (equal library "ghostel-module-install")
+                         source))))
+            (let ((payload (my/doctor--check-ghostel-module)))
+              (should (eq (plist-get payload :status) 'fail))
+              (should (string-match-p "0.43.0 is older than required 0.56.0"
+                                      (plist-get payload :detail))))))
+      (delete-directory root t))))
+
 (ert-deftest my/doctor-poly-r-check-reports-load-errors ()
   (cl-letf (((symbol-function 'locate-library)
              (lambda (library) (and (equal library "poly-R") "poly-R.el")))

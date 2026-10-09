@@ -245,6 +245,20 @@ REQUIRED makes a missing executable a failure instead of a warning."
        ((file-directory-p (expand-file-name "etc" parent)) parent)
        (t lisp-dir)))))
 
+(defun my/doctor--ghostel-required-module-version ()
+  "Return the native module version Ghostel requires, read from its source.
+Parses `ghostel--minimum-module-version' without loading Ghostel; returns
+nil when the source or the constant cannot be found."
+  (when-let* ((library (locate-library "ghostel-module-install"))
+              (source (concat (file-name-sans-extension library) ".el"))
+              ((file-readable-p source)))
+    (with-temp-buffer
+      (insert-file-contents source)
+      (when (re-search-forward
+             "(defconst ghostel--minimum-module-version[ \t\n]+\"\\([^\"]+\\)\""
+             nil t)
+        (match-string 1)))))
+
 (defun my/doctor--check-ghostel-module ()
   "Check the on-disk Ghostel native module pair without loading it."
   (if-let* ((root (my/doctor--ghostel-resource-root)))
@@ -278,12 +292,20 @@ REQUIRED makes a missing executable a failure instead of a warning."
                           (with-temp-buffer
                             (insert-file-contents sidecar)
                             (buffer-string)))))
-            (if (string-empty-p version)
+            (let ((required (my/doctor--ghostel-required-module-version)))
+              (cond
+               ((string-empty-p version)
                 (my/doctor--payload
                  'fail "Ghostel native module version is empty"
-                 "Re-download the native module with M-x ghostel-download-module.")
-              (my/doctor--payload
-               'pass (format "Native module %s: %s" version module)))))))
+                 "Re-download the native module with M-x ghostel-download-module."))
+               ((and required (version< version required))
+                (my/doctor--payload
+                 'fail (format "Native module %s is older than required %s: %s"
+                               version required module)
+                 "Run M-x ghostel-download-module to fetch the matching module."))
+               (t
+                (my/doctor--payload
+                 'pass (format "Native module %s: %s" version module)))))))))
     (my/doctor--payload
      'warn "Cannot inspect the native module until Ghostel Elisp is available"
      "Install Ghostel through package.el, then rerun the doctor.")))
