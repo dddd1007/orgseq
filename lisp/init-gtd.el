@@ -447,7 +447,7 @@ Excludes the current heading itself."
       (let ((state (get-text-property (point) 'todo-state)))
         (cond
          ((equal state "CANCELLED")
-          (when-let ((bounds (my/org-agenda--task-text-bounds)))
+          (when-let* ((bounds (my/org-agenda--task-text-bounds)))
             (add-face-text-property (car bounds) (cdr bounds)
                                     '(:strike-through t))))
          ((equal state "DONE")

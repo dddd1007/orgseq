@@ -12,6 +12,10 @@
 (require 'subr-x)
 
 (defvar treemacs-width)
+
+(declare-function treemacs-fringe-indicator-mode "treemacs" (&optional arg))
+(declare-function treemacs-get-local-buffer "treemacs-scope" ())
+(declare-function treemacs-load-theme "treemacs-themes" (name))
 (defvar imenu-list-buffer-name)
 (defvar imenu-list-focus-after-activation)
 (defvar imenu-list-minor-mode)
@@ -295,7 +299,7 @@ sidebar follows quietly without stealing focus."
 
 (defun my/workspace-close-treemacs ()
   "Close only the current frame's Treemacs window."
-  (when-let ((window (my/workspace-sidebar-visible-p)))
+  (when-let* ((window (my/workspace-sidebar-visible-p)))
     (delete-window window)))
 
 (defun my/workspace--outline-window ()
@@ -309,7 +313,7 @@ sidebar follows quietly without stealing focus."
   (let ((target-width (my/workspace--target-sidebar-width)))
     (when (boundp 'treemacs-width)
       (setq treemacs-width target-width))
-    (when-let ((window (my/workspace-sidebar-visible-p)))
+    (when-let* ((window (my/workspace-sidebar-visible-p)))
       (my/workspace--resize-window-width window target-width))))
 
 (defun my/workspace--apply-outline-width ()
@@ -317,7 +321,7 @@ sidebar follows quietly without stealing focus."
   (let ((target-width (my/workspace--target-outline-width)))
     (when (boundp 'imenu-list-size)
       (setq imenu-list-size target-width))
-    (when-let ((window (my/workspace--outline-window)))
+    (when-let* ((window (my/workspace--outline-window)))
       (my/workspace--resize-window-width window target-width))))
 
 (defun my/workspace-rebalance (&optional frame)
@@ -409,7 +413,7 @@ the full-window file manager."
 
 (defun my/workspace--main-editor-file ()
   "Return the file visited by the current main editor window, or nil."
-  (when-let ((window (my/workspace--main-window)))
+  (when-let* ((window (my/workspace--main-window)))
     (with-current-buffer (window-buffer window)
       (when buffer-file-name
         (file-truename buffer-file-name)))))
@@ -419,10 +423,10 @@ the full-window file manager."
   (when (and my/workspace-auto-reveal-current-file
              (my/workspace-sidebar-visible-p)
              (fboundp 'treemacs-find-file))
-    (when-let ((file (my/workspace--main-editor-file)))
+    (when-let* ((file (my/workspace--main-editor-file)))
       (unless (equal file my/workspace--last-revealed-file)
         (let ((origin (selected-window)))
-          (when-let ((editor (my/workspace--main-window)))
+          (when-let* ((editor (my/workspace--main-window)))
             (select-window editor)
             (condition-case err
                 (progn
@@ -556,7 +560,7 @@ of a half-built layout."
         (let ((editor-win (car (my/workspace--non-sidebar-windows))))
           (when editor-win
             (select-window editor-win)
-            (when-let ((dash (get-buffer "*dashboard*")))
+            (when-let* ((dash (get-buffer "*dashboard*")))
               (unless (cl-some #'buffer-file-name (buffer-list))
                 (switch-to-buffer dash))))))
     (error
@@ -576,14 +580,14 @@ does not break other hooks or leave the frame empty."
                 (progn
                   (when (fboundp 'my/workspace-close-treemacs)
                     (my/workspace-close-treemacs))
-                  (when-let ((editor-win (my/workspace--main-window)))
+                  (when-let* ((editor-win (my/workspace--main-window)))
                     (select-window editor-win)
                     (switch-to-buffer target-buffer))
                   (my/daily-sidebar-open)
                   (my/daily-sidebar-refresh))
               (let ((open-sidebar (my/workspace--startup-open-sidebar-p
                                    target-buffer)))
-                (when-let ((editor-win (my/workspace--main-window)))
+                (when-let* ((editor-win (my/workspace--main-window)))
                   (select-window editor-win)
                   (delete-other-windows editor-win))
                 (when open-sidebar

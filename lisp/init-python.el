@@ -65,7 +65,7 @@ The creation is skipped in noninteractive batch sessions."
                           "C:/ProgramData/anaconda3"))))
     (delq nil
           (append my/python-extra-conda-roots
-                  (when-let ((prefix (getenv "CONDA_PREFIX")))
+                  (when-let* ((prefix (getenv "CONDA_PREFIX")))
                     (list prefix))
                   home-roots
                   windows-roots))))

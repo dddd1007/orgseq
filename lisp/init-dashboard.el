@@ -40,6 +40,140 @@
 (require 'dashboard-quotes)
 
 ;; ---- dashboard: Doom-style startup screen ----
+;; ---- Dashboard rendering helpers ----
+;;
+;; These definitions stay at top level on purpose.  Defining them inside
+;; `use-package''s :config hides them from the byte compiler, which then
+;; cannot see `my/dashboard--content-lines' as buffer-local and cannot
+;; check the call sites in this file.  `dashboard-insert-section' is a
+;; macro, so the compiler also needs the package loaded to expand it.
+(eval-when-compile (require 'dashboard nil t))
+
+(defvar dashboard-buffer-name)
+(defvar dashboard-footer-messages)
+(defvar dashboard-item-generators)
+(declare-function dashboard-get-shortcut "dashboard" (item))
+(declare-function dashboard-insert-center "dashboard-widgets" (&rest strings))
+(declare-function dashboard-insert-footer "dashboard-widgets" ())
+(declare-function dashboard-setup-startup-hook "dashboard" ())
+(declare-function nerd-icons-mdicon "nerd-icons" (icon-name &rest args))
+;; Helpers injected by the `dashboard-insert-section' macro expansion.
+(declare-function dashboard--define-shorcut-key-binding "dashboard-widgets" (section keybinding))
+(declare-function dashboard-display-icons-p "dashboard-widgets" ())
+(declare-function dashboard-heading-icon "dashboard-widgets" (&rest args))
+(declare-function dashboard-icon-for-dir "dashboard-widgets" (dir &rest args))
+(declare-function dashboard-icon-for-file "dashboard-widgets" (file &rest args))
+(declare-function dashboard-insert-heading "dashboard-widgets" (heading &optional shortcut face))
+(declare-function dashboard-subseq "dashboard-widgets" (sequence end))
+(declare-function spaces-string "dashboard-widgets" (length))
+
+(defun my/dashboard-insert-dailies (list-size)
+  "Insert LIST-SIZE recent calendar dates into Dashboard."
+  (let ((items
+         (mapcar
+          (lambda (record)
+            (propertize
+             (format "%s  %s"
+                     (plist-get record :label)
+                     (plist-get record :date))
+             'my/daily-time (plist-get record :time)))
+          (my/daily-date-records nil list-size))))
+    (dashboard-insert-section
+     "Daily Notes:" items list-size 'daily
+     (dashboard-get-shortcut 'daily)
+     `(lambda (&rest _)
+        (my/daily-workspace-open-date
+         (get-text-property 0 'my/daily-time ,el)))
+     el)))
+
+(defun my/dashboard--wrap-quote (text max-width)
+  "Wrap TEXT to MAX-WIDTH at word boundaries, returning a single string."
+  (if (<= (length text) max-width)
+      text
+    (let ((pos max-width))
+      (while (and (> pos 0) (not (eq (aref text pos) ?\s)))
+        (cl-decf pos))
+      (when (= pos 0) (setq pos max-width))
+      (concat (substring text 0 pos) "\n"
+              (string-trim-left (substring text pos))))))
+
+(defun my/dashboard--pick-quote ()
+  "Pick a random quote and wrap it to fit the dashboard width."
+  (let* ((quote (nth (random (length my/dashboard-quotes)) my/dashboard-quotes))
+         (width (max 40 (- (min 80 (window-width)) 6))))
+    (setq dashboard-footer-messages
+          (list (my/dashboard--wrap-quote quote width)))))
+
+(defun my/dashboard--version-string ()
+  "Return a display string for the deployed org-seq version."
+  (let ((version
+         (when (file-readable-p my/dashboard-version-file)
+           (string-trim
+            (with-temp-buffer
+              (insert-file-contents my/dashboard-version-file)
+              (buffer-string))))))
+    (format "Version: %s"
+            (if (and version (not (string-empty-p version)))
+                version
+              "unversioned"))))
+
+(defun my/dashboard-insert-version ()
+  "Insert the deployed org-seq version below the dashboard quote footer."
+  (insert "\n")
+  (dashboard-insert-center
+   ""
+   (propertize (my/dashboard--version-string)
+               'face 'font-lock-comment-face)
+   "\n"))
+
+(defvar-local my/dashboard--content-lines nil
+  "Cached line count of dashboard content before padding.")
+
+(defun my/dashboard-vertically-center ()
+  "Pad the top of the dashboard buffer to vertically center content."
+  (when-let* ((buf (get-buffer dashboard-buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        ;; Strip existing top padding
+        (goto-char (point-min))
+        (while (and (not (eobp)) (looking-at-p "^$"))
+          (delete-region (line-beginning-position)
+                         (min (1+ (line-end-position)) (point-max))))
+        ;; Strip trailing blank lines
+        (goto-char (point-max))
+        (while (and (> (point) (point-min))
+                    (progn (forward-line -1) (looking-at-p "^$")))
+          (delete-region (line-beginning-position)
+                         (min (1+ (line-end-position)) (point-max))))
+        ;; Cache the true content height
+        (setq my/dashboard--content-lines
+              (count-lines (point-min) (point-max)))
+        ;; Insert top padding
+        (let* ((win (or (get-buffer-window buf) (selected-window)))
+               (win-height (window-body-height win))
+               (pad (max 0 (/ (- win-height my/dashboard--content-lines) 2))))
+          (goto-char (point-min))
+          (insert (make-string pad ?\n))
+          (goto-char (point-min)))))))
+
+(defvar my/dashboard--resize-timer nil
+  "Debounce timer for dashboard resize centering.")
+
+(defun my/dashboard-recenter-on-resize (&optional _frame)
+  "Re-center dashboard when window size changes (debounced)."
+  (when (and (get-buffer dashboard-buffer-name)
+             (get-buffer-window dashboard-buffer-name))
+    (when my/dashboard--resize-timer
+      (cancel-timer my/dashboard--resize-timer))
+    (setq my/dashboard--resize-timer
+          (run-with-idle-timer 0.1 nil #'my/dashboard-vertically-center))))
+
+(defun my/dashboard--kill-cleanup ()
+  "Cancel orphaned resize timer when the dashboard buffer is killed."
+  (when (timerp my/dashboard--resize-timer)
+    (cancel-timer my/dashboard--resize-timer)
+    (setq my/dashboard--resize-timer nil)))
+
 (use-package dashboard
   :demand t
   :config
@@ -56,24 +190,6 @@
         dashboard-recentf-show-base t
         dashboard-recentf-item-format "%s")
 
-  (defun my/dashboard-insert-dailies (list-size)
-    "Insert LIST-SIZE recent calendar dates into Dashboard."
-    (let ((items
-           (mapcar
-            (lambda (record)
-              (propertize
-               (format "%s  %s"
-                       (plist-get record :label)
-                       (plist-get record :date))
-               'my/daily-time (plist-get record :time)))
-            (my/daily-date-records nil list-size))))
-      (dashboard-insert-section
-       "Daily Notes:" items list-size 'daily
-       (dashboard-get-shortcut 'daily)
-       `(lambda (&rest _)
-          (my/daily-workspace-open-date
-           (get-text-property 0 'my/daily-time ,el)))
-       el)))
 
   (setf (alist-get 'daily dashboard-item-generators)
         #'my/dashboard-insert-dailies)
@@ -83,46 +199,6 @@
   ;; Footer: random quote, Doom-style
   ;; `my/dashboard-quotes' is provided by lisp/dashboard-quotes.el
   ;; (required at the top of this file).
-
-  (defun my/dashboard--wrap-quote (text max-width)
-    "Wrap TEXT to MAX-WIDTH at word boundaries, returning a single string."
-    (if (<= (length text) max-width)
-        text
-      (let ((pos max-width))
-        (while (and (> pos 0) (not (eq (aref text pos) ?\s)))
-          (cl-decf pos))
-        (when (= pos 0) (setq pos max-width))
-        (concat (substring text 0 pos) "\n"
-                (string-trim-left (substring text pos))))))
-
-  (defun my/dashboard--pick-quote ()
-    "Pick a random quote and wrap it to fit the dashboard width."
-    (let* ((quote (nth (random (length my/dashboard-quotes)) my/dashboard-quotes))
-           (width (max 40 (- (min 80 (window-width)) 6))))
-      (setq dashboard-footer-messages
-            (list (my/dashboard--wrap-quote quote width)))))
-
-  (defun my/dashboard--version-string ()
-    "Return a display string for the deployed org-seq version."
-    (let ((version
-           (when (file-readable-p my/dashboard-version-file)
-             (string-trim
-              (with-temp-buffer
-                (insert-file-contents my/dashboard-version-file)
-                (buffer-string))))))
-      (format "Version: %s"
-              (if (and version (not (string-empty-p version)))
-                  version
-                "unversioned"))))
-
-  (defun my/dashboard-insert-version ()
-    "Insert the deployed org-seq version below the dashboard quote footer."
-    (insert "\n")
-    (dashboard-insert-center
-     ""
-     (propertize (my/dashboard--version-string)
-                 'face 'font-lock-comment-face)
-     "\n"))
 
   (my/dashboard--pick-quote)
   (setq dashboard-footer-icon
@@ -160,57 +236,10 @@
 
   ;; ---- Vertical centering ----
 
-  (defvar-local my/dashboard--content-lines nil
-    "Cached line count of dashboard content before padding.")
-
-  (defun my/dashboard-vertically-center ()
-    "Pad the top of the dashboard buffer to vertically center content."
-    (when-let ((buf (get-buffer dashboard-buffer-name)))
-      (with-current-buffer buf
-        (let ((inhibit-read-only t))
-          ;; Strip existing top padding
-          (goto-char (point-min))
-          (while (and (not (eobp)) (looking-at-p "^$"))
-            (delete-region (line-beginning-position)
-                           (min (1+ (line-end-position)) (point-max))))
-          ;; Strip trailing blank lines
-          (goto-char (point-max))
-          (while (and (> (point) (point-min))
-                      (progn (forward-line -1) (looking-at-p "^$")))
-            (delete-region (line-beginning-position)
-                           (min (1+ (line-end-position)) (point-max))))
-          ;; Cache the true content height
-          (setq my/dashboard--content-lines
-                (count-lines (point-min) (point-max)))
-          ;; Insert top padding
-          (let* ((win (or (get-buffer-window buf) (selected-window)))
-                 (win-height (window-body-height win))
-                 (pad (max 0 (/ (- win-height my/dashboard--content-lines) 2))))
-            (goto-char (point-min))
-            (insert (make-string pad ?\n))
-            (goto-char (point-min)))))))
-
   (add-hook 'dashboard-after-initialize-hook #'my/dashboard-vertically-center)
-
-  (defvar my/dashboard--resize-timer nil
-    "Debounce timer for dashboard resize centering.")
-
-  (defun my/dashboard-recenter-on-resize (&optional _frame)
-    "Re-center dashboard when window size changes (debounced)."
-    (when (and (get-buffer dashboard-buffer-name)
-               (get-buffer-window dashboard-buffer-name))
-      (when my/dashboard--resize-timer
-        (cancel-timer my/dashboard--resize-timer))
-      (setq my/dashboard--resize-timer
-            (run-with-idle-timer 0.1 nil #'my/dashboard-vertically-center))))
 
   (add-hook 'window-size-change-functions #'my/dashboard-recenter-on-resize)
 
-  (defun my/dashboard--kill-cleanup ()
-    "Cancel orphaned resize timer when the dashboard buffer is killed."
-    (when (timerp my/dashboard--resize-timer)
-      (cancel-timer my/dashboard--resize-timer)
-      (setq my/dashboard--resize-timer nil)))
 
   ;; Cancel orphaned resize timer when dashboard buffer is killed
   (add-hook 'dashboard-after-initialize-hook

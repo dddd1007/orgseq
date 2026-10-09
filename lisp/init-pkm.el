@@ -145,7 +145,7 @@
 
 (defun my/supertag--compat-directory ()
   "Return the installed org-supertag directory, or nil."
-  (when-let ((main (locate-library "org-supertag")))
+  (when-let* ((main (locate-library "org-supertag")))
     (file-name-directory main)))
 
 (defun my/supertag--supported-metadata-p (metadata)
@@ -251,7 +251,7 @@
   "Apply the governed org-supertag 5.8.1 Emacs 30 compatibility patch.
 Return `patched', `current', `missing', `unsupported', or `error'."
   (interactive)
-  (if-let ((directory (my/supertag--compat-directory)))
+  (if-let* ((directory (my/supertag--compat-directory)))
       (let* ((metadata (my/supertag--metadata directory))
              (states (my/supertag--classify-sources directory)))
         (cond
@@ -290,7 +290,7 @@ Return `patched', `current', `missing', `unsupported', or `error'."
 (defun my/supertag-rollback-compat-patches ()
   "Restore org-supertag sources from the governed compatibility backup."
   (interactive)
-  (if-let ((directory (my/supertag--compat-directory)))
+  (if-let* ((directory (my/supertag--compat-directory)))
       (let* ((metadata (my/supertag--metadata directory))
              (states (my/supertag--classify-sources directory))
              (backup-root (my/supertag--compat-backup-root)))

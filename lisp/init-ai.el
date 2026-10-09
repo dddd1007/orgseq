@@ -12,13 +12,28 @@
 (require 'seq)
 (require 'subr-x)
 
+;; gptel and org-roam are configured below through `use-package' and are not
+;; loaded when this module is compiled.  Declaring their variables and the
+;; accessors used here keeps compilation quiet without forcing an eager load.
+(defvar gptel-backend)
+(defvar gptel-directives)
+(defvar gptel-model)
+(defvar gptel-org-branching-context)
+
+(declare-function org-end-of-subtree "org" (&optional invisible-ok to-heading))
+(declare-function org-entry-properties "org" (&optional pom which))
+(declare-function org-roam-node-file "org-roam-node" (node))
+(declare-function org-roam-node-list "org-roam-node" ())
+(declare-function org-roam-node-tags "org-roam-node" (node))
+(declare-function org-roam-node-title "org-roam-node" (node))
+
 ;; ---- API key retrieval via auth-source ----
 ;; Store your key in ~/.authinfo (or ~/.authinfo.gpg for encryption):
 ;;   machine openrouter.ai login apikey password sk-or-XXXXX
 
 (defun my/gptel-api-key (host)
   "Retrieve API key for HOST from auth-source."
-  (if-let ((found (car (auth-source-search :host host :max 1))))
+  (if-let* ((found (car (auth-source-search :host host :max 1))))
       (let ((secret (plist-get found :secret)))
         (if (functionp secret) (funcall secret) secret))
     (user-error "No API key for %s. Add to ~/.authinfo: machine %s login apikey password YOUR-KEY"
@@ -146,7 +161,7 @@ Each backend in LIST is a plist with :name :type :host :endpoint :stream
   "Apply parsed .orgseq/ai-config.org settings to gptel.
 Returns non-nil on success.  On failure (missing file, parse error)
 returns nil so the caller can fall back to hardcoded defaults."
-  (when-let ((config (my/orgseq--parse-ai-config)))
+  (when-let* ((config (my/orgseq--parse-ai-config)))
     (let ((backends-cfg (plist-get config :backends))
           (default-name (plist-get config :default-backend))
           (default-model (plist-get config :default-model))

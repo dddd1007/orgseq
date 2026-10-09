@@ -16,9 +16,6 @@
 (declare-function my/org-roam-dailies--file-for-date "init-roam" (time))
 (declare-function my/org-roam-dailies-open-date "init-roam" (time))
 (declare-function my/supertag-schedule-sync "init-pkm" ())
-(declare-function my/daily-workspace-open "init-daily" ())
-(declare-function my/daily-workspace-open-date "init-daily" (time))
-(declare-function my/daily-workspace-choose-date "init-daily" ())
 (declare-function my/workspace-close-treemacs "init-workspace" ())
 
 (defcustom my/daily-sidebar-days 14
@@ -253,13 +250,13 @@
 (defun my/daily-sidebar-close ()
   "Close only the org-seq Daily sidebar in the selected frame."
   (interactive)
-  (when-let ((window (my/daily-sidebar-window)))
+  (when-let* ((window (my/daily-sidebar-window)))
     (delete-window window)))
 
 (defun my/daily-sidebar-open-at-point ()
   "Open the Daily date represented at point."
   (interactive)
-  (if-let ((time (get-text-property (point) 'my/daily-time)))
+  (if-let* ((time (get-text-property (point) 'my/daily-time)))
       (my/daily-workspace-open-date time)
     (user-error "No Daily date at point")))
 

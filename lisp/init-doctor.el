@@ -72,7 +72,7 @@ Each entry contains :id, :label, and :check keys.")
                            (plist-get result :status))
                           (plist-get result :label)))
           (insert (format "      %s\n" (plist-get result :detail)))
-          (when-let ((remedy (plist-get result :remedy)))
+          (when-let* ((remedy (plist-get result :remedy)))
             (insert (format "      Remedy: %s\n" remedy)))
           (insert "\n"))
         (goto-char (point-min))
@@ -97,7 +97,7 @@ Each entry contains :id, :label, and :check keys.")
                    (upcase (symbol-name (plist-get result :status)))
                    (plist-get result :elapsed)
                    (plist-get result :module)))
-          (when-let ((err (plist-get result :error)))
+          (when-let* ((err (plist-get result :error)))
             (insert (format "                    %s\n"
                             (error-message-string err)))))
         (goto-char (point-min))
@@ -247,7 +247,7 @@ REQUIRED makes a missing executable a failure instead of a warning."
 
 (defun my/doctor--check-ghostel-module ()
   "Check the on-disk Ghostel native module pair without loading it."
-  (if-let ((root (my/doctor--ghostel-resource-root)))
+  (if-let* ((root (my/doctor--ghostel-resource-root)))
       (let* ((configured
               (and (boundp 'ghostel-module-directory)
                    (stringp ghostel-module-directory)

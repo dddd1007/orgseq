@@ -41,7 +41,7 @@
           "rg --null --line-buffered --color=never --max-columns=1000 --path-separator / --smart-case --no-heading --with-filename --line-number --search-zip"))
   ;; Debian/Ubuntu package fd as `fdfind', while Homebrew/Arch/Fedora use `fd'.
   ;; Consult should follow whichever executable is actually present.
-  (when-let ((fd (or (executable-find "fd")
+  (when-let* ((fd (or (executable-find "fd")
                      (executable-find "fdfind"))))
     (setq consult-find-args
           (format "%s --color=never --full-path" (shell-quote-argument fd)))))

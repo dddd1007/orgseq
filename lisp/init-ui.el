@@ -45,12 +45,12 @@
 (defun my/setup-fonts ()
   "Configure mixed CJK/Latin fonts."
   (when (display-graphic-p)
-    (when-let ((latin (my/first-available-font my/latin-font-candidates)))
+    (when-let* ((latin (my/first-available-font my/latin-font-candidates)))
       (set-face-attribute 'default nil
                           :family latin
                           :height 130))
 
-    (when-let ((cjk (my/first-available-font my/cjk-font-candidates)))
+    (when-let* ((cjk (my/first-available-font my/cjk-font-candidates)))
       (dolist (charset '(kana han symbol cjk-misc bopomofo))
         (set-fontset-font t charset (font-spec :family cjk)))
       (setq face-font-rescale-alist
@@ -88,12 +88,12 @@
 (defun my/setup-variable-pitch-fonts ()
   "Configure `variable-pitch' face for prose and CJK variable-pitch."
   (when (display-graphic-p)
-    (when-let ((vp (my/first-available-font my/latin-vp-font-candidates)))
+    (when-let* ((vp (my/first-available-font my/latin-vp-font-candidates)))
       (set-face-attribute 'variable-pitch nil
                           :family vp
                           :height 1.0))
     ;; Map CJK charsets to a proportional CJK font for variable-pitch
-    (when-let ((cjk-vp (my/first-available-font my/cjk-vp-font-candidates)))
+    (when-let* ((cjk-vp (my/first-available-font my/cjk-vp-font-candidates)))
       (dolist (charset '(kana han cjk-misc bopomofo))
         (set-fontset-font t charset (font-spec :family cjk-vp) nil 'append))
       (message "org-seq: CJK variable-pitch → %s" cjk-vp))))
@@ -331,15 +331,79 @@
 ;; these properties from table rows, then re-run valign on the table.
 ;; This preserves org-indent's indentation for non-table content.
 ;; See: https://github.com/casouri/valign/issues/31
+(defun my/valign-refresh-window (&optional window)
+  "Re-align valign tables after margin changes in WINDOW."
+  (let ((window (or window (selected-window))))
+    (with-current-buffer (window-buffer window)
+      (when (bound-and-true-p valign-mode)
+        (valign-reset-buffer)))))
+
+(defvar my/valign--dirty-tables nil
+  "List of (buffer . position) pairs marking tables needing re-alignment.")
+
+(defvar my/valign--idle-timer nil
+  "Idle timer for deferred table re-alignment.")
+
+(defvar-local my/valign--stripping nil
+  "Non-nil while `my/org-unindent-tables-for-valign' is running.
+Prevents re-entrancy from jit-lock re-triggering org-indent-refresh.")
+
+(defun my/valign--flush-dirty-tables ()
+  "Re-align all tables that had their line-prefix stripped.
+Called from an idle timer to batch work outside the jit-lock cycle."
+  (setq my/valign--idle-timer nil)
+  (let ((work my/valign--dirty-tables))
+    (setq my/valign--dirty-tables nil)
+    (dolist (entry work)
+      (let ((buf (car entry))
+            (pos (cdr entry)))
+        (when (buffer-live-p buf)
+          (with-current-buffer buf
+            (when (bound-and-true-p valign-mode)
+              (save-excursion
+                (goto-char pos)
+                (when (org-at-table-p)
+                  (condition-case nil
+                      (valign-table)
+                    (error nil)))))))))))
+
+(defun my/org-unindent-tables-for-valign (beg end &optional _)
+  "Remove `line-prefix'/`wrap-prefix' from org table rows in BEG..END.
+Only strips properties; actual re-alignment is deferred to an idle
+timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
+  (when (and (derived-mode-p 'org-mode)
+             (not my/valign--stripping))
+    (let ((my/valign--stripping t))
+      (save-excursion
+        (goto-char beg)
+        (beginning-of-line)
+        (while (< (point) end)
+          (if (org-at-table-p)
+              (let ((tbeg (point)))
+                (while (and (not (eobp)) (org-at-table-p))
+                  (with-silent-modifications
+                    (remove-text-properties
+                     (line-beginning-position)
+                     (line-beginning-position 2)
+                     '(line-prefix nil wrap-prefix nil)))
+                  (forward-line 1))
+                ;; Record table start for deferred re-alignment
+                (push (cons (current-buffer) tbeg)
+                      my/valign--dirty-tables))
+            (forward-line 1)))))
+    ;; Schedule a single idle callback for all dirty tables
+    (when (and my/valign--dirty-tables
+               (not my/valign--idle-timer))
+      (setq my/valign--idle-timer
+            (run-with-idle-timer 0.2 nil
+                                 #'my/valign--flush-dirty-tables)))))
+
+(declare-function valign-reset-buffer "valign" ())
+(declare-function valign-table "valign" ())
+
 (use-package valign
   :hook (org-mode . valign-mode)
   :config
-  (defun my/valign-refresh-window (&optional window)
-    "Re-align valign tables after margin changes in WINDOW."
-    (let ((window (or window (selected-window))))
-      (with-current-buffer (window-buffer window)
-        (when (bound-and-true-p valign-mode)
-          (valign-reset-buffer)))))
 
   ;; --- org-indent workaround: strip line-prefix from table rows ---
   ;; org-indent-mode adds line-prefix/wrap-prefix to every line, which
@@ -347,65 +411,6 @@
   ;; rows and schedule a single idle re-align to avoid re-entrancy
   ;; (advice → valign → jit-lock → advice → ...).
 
-  (defvar my/valign--dirty-tables nil
-    "List of (buffer . position) pairs marking tables needing re-alignment.")
-
-  (defvar my/valign--idle-timer nil
-    "Idle timer for deferred table re-alignment.")
-
-  (defvar-local my/valign--stripping nil
-    "Non-nil while `my/org-unindent-tables-for-valign' is running.
-Prevents re-entrancy from jit-lock re-triggering org-indent-refresh.")
-
-  (defun my/valign--flush-dirty-tables ()
-    "Re-align all tables that had their line-prefix stripped.
-Called from an idle timer to batch work outside the jit-lock cycle."
-    (setq my/valign--idle-timer nil)
-    (let ((work my/valign--dirty-tables))
-      (setq my/valign--dirty-tables nil)
-      (dolist (entry work)
-        (let ((buf (car entry))
-              (pos (cdr entry)))
-          (when (buffer-live-p buf)
-            (with-current-buffer buf
-              (when (bound-and-true-p valign-mode)
-                (save-excursion
-                  (goto-char pos)
-                  (when (org-at-table-p)
-                    (condition-case nil
-                        (valign-table)
-                      (error nil)))))))))))
-
-  (defun my/org-unindent-tables-for-valign (beg end &optional _)
-    "Remove `line-prefix'/`wrap-prefix' from org table rows in BEG..END.
-Only strips properties; actual re-alignment is deferred to an idle
-timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
-    (when (and (derived-mode-p 'org-mode)
-               (not my/valign--stripping))
-      (let ((my/valign--stripping t))
-        (save-excursion
-          (goto-char beg)
-          (beginning-of-line)
-          (while (< (point) end)
-            (if (org-at-table-p)
-                (let ((tbeg (point)))
-                  (while (and (not (eobp)) (org-at-table-p))
-                    (with-silent-modifications
-                      (remove-text-properties
-                       (line-beginning-position)
-                       (line-beginning-position 2)
-                       '(line-prefix nil wrap-prefix nil)))
-                    (forward-line 1))
-                  ;; Record table start for deferred re-alignment
-                  (push (cons (current-buffer) tbeg)
-                        my/valign--dirty-tables))
-              (forward-line 1)))))
-      ;; Schedule a single idle callback for all dirty tables
-      (when (and my/valign--dirty-tables
-                 (not my/valign--idle-timer))
-        (setq my/valign--idle-timer
-              (run-with-idle-timer 0.2 nil
-                                   #'my/valign--flush-dirty-tables)))))
 
   ;; After org-indent refreshes a region, strip table-row prefixes
   (advice-add 'org-indent-refresh-maybe :after
@@ -467,6 +472,14 @@ timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
 ;; `:if' keeps the whole form (including the :init global-diff-hl-mode) a
 ;; no-op on a clean checkout without diff-hl installed, so batch validation
 ;; does not trip on a void `global-diff-hl-mode'.
+;; diff-hl is optional; every call below is already guarded by
+;; `:if (locate-library "diff-hl")'.
+(declare-function diff-hl-flydiff-mode "diff-hl-flydiff" (&optional arg))
+(declare-function diff-hl-magit-post-refresh "diff-hl" ())
+(declare-function diff-hl-magit-pre-refresh "diff-hl" ())
+(declare-function diff-hl-margin-mode "diff-hl-margin" (&optional arg))
+(declare-function global-diff-hl-mode "diff-hl" (&optional arg))
+
 (use-package diff-hl
   :if (locate-library "diff-hl")
   :init
@@ -530,12 +543,18 @@ exclusion below; update both when a new tool buffer is introduced.")
         (with-current-buffer buffer
           (derived-mode-p 'special-mode 'dired-mode 'dashboard-mode)))))
 
+;; `tab-line' is built in; requiring it makes its variables and the default
+;; tab function visible to the byte compiler.
+(require 'tab-line)
+
 (defun my/ui-tab-line-filtered-tabs ()
   "Return this window's tab-line tabs with utility buffers removed.
-Wraps the default `tab-line-tabs-window' so the global tab set stays
-the buffer ring Emacs already maintains; we only hide members."
-  (let ((tabs (tab-line-tabs-window)))
-    (seq-remove #'my/ui-tab-line--excluded-buffer-p tabs)))
+Wraps `tab-line-tabs-fixed-window-buffers', the default value of
+`tab-line-tabs-function', so the global tab set stays the buffer ring
+Emacs already maintains and its stable ordering is preserved; we only
+hide members."
+  (seq-remove #'my/ui-tab-line--excluded-buffer-p
+              (tab-line-tabs-fixed-window-buffers)))
 
 (setq tab-line-new-button-show nil
       tab-line-tabs-function #'my/ui-tab-line-filtered-tabs)

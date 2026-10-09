@@ -41,6 +41,48 @@
 ;; org-roam provides the node/link/backlink data model and capture system.
 ;; Its expensive SQLite sync is offloaded to org-mem (see Section 2).
 
+;; ---- Doom-derived advice helpers ----
+;;
+;; Plain top-level defuns rather than `define-advice' forms nested inside
+;; `with-eval-after-load'.  A nested definition is invisible to the byte
+;; compiler, which then cannot check the `advice-add' call sites below, and
+;; the generated advice name is awkward to remove by hand.
+(declare-function evil-insert-state-p "evil-states" (&optional state))
+(declare-function org-roam-backlinks-section "org-roam-mode" (node))
+(declare-function org-roam-db-query "org-roam-db" (sql &rest args))
+(declare-function org-roam-node--format-entry "org-roam-node"
+                  (template node &optional width))
+(declare-function org-roam-reflinks-section "org-roam-mode" (node))
+
+(defun my/roam--evil-insert-position (fn &rest args)
+  "Around advice for `org-roam-node-insert', calling FN with ARGS.
+Insert the link after surrounding whitespace or at end of line while evil
+is in normal state, which is where a user expects the link to land."
+  (if (and (bound-and-true-p evil-local-mode)
+           (not (evil-insert-state-p))
+           (or (looking-at-p "[[:blank:]]")
+               (eolp)))
+      (evil-with-state 'insert
+        (unless (eolp) (forward-char))
+        (when (eolp) (insert " "))
+        (apply fn args))
+    (apply fn args)))
+
+(defun my/roam--vertico-candidate-width (fn &rest args)
+  "Around advice for `org-roam-node-read--to-candidate' (FN with ARGS).
+Correct the completion candidate width under vertico.
+See URL `https://github.com/org-roam/org-roam/issues/2066'."
+  (cl-letf* ((orig-format (symbol-function 'org-roam-node--format-entry))
+             ((symbol-function 'org-roam-node--format-entry)
+              (lambda (template node &optional width)
+                (funcall orig-format template node
+                         (if (bound-and-true-p vertico-mode)
+                             (if (minibufferp)
+                                 (window-width)
+                               (1- (frame-width)))
+                           width)))))
+    (apply fn args)))
+
 ;; NOTE(startup): Warm org-roam after the first frame so graph commands and
 ;; background accelerators reach a predictable ready state.
 (use-package org-roam
@@ -142,17 +184,8 @@
   ;;   1. org-roam-node-insert places links *before* whitespace in normal mode
   ;;   2. magit-section-mode-map overrides Evil keys in org-roam buffer
   (with-eval-after-load 'evil
-    (define-advice org-roam-node-insert (:around (fn &rest args) my/evil-fix-insert-position)
-      "Insert link after whitespace/EOL in evil normal mode."
-      (if (and (bound-and-true-p evil-local-mode)
-               (not (evil-insert-state-p))
-               (or (looking-at-p "[[:blank:]]")
-                   (eolp)))
-          (evil-with-state 'insert
-            (unless (eolp) (forward-char))
-            (when (eolp) (insert " "))
-            (apply fn args))
-        (apply fn args)))
+    (advice-add 'org-roam-node-insert :around
+                #'my/roam--evil-insert-position)
 
     (add-hook 'org-roam-mode-hook
               (lambda () (set-keymap-parent org-roam-mode-map nil))))
@@ -160,18 +193,8 @@
   ;; Doom fix: org-roam-node-read candidate width is wrong with vertico.
   ;; See org-roam/org-roam#2066.
   (with-eval-after-load 'vertico
-    (define-advice org-roam-node-read--to-candidate (:around (fn &rest args) my/fix-vertico-width)
-      "Fix completion candidate width for vertico."
-      (cl-letf* ((orig-format (symbol-function 'org-roam-node--format-entry))
-                 ((symbol-function 'org-roam-node--format-entry)
-                  (lambda (template node &optional width)
-                    (funcall orig-format template node
-                             (if (bound-and-true-p vertico-mode)
-                                 (if (minibufferp)
-                                     (window-width)
-                                   (1- (frame-width)))
-                               width)))))
-        (apply fn args)))))
+    (advice-add 'org-roam-node-read--to-candidate :around
+                #'my/roam--vertico-candidate-width)))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: org-node + org-mem — high-performance indexing layer

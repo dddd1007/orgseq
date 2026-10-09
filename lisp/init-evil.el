@@ -3,12 +3,30 @@
 ;; Requires: init-keymap (leader prefix and critical binding contract)
 (declare-function my/keymap-apply-general-contract "init-keymap" ())
 
+;; Keymaps belonging to modes that are loaded lazily.  Every use below is
+;; already inside `with-eval-after-load', so these only tell the byte
+;; compiler that the symbols are dynamic variables rather than typos.
+(defvar Info-mode-map)
+(defvar bookmark-bmenu-mode-map)
+(defvar calc-mode-map)
+(defvar ibuffer-mode-map)
+(defvar org-agenda-mode-map)
+(defvar reb-mode-map)
+
+;; Commands from packages that are optional (`:if (locate-library ...)') or
+;; loaded on demand.
+(declare-function evil-global-set-key "evil-core" (state key def))
+(declare-function evil-multiedit-default-keybinds "evil-multiedit" ())
+(declare-function general-def "general" (&rest args))
+(declare-function global-evil-surround-mode "evil-surround" (&optional arg))
+(declare-function org-agenda-clock-goto "org-agenda" ())
+
 ;; ---- Utility functions for leader keys ----
 
 (defun my/copy-file-path ()
   "Copy the current buffer's file path to the kill ring."
   (interactive)
-  (if-let ((path (buffer-file-name)))
+  (if-let* ((path (buffer-file-name)))
       (progn (kill-new path) (message "Copied: %s" path))
     (message "Buffer has no file")))
 
@@ -22,7 +40,7 @@
 (defun my/switch-to-dashboard ()
   "Switch to the *dashboard* buffer, or refresh if absent."
   (interactive)
-  (if-let ((buf (get-buffer "*dashboard*")))
+  (if-let* ((buf (get-buffer "*dashboard*")))
       (switch-to-buffer buf)
     (if (fboundp 'dashboard-open)
         (dashboard-open)
@@ -103,17 +121,34 @@
   (vundo-glyph-alist vundo-unicode-symbols))
 
 ;; ---- general.el: leader key framework ----
+;;
+;; `general-create-definer' would normally build this wrapper, but it expands
+;; to a `defmacro' and the expansion has to happen where the byte compiler can
+;; see it.  Creating the definer inside `use-package''s :config defines the
+;; macro at load time, which is too late: the compiler then treats every
+;; `my/leader-keys' call below as a function call, and the compiled module
+;; aborts its whole :config block at startup with "Invalid function:
+;; my/leader-keys", silently dropping every leader binding.  Defining the
+;; wrapper here keeps the compiled file equivalent to the interpreted one.
+;; The expansion is the same one `general-create-definer' produces: caller
+;; arguments first, module defaults last, so a call site can still override
+;; any default.
+(defmacro my/leader-keys (&rest args)
+  "Bind ARGS under the org-seq SPC leader with `general-def'.
+Defaults to the normal, visual, and emacs states in the override keymap,
+with SPC as the prefix and M-SPC as the global prefix."
+  (declare (indent defun))
+  `(general-def
+     ,@args
+     :states '(normal visual emacs)
+     :keymaps 'override
+     :prefix "SPC"
+     :global-prefix "M-SPC"))
+
 (use-package general
   :demand t
   :config
   (general-evil-setup t)
-
-  ;; Primary leader: SPC (normal/visual/emacs), M-SPC (insert)
-  (general-create-definer my/leader-keys
-    :states '(normal visual emacs)
-    :keymaps 'override
-    :prefix "SPC"
-    :global-prefix "M-SPC")
 
   ;; ═══════════════════════════════════════════════════════════════
   ;; SPC leader key system

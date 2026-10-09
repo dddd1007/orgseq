@@ -1,6 +1,8 @@
 ;;; test-org-focus-timer.el --- Tests for org-focus-timer -*- lexical-binding: t; -*-
 
 (require 'ert)
+
+(declare-function org-focus-dashboard-start "org-focus-timer" ())
 (require 'cl-lib)
 
 (defconst org-focus-test--directory

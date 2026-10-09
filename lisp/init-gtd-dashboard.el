@@ -98,7 +98,7 @@
 (defun my/gtd-dashboard-activate ()
   "Open the GTD view for the current dashboard row."
   (interactive)
-  (when-let ((action (get-text-property (point) 'gtd-action)))
+  (when-let* ((action (get-text-property (point) 'gtd-action)))
     (when (overlayp my/gtd-dashboard--active-ov)
       (delete-overlay my/gtd-dashboard--active-ov))
     (setq my/gtd-dashboard--active-ov
@@ -119,7 +119,7 @@
 
 (defun my/gtd--show-buffer (buffer)
   "Display BUFFER without flattening the current frame layout."
-  (if-let ((window (get-buffer-window buffer nil)))
+  (if-let* ((window (get-buffer-window buffer nil)))
       (progn
         (select-window window)
         window)
@@ -235,7 +235,7 @@ Uses org-ql for efficient querying across agenda files."
                      (start (point))
                      (action (let ((m mark))
                                 (lambda ()
-                                  (if-let ((source-buffer (marker-buffer m)))
+                                  (if-let* ((source-buffer (marker-buffer m)))
                                       (progn
                                         (switch-to-buffer source-buffer)
                                         (widen)

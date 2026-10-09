@@ -212,7 +212,7 @@ A float means a fraction of the selected frame height; an integer means rows."
 
 (defun my/yazi--window ()
   "Return the visible yazi window, or nil."
-  (when-let ((buffer (my/yazi--buffer)))
+  (when-let* ((buffer (my/yazi--buffer)))
     (get-buffer-window buffer nil)))
 
 (defun my/yazi--working-directory (&optional directory)
@@ -254,7 +254,7 @@ A float means a fraction of the selected frame height; an integer means rows."
 
 (defun my/yazi--apply-cwd (cwd-file source-buffer)
   "Apply yazi's CWD-FILE to SOURCE-BUFFER when possible."
-  (when-let ((cwd (my/yazi--read-path-file cwd-file)))
+  (when-let* ((cwd (my/yazi--read-path-file cwd-file)))
     (when (file-directory-p cwd)
       (let ((dir (file-name-as-directory (file-truename cwd))))
         (when (buffer-live-p source-buffer)
@@ -314,9 +314,9 @@ DISPLAY-KIND is either `popup' or `window'."
   "Toggle yazi in a bottom popup.
 With prefix argument NOTEHQ, start from `my/note-home' instead of context."
   (interactive "P")
-  (if-let ((window (and (not notehq) (my/yazi--window))))
+  (if-let* ((window (and (not notehq) (my/yazi--window))))
       (delete-window window)
-    (if-let ((buffer (my/yazi--buffer)))
+    (if-let* ((buffer (my/yazi--buffer)))
         (my/cli-popup-display-buffer buffer my/yazi-popup-height)
       (my/yazi--start (when notehq my/note-home) 'popup))))
 

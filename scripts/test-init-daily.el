@@ -123,7 +123,7 @@
           (search-forward "Today")
           (should (get-text-property (1- (point)) 'my/daily-time))
           (should-not (file-exists-p (expand-file-name "daily" root))))
-      (when-let ((buffer (get-buffer my/daily-sidebar-buffer-name)))
+      (when-let* ((buffer (get-buffer my/daily-sidebar-buffer-name)))
         (kill-buffer buffer))
       (delete-directory root t))))
 
@@ -138,7 +138,7 @@
             (should (window-live-p first))
             (should (eq first second))
             (should (window-parameter first 'my/daily-sidebar))))
-      (when-let ((buffer (get-buffer my/daily-sidebar-buffer-name)))
+      (when-let* ((buffer (get-buffer my/daily-sidebar-buffer-name)))
         (kill-buffer buffer))
       (delete-directory root t))))
 
@@ -171,7 +171,7 @@
             (my/daily-workspace-open-date time))
           (with-current-buffer (find-buffer-visiting file)
             (should (= (how-many "^\\* " (point-min) (point-max)) 1))))
-      (when-let ((buffer (find-buffer-visiting file))) (kill-buffer buffer))
+      (when-let* ((buffer (find-buffer-visiting file))) (kill-buffer buffer))
       (delete-directory root t))))
 
 (ert-deftest my/daily-workspace-missing-date-creates-first-node ()
@@ -190,7 +190,7 @@
           (with-current-buffer (find-buffer-visiting file)
             (should (= (how-many "^\\* " (point-min) (point-max)) 1))
             (should (org-entry-get nil "ID"))))
-      (when-let ((buffer (find-buffer-visiting file))) (kill-buffer buffer))
+      (when-let* ((buffer (find-buffer-visiting file))) (kill-buffer buffer))
       (delete-directory root t))))
 
 ;;; test-init-daily.el ends here

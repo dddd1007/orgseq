@@ -82,7 +82,7 @@ A float means a fraction of the selected frame height; an integer means rows."
 
 (defun my/cli-popup--window (buffer-name)
   "Return the visible CLI popup window for BUFFER-NAME, or nil."
-  (when-let ((buffer (get-buffer (my/cli-popup--buffer-name buffer-name))))
+  (when-let* ((buffer (get-buffer (my/cli-popup--buffer-name buffer-name))))
     (get-buffer-window buffer nil)))
 
 (defun my/cli-popup--directory (&optional directory)
@@ -111,14 +111,14 @@ DISPLAY-KIND is either `window' or `popup'."
 
 (defun my/cli-popup-kill (buffer-name)
   "Kill the Ghostel session BUFFER-NAME without a process confirmation."
-  (when-let ((buffer (get-buffer (my/cli-popup--buffer-name buffer-name))))
+  (when-let* ((buffer (get-buffer (my/cli-popup--buffer-name buffer-name))))
     (with-current-buffer buffer
       (setq-local ghostel-query-before-killing nil))
     (kill-buffer buffer)))
 
 (defun my/cli-popup--live-buffer (buffer-name)
   "Return the live Ghostel session for BUFFER-NAME, or nil."
-  (when-let ((buffer (get-buffer (my/cli-popup--buffer-name buffer-name))))
+  (when-let* ((buffer (get-buffer (my/cli-popup--buffer-name buffer-name))))
     (with-current-buffer buffer
       (and (derived-mode-p 'ghostel-mode) buffer))))
 
@@ -132,11 +132,11 @@ SETUP-FUNCTION, when non-nil, receives the initialized buffer before spawn."
   (require 'ghostel)
   (when restart
     (my/cli-popup-kill buffer-name))
-  (if-let ((buffer (my/cli-popup--live-buffer buffer-name)))
+  (if-let* ((buffer (my/cli-popup--live-buffer buffer-name)))
       (progn
         (my/cli-popup--show-buffer buffer height display-kind)
         buffer)
-    (when-let ((stale (get-buffer (my/cli-popup--buffer-name buffer-name))))
+    (when-let* ((stale (get-buffer (my/cli-popup--buffer-name buffer-name))))
       (kill-buffer stale))
     (let* ((target-dir (my/cli-popup--directory directory))
            (resolved-command (my/cli-popup--resolve-command command))
@@ -165,7 +165,7 @@ SETUP-FUNCTION, when non-nil, receives the initialized buffer before spawn."
 (defun my/cli-popup-toggle
     (buffer-name command &optional arguments directory height restart)
   "Toggle BUFFER-NAME running COMMAND with ARGUMENTS in a bottom popup."
-  (if-let ((window (and (not restart)
+  (if-let* ((window (and (not restart)
                         (my/cli-popup--window buffer-name))))
       (delete-window window)
     (my/cli-popup-open buffer-name command arguments directory height restart)))

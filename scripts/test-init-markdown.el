@@ -26,11 +26,11 @@
            (write-region "# Note\n" nil md-file nil 'silent)
            (write-region "original\n" nil org-file nil 'silent)
            ,@body)
-       (when-let ((buffer (find-buffer-visiting md-file)))
+       (when-let* ((buffer (find-buffer-visiting md-file)))
          (with-current-buffer buffer
            (set-buffer-modified-p nil))
          (kill-buffer buffer))
-       (when-let ((buffer (find-buffer-visiting org-file)))
+       (when-let* ((buffer (find-buffer-visiting org-file)))
          (with-current-buffer buffer
            (set-buffer-modified-p nil))
          (kill-buffer buffer))

@@ -9,6 +9,10 @@
 ;; PKM graph and backlinks are Org-only.  This module is for editing
 ;; .md files that may be shared with Obsidian or other Markdown tools.
 
+(declare-function my/centered-compute-width "init-ui"
+                  (min-w max-w scale &optional window))
+(declare-function my/centered-apply-face-remaps "init-ui" ())
+
 (defvar markdown-live-preview-mode)
 (defvar markdown-live-preview-buffer)
 (defvar markdown-live-preview-source-buffer)
