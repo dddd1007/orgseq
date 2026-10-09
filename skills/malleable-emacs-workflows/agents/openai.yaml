@@ -1,0 +1,4 @@
+interface:
+  display_name: "Malleable Emacs Workflows"
+  short_description: "Compose small, safe Emacs workflow tools"
+  default_prompt: "Use $malleable-emacs-workflows to turn this repeated task into a bounded org-seq workflow."

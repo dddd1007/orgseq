@@ -21,7 +21,7 @@ manager, macro layer, profile loader, popup DSL, or module runtime is included.
 ## Design-Only Inspiration
 
 The following work is independently implemented for org-seq. No source code
-from these entries was copied during the 2026-07-13 optimization.
+from these entries was copied into the repository.
 
 | Upstream | License | design-only ideas reimplemented locally |
 |---|---|---|
@@ -29,6 +29,7 @@ from these entries was copied during the 2026-07-13 optimization.
 | [Spacemacs](https://github.com/syl20bnr/spacemacs) | GPL-3.0 | Mnemonic leader namespaces, discoverable command groups, and consistent local-leader concepts. No GPL implementation code was copied. |
 | [LazyVim](https://github.com/LazyVim/LazyVim) | Apache-2.0 | Data-first metadata, explicit ownership, conditional activation, and documented override precedence. No Lua was translated line by line. |
 | [GNU Emacs](https://www.gnu.org/software/emacs/manual/) | GPL-3.0-or-later | Built-in `use-package`, `display-buffer-alist`, ERT, byte compilation, and batch startup mechanisms are used through their public interfaces. |
+| [Charles Choi, "Malleable Computing, Emacs, and You"](https://yummymelon.com/devnull/malleable-computing-emacs-and-you.html) and [fj](https://github.com/kickingvegas/fj) | Article copyright; fj GPL-3.0 | Bounded requirements and non-goals, CLI-backed composition, live prototyping, asymmetric integration, and build-for-one versus build-for-N scope. No article text or fj source code was copied. |
 
 ## External Packages
 
