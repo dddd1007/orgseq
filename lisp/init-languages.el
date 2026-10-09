@@ -87,7 +87,7 @@
 ;; Python: built-in python.el + eglot + pyright (via pip/npm)
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
-;; Emacs 29+ ships `python.el' and `eglot' in-tree.  We only need to point
+;; Emacs 30+ ships `python.el' and `eglot' in-tree.  We only need to point
 ;; eglot at a language server; pyright is the recommended choice (fast,
 ;; type-aware).  Install once: `pip install pyright' or `npm i -g pyright'.
 ;; Falls back to pylsp if pyright isn't on PATH.

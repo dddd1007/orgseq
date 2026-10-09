@@ -5,8 +5,9 @@
 ;; Everything in this module is gated on running Emacs in a TTY.  The goal
 ;; is for a `emacs -nw' (or `emacsclient -t') session to match the desktop
 ;; experience as closely as possible: mouse works, clipboard integrates
-;; with the host OS, corfu popups appear in-buffer instead of silently
-;; failing, and window separators use a solid box-drawing glyph.
+;; with the host OS, Corfu uses native child frames on Emacs 31 (with
+;; corfu-terminal as a fallback on older builds), and window separators use a
+;; solid box-drawing glyph.
 ;;
 ;; All dependencies are :ensure t via `use-package-always-ensure' (set in
 ;; init.el), so first boot in a terminal downloads them on demand; GUI
@@ -19,9 +20,10 @@
       (setq mouse-wheel-scroll-amount '(1 ((shift) . 1))
             mouse-wheel-progressive-speed nil)
       (set-display-table-slot standard-display-table 'vertical-border ?│)
-      (require 'corfu-terminal nil t)
-      (when (fboundp 'corfu-terminal-mode)
-        (corfu-terminal-mode 1))
+      (unless (featurep 'tty-child-frames)
+        (require 'corfu-terminal nil t)
+        (when (fboundp 'corfu-terminal-mode)
+          (corfu-terminal-mode 1)))
       (require 'clipetty nil t)
       (when (fboundp 'global-clipetty-mode)
         (global-clipetty-mode 1)))))

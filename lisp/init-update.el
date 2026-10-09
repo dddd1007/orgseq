@@ -195,7 +195,7 @@ when the pre-update package snapshot cannot be created."
         (package-refresh-contents)
       (error (push (format "archive refresh: %s" err) errors)))
 
-    ;; 2. Upgrade ELPA packages (Emacs 29+)
+    ;; 2. Upgrade ELPA packages (Emacs 30+)
     (condition-case err
         (let ((before (copy-sequence package-alist)))
           (package-upgrade-all)
@@ -210,7 +210,7 @@ when the pre-update package snapshot cannot be created."
                  package-alist)))
       (error (push (format "ELPA upgrade: %s" err) errors)))
 
-    ;; 3. Upgrade vc-installed packages (Emacs 29+)
+    ;; 3. Upgrade vc-installed packages (Emacs 30+)
     (condition-case err
         (progn
           (package-vc-upgrade-all)

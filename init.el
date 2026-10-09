@@ -64,7 +64,7 @@
 (unless package-archive-contents
   (my/package-refresh-contents-maybe))
 
-;; ---- use-package (Emacs 29+ built-in) ----
+;; ---- use-package (built in for the supported Emacs 30+ baseline) ----
 (require 'use-package)
 (defun my/use-package-ensure-or-warn (name ensure state)
   "Install NAME for `use-package' or warn when ENSURE is skipped.

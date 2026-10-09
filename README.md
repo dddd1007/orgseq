@@ -7,6 +7,8 @@ Primary target: **Windows, Linux, and macOS**.
 ## Prerequisites
 
 - **Emacs 30+** (required for built-in SQLite, use-package, and which-key)
+  - Emacs 31.1 is supported; see [doc/EMACS_31.md](doc/EMACS_31.md) for the
+    compatibility and package follow-up audit.
   - Windows: official GNU build from https://ftp.gnu.org/gnu/emacs/windows/ (native-comp is optional)
   - Verify: `M-: (sqlite-available-p)` must return `t`
 - **ripgrep** (`rg`): recommended for consult-ripgrep
@@ -491,7 +493,7 @@ guarded module list below.
 | 25 | `init-frame.el` | Adaptive GUI frame sizing and centering per monitor |
 | 26 | `init-workspace.el` | Daily-first startup plus Treemacs/imenu-list workspace transitions |
 | 27 | `init-update.el` | Periodic silent package auto-update (ELPA + vc, every 7 days) with pre-update snapshots |
-| 28 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, corfu-terminal, divider glyphs |
+| 28 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, native Emacs 31 Corfu child frames with fallback, divider glyphs |
 | 29 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
 
 `init-packages.el` is the single source inventory for Git-hosted packages,

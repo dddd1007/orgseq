@@ -188,7 +188,7 @@ Each entry is (ID LABEL COMMAND); COMMAND runs at CLICK's position."
 (setq dnd-indicate-insertion-point t
       dnd-scroll-margin 2)
 
-;; Dired can drag files out to other programs (Emacs 29+).
+;; Dired can drag files out to other programs (Emacs 30+).
 (setq dired-mouse-drag-files t)
 
 ;; Files dropped into org buffers ask: attach, insert link, or insert

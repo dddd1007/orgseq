@@ -91,7 +91,7 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 **验证 Emacs 版本和功能**（启动 Emacs 后按 `M-:` 输入）：
 
 ```elisp
-(emacs-version)                ;; 应 >= 29
+(emacs-version)                ;; 应 >= 30
 (sqlite-available-p)           ;; 应返回 t
 (native-comp-available-p)      ;; 建议 t（MSYS2 构建才有）
 ```

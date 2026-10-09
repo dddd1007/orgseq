@@ -301,9 +301,9 @@ the sidebar displays them alphabetically."
   ;; preamble, so dvisvgm produces genuinely transparent SVGs — no background
   ;; rectangle at all.  However, Emacs' librsvg renderer still paints a solid
   ;; background behind transparent SVGs (a known limitation on Windows with
-  ;; the bundled librsvg); there is no config-level fix for this as of Emacs
-  ;; 30.2.  The new org-latex-preview engine (expected in Org 9.8+) handles
-  ;; this correctly.  Until then, "Transparent" is the least-bad option: it
+  ;; the bundled librsvg).  Org 9.8 adds asynchronous link previews, but the
+  ;; standard LaTeX preview functions used here remain supported.  Therefore,
+  ;; "Transparent" is still the least-bad portable option: it
   ;; avoids baking a fixed color into the SVG (which would break on theme
   ;; switch) and produces barely-visible artifacts on light themes.
   (plist-put org-format-latex-options :scale 1.0)

@@ -103,7 +103,7 @@
   ;; line including permissions/size/date.  Dramatically fewer false
   ;; matches when hunting for a file by substring.
   (dired-isearch-filenames t)
-  ;; Emacs 29+: enable drag-and-drop of dired files out to other apps
+  ;; Emacs 30+: enable drag-and-drop of dired files out to other apps
   ;; (file manager, browser, email client, chat apps).  Works on
   ;; Windows when the Emacs build supports `x-begin-drag'.
   (dired-mouse-drag-files t)
