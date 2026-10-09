@@ -45,6 +45,14 @@ Primary target: **Windows, Linux, and macOS**.
   ```
 
   Strict mode fails on guarded module errors, keymap drift, or required doctor failures.
+  Add `-RequireNoWarnings` to also fail on byte-compilation warnings; the tree
+  is expected to compile warning-free on Emacs 30 and 31.
+
+  The runner compiles into a temporary directory, so a check never writes
+  bytecode into the working tree and two runs (for example one per Emacs
+  version) can share a checkout. It also byte-compiles a staged copy and runs
+  the startup, module, and keymap audits against that compiled copy, because
+  deployment byte-compiles the target and some defects only appear there.
 
 ## Quick Start
 

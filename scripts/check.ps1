@@ -15,7 +15,9 @@ param(
 
     [switch]$RequireAllModules,
 
-    [switch]$RequireDependencies
+    [switch]$RequireDependencies,
+
+    [switch]$RequireNoWarnings
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,6 +26,7 @@ $passed = [System.Collections.Generic.List[string]]::new()
 $failed = [System.Collections.Generic.List[string]]::new()
 $warnings = [System.Collections.Generic.List[string]]::new()
 $cleanedByteCode = 0
+$compileWarningCount = 0
 $validationRoot = $null
 
 function Find-OrgSeqEmacs {
@@ -140,12 +143,99 @@ function Add-CheckResult {
     }
 }
 
+function Get-OrgSeqElispFiles {
+    [CmdletBinding()]
+    param()
+
+    $files = [System.Collections.Generic.List[string]]::new()
+    Get-ChildItem -LiteralPath $RepoRoot -Filter '*.el' -File |
+        ForEach-Object { $files.Add($_.FullName) }
+    foreach ($directory in @('lisp', 'packages')) {
+        $path = Join-Path $RepoRoot $directory
+        if (Test-Path -LiteralPath $path -PathType Container) {
+            Get-ChildItem -LiteralPath $path -Filter '*.el' -File -Recurse -ErrorAction SilentlyContinue |
+                ForEach-Object { $files.Add($_.FullName) }
+        }
+    }
+    return $files.ToArray()
+}
+
+function Get-OrgSeqByteCode {
+    [CmdletBinding()]
+    param()
+
+    foreach ($source in Get-OrgSeqElispFiles) {
+        $compiled = "$source`c"
+        if (Test-Path -LiteralPath $compiled -PathType Leaf) {
+            Get-Item -LiteralPath $compiled
+        }
+    }
+}
+
+function Get-OrgSeqCompileWarning {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [pscustomobject]$Result
+    )
+
+    # Byte compilation succeeds (exit code 0) even when it emits warnings, so
+    # the runner has to read the output itself.  Only warnings attributed to a
+    # source file inside the repository are reported; warnings raised by
+    # third-party packages on the load path are not org-seq's to fix.
+    $comparison = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    $prefix = $RepoRoot.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    $lines = @($Result.StdErr, $Result.StdOut) |
+        Where-Object { $_ } |
+        ForEach-Object { $_ -split '\r?\n' }
+
+    foreach ($line in $lines) {
+        $match = [regex]::Match(
+            $line,
+            '^(?<path>.+?\.el):(?<position>\d+:\d+:)?\s+Warning:\s+(?<message>.+)$')
+        if (-not $match.Success) {
+            continue
+        }
+
+        $full = $null
+        try {
+            $full = [System.IO.Path]::GetFullPath($match.Groups['path'].Value)
+        }
+        catch {
+            continue
+        }
+        if (-not $full.StartsWith($prefix, $comparison)) {
+            continue
+        }
+
+        $relative = $full.Substring($prefix.Length).TrimStart(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        ) -replace '\\', '/'
+        $position = $match.Groups['position'].Value.TrimEnd(':')
+        if ($position) {
+            '{0}:{1}: {2}' -f $relative, $position, $match.Groups['message'].Value
+        }
+        else {
+            '{0}: {1}' -f $relative, $match.Groups['message'].Value
+        }
+    }
+}
+
 function Remove-OrgSeqByteCode {
     [CmdletBinding()]
     param()
 
     $removed = 0
-    $byteCode = Get-ChildItem -LiteralPath $RepoRoot -Filter '*.elc' -File -Recurse -ErrorAction SilentlyContinue
+    $byteCode = @(Get-OrgSeqByteCode)
     foreach ($file in $byteCode) {
         Remove-Item -LiteralPath $file.FullName -Force -ErrorAction SilentlyContinue
         if (-not (Test-Path -LiteralPath $file.FullName)) {
@@ -254,28 +344,7 @@ try {
         }
     }
 
-    if (-not $SkipCompile) {
-        $files = @(
-            (Join-Path $RepoRoot 'early-init.el'),
-            (Join-Path $RepoRoot 'init.el')
-        )
-        $files += Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'lisp') -Filter '*.el' -File |
-            ForEach-Object FullName
-        $files += Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'packages') -Filter '*.el' -File -Recurse -ErrorAction SilentlyContinue |
-            ForEach-Object FullName
-
-        $disableInstall = "(progn (require 'package) $packageUserDirSetup (package-initialize) (require 'use-package) (setq use-package-ensure-function #'ignore))"
-        $arguments = @('--batch', '-Q') + $loadArguments + @(
-            '--eval', $disableInstall,
-            '-f', 'batch-byte-compile'
-        ) + $files
-        $result = Invoke-OrgSeqNative -FilePath $emacs -Arguments $arguments -Environment $childEnvironment
-        Add-CheckResult -Name 'Full byte compilation' -Result $result
-        $cleanedByteCode += Remove-OrgSeqByteCode
-    }
-
-    if (-not $SkipStartup) {
-        $startupAudit = @'
+    $startupAudit = @'
 (progn
   (require 'json)
   (let* ((failed-modules
@@ -312,6 +381,166 @@ try {
         (keymap . ,keymap-issues)))))
     (princ "\nORG_SEQ_AUDIT_END\n")))
 '@
+
+    # An unbalanced form still byte-compiles into a truncated file, so check
+    # delimiter balance explicitly before anything else reads the sources.
+    $balanceProbe = @'
+(let ((unbalanced 0))
+  (dolist (file command-line-args-left)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (emacs-lisp-mode)
+      (condition-case err
+          (check-parens)
+        (error
+         (setq unbalanced (1+ unbalanced))
+         (princ (format "%s: %s\n" file (error-message-string err)))))))
+  (setq command-line-args-left nil)
+  (kill-emacs (if (> unbalanced 0) 1 0)))
+'@
+    $result = Invoke-OrgSeqNative -FilePath $emacs -Arguments (
+        @('--batch', '-Q', '--eval', $balanceProbe) + @(Get-OrgSeqElispFiles)
+    ) -Environment $childEnvironment
+    Add-CheckResult -Name 'Delimiter balance' -Result $result
+
+    if (-not $SkipCompile) {
+        $files = @(Get-OrgSeqElispFiles)
+
+        # `batch-byte-compile' writes each .elc next to its source.  Redirecting
+        # the output into the disposable validation root keeps a check run from
+        # mutating the working tree and lets two runs (for example Emacs 30 and
+        # Emacs 31) execute against the same checkout without racing.
+        $compileOutput = Join-Path $validationRoot 'bytecode'
+        $null = New-Item -ItemType Directory -Path $compileOutput -Force
+        $compileOutputForElisp = ($compileOutput -replace '\\', '/') + '/'
+        $redirectOutput =
+            '(setq byte-compile-dest-file-function (lambda (source) (expand-file-name (concat (file-name-nondirectory source) "c") "{0}")))' -f
+                $compileOutputForElisp
+
+        $disableInstall = "(progn (require 'package) $packageUserDirSetup (package-initialize) (require 'use-package) (setq use-package-ensure-function #'ignore))"
+        $arguments = @('--batch', '-Q') + $loadArguments + @(
+            '--eval', $disableInstall,
+            '--eval', $redirectOutput,
+            '-f', 'batch-byte-compile'
+        ) + $files
+        $result = Invoke-OrgSeqNative -FilePath $emacs -Arguments $arguments -Environment $childEnvironment
+        Add-CheckResult -Name 'Full byte compilation' -Result $result
+
+        $compileWarnings = @(Get-OrgSeqCompileWarning -Result $result)
+        $compileWarningCount = $compileWarnings.Count
+        if ($compileWarningCount -gt 0) {
+            if ($RequireNoWarnings) {
+                $failed.Add('Byte compilation warnings')
+            }
+            foreach ($compileWarning in $compileWarnings) {
+                $warnings.Add("Byte compilation: $compileWarning")
+            }
+        }
+        else {
+            $passed.Add('Byte compilation warnings')
+        }
+
+        $cleanedByteCode += Remove-OrgSeqByteCode
+
+        if (-not $SkipStartup) {
+            # Deployment byte-compiles the target, so the compiled tree is what
+            # users actually run.  Source-only auditing cannot see a module
+            # whose behavior differs once compiled -- a macro defined at load
+            # time, for example, compiles into a plain function call and takes
+            # its whole `use-package' :config block down at startup.  Stage a
+            # throwaway copy, compile it in place, and audit that.
+            $staged = Join-Path $validationRoot 'staged'
+            $null = New-Item -ItemType Directory -Path $staged -Force
+            foreach ($entry in @('early-init.el', 'init.el')) {
+                Copy-Item -LiteralPath (Join-Path $RepoRoot $entry) -Destination $staged -Force
+            }
+            foreach ($entry in @('lisp', 'packages')) {
+                $source = Join-Path $RepoRoot $entry
+                if (Test-Path -LiteralPath $source -PathType Container) {
+                    Copy-Item -LiteralPath $source -Destination $staged -Recurse -Force
+                }
+            }
+            Get-ChildItem -LiteralPath $staged -Filter '*.elc' -File -Recurse -ErrorAction SilentlyContinue |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+
+            $stagedFiles = @(
+                Get-ChildItem -LiteralPath $staged -Filter '*.el' -File |
+                    ForEach-Object { $_.FullName }
+                Get-ChildItem -LiteralPath (Join-Path $staged 'lisp') -Filter '*.el' -File -ErrorAction SilentlyContinue |
+                    ForEach-Object { $_.FullName }
+                Get-ChildItem -LiteralPath (Join-Path $staged 'packages') -Filter '*.el' -File -Recurse -ErrorAction SilentlyContinue |
+                    ForEach-Object { $_.FullName }
+            )
+            $stagedLoad = @('-L', $staged, '-L', (Join-Path $staged 'lisp'))
+            foreach ($directory in (Get-ChildItem -LiteralPath (Join-Path $staged 'packages') -Directory -ErrorAction SilentlyContinue)) {
+                $stagedLoad += @('-L', $directory.FullName)
+            }
+
+            $result = Invoke-OrgSeqNative -FilePath $emacs -Arguments (
+                @('--batch', '-Q') + $stagedLoad + @(
+                    '--eval', $disableInstall,
+                    '-f', 'batch-byte-compile'
+                ) + $stagedFiles
+            ) -Environment $childEnvironment
+            Add-CheckResult -Name 'Staged byte compilation' -Result $result
+
+            $stagedForElisp = ($staged -replace '\\', '/') + '/'
+            $arguments = @(
+                '--batch', '-Q',
+                '--eval', ('(setq user-emacs-directory "{0}")' -f $stagedForElisp)
+            )
+            if ($packageUserDirSetup) {
+                $arguments += @('--eval', $packageUserDirSetup)
+            }
+            $arguments += @(
+                '-l', (Join-Path $staged 'init.elc'),
+                '--eval', $startupAudit
+            )
+            $result = Invoke-OrgSeqNative -FilePath $emacs -Arguments $arguments -Environment $childEnvironment
+            if ($result.ExitCode -ne 0) {
+                Add-CheckResult -Name 'Compiled startup' -Result $result
+            }
+            else {
+                $passed.Add('Compiled startup')
+                $auditMatch = [regex]::Match(
+                    $result.StdOut,
+                    '(?s)ORG_SEQ_AUDIT_BEGIN\r?\n(?<json>.*?)\r?\nORG_SEQ_AUDIT_END')
+                if (-not $auditMatch.Success) {
+                    $failed.Add('Compiled startup audit')
+                    $warnings.Add('Compiled startup audit: markers were not found in Emacs stdout.')
+                }
+                else {
+                    $compiledAudit = $auditMatch.Groups['json'].Value |
+                        ConvertFrom-Json -AsHashtable -ErrorAction Stop
+                    $compiledModules = @($compiledAudit.modules | Where-Object { $_ })
+                    if ($compiledModules.Count -eq 0) {
+                        $passed.Add('Compiled module load audit')
+                    }
+                    else {
+                        $warnings.Add("Compiled module load audit: $($compiledModules -join ', ')")
+                        if ($RequireAllModules) {
+                            $failed.Add('Compiled module load audit')
+                        }
+                    }
+
+                    $compiledKeymap = @($compiledAudit.keymap | Where-Object { $_ })
+                    if ($compiledKeymap.Count -eq 0) {
+                        $passed.Add('Compiled keymap audit')
+                    }
+                    else {
+                        $compiledSummary = $compiledKeymap |
+                            ForEach-Object { '{0}:{1}' -f $_.key, $_.actual }
+                        $warnings.Add("Compiled keymap audit: $($compiledSummary -join ', ')")
+                        if ($RequireAllModules) {
+                            $failed.Add('Compiled keymap audit')
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (-not $SkipStartup) {
         $arguments = @(
             '--batch', '-Q',
             '--eval', ('(setq user-emacs-directory "{0}")' -f $repoForElisp)
@@ -403,7 +632,7 @@ finally {
     }
 }
 
-$remainingByteCode = Get-ChildItem -LiteralPath $RepoRoot -Filter '*.elc' -File -Recurse -ErrorAction SilentlyContinue
+$remainingByteCode = @(Get-OrgSeqByteCode)
 if ($remainingByteCode) {
     $failed.Add('Bytecode cleanup')
     $warnings.Add("Generated bytecode remains: $($remainingByteCode.Count) file(s)")
@@ -414,6 +643,7 @@ $summary = [pscustomobject]@{
     Failed = $failed.ToArray()
     Warnings = $warnings.ToArray()
     CleanedByteCode = $cleanedByteCode
+    CompileWarnings = $compileWarningCount
     EmacsPath = $emacs
     PackageUserDir = $resolvedPackageUserDir
 }

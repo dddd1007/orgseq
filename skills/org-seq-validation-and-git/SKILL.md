@@ -42,8 +42,16 @@ On Windows PowerShell, use the commands documented in `AGENTS.md`.
 ## Interpreting Output
 
 - `Cannot load PACKAGE` during `-Q` byte-compilation usually means the clean validation environment does not have a third-party package in `load-path`.
-- Still fix real warnings in files you touched when practical, especially free variables, unknown built-in functions, and duplicate function definitions.
-- Always remove generated `.elc` files. The repo does not commit bytecode.
+- The tree compiles warning-free against Emacs 30 and 31 when the packages are
+  installed. Treat any file-attributed warning as a regression to fix, not as
+  background noise: `scripts/check.ps1 -RequireNoWarnings` fails the run.
+- A definition placed inside a `use-package` `:config` body is invisible to the
+  byte compiler. That is not only a warning: a macro defined there compiles its
+  call sites into plain function calls, and the whole `:config` block then
+  aborts at startup. Keep `defun`, `defvar`, `defmacro`, and `define-advice`
+  at top level and leave only configuration inside `:config`.
+- Always remove generated `.elc` files. The repo does not commit bytecode;
+  `scripts/check.ps1` compiles into a temporary directory instead.
 
 ## Git Review Checklist
 
