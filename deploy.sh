@@ -220,19 +220,22 @@ verify_deployment() {
         while IFS= read -r d; do load_paths+=("-L" "$d"); done \
             < <(find "$pkg_dir" -mindepth 1 -maxdepth 1 -type d)
     fi
-    if [[ -d "$TARGET/elpa" ]]; then
-        while IFS= read -r d; do load_paths+=("-L" "$d"); done \
-            < <(find "$TARGET/elpa" -mindepth 1 -maxdepth 1 -type d ! -name archives)
-    fi
+    # Activate installed packages through package.el, which exposes only the
+    # newest version of each package; adding every elpa directory with -L
+    # would also load stale versions package.el could not delete.
+    local package_init="(progn (require 'package) (setq package-user-dir (expand-file-name \"elpa\" \"$TARGET\")) (package-initialize))"
 
     local output
     local status
     set +e
-    output="$(emacs --batch -Q "${load_paths[@]}" -f batch-byte-compile "${files[@]}" 2>&1)"
+    output="$(emacs --batch -Q "${load_paths[@]}" --eval "$package_init" -f batch-byte-compile "${files[@]}" 2>&1)"
     status=$?
     set -e
 
-    find "$TARGET" -name '*.elc' -delete 2>/dev/null || true
+    # Remove only the bytecode this check produced; a recursive sweep would
+    # also delete the compiled packages under elpa/.
+    local f
+    for f in "${files[@]}"; do rm -f "${f}c"; done
 
     if [[ "$status" -ne 0 ]]; then
         fail "Byte-compile check failed (exit code $status)"

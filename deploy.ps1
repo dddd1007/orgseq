@@ -491,11 +491,10 @@ function Test-Deployment {
         $pkgFiles = Get-ChildItem "$Target/packages" -Recurse -Filter "*.el" |
                     ForEach-Object { $_.FullName }
     }
-    if (Test-Path "$Target/elpa") {
-        $extraLoadPaths += Get-ChildItem "$Target/elpa" -Directory |
-                           Where-Object { $_.Name -notmatch '^archives$' } |
-                           ForEach-Object { $_.FullName }
-    }
+    # Installed packages come from `package-initialize' in the init file below,
+    # which activates only the newest version of each package.  Adding every
+    # elpa directory with -L would also expose stale versions that package.el
+    # could not delete (for example a native module locked during an upgrade).
     $allFiles = @("$Target/early-init.el", "$Target/init.el") + $elFiles + $pkgFiles
 
     $emacs = if ($script:EmacsExe) { $script:EmacsExe } else { Find-Emacs }
@@ -507,6 +506,7 @@ function Test-Deployment {
     $targetForElisp = $Target.Replace('\', '/')
     $packageInitFile = Join-Path $env:TEMP "org-seq-deploy-package-init.el"
     @"
+;;; -*- lexical-binding: t; -*-
 (setq user-emacs-directory "$targetForElisp/")
 (require 'package)
 (setq package-user-dir (expand-file-name "elpa" user-emacs-directory))
@@ -560,8 +560,15 @@ function Test-Deployment {
         }
     }
 
-    # Clean up .elc files from target (we only wanted the check)
-    Get-ChildItem $Target -Recurse -Filter "*.elc" | Remove-Item -Force -ErrorAction SilentlyContinue
+    # Remove only the bytecode this check produced.  A recursive sweep of the
+    # target would also delete the compiled packages under elpa/, leaving every
+    # package to load from source until compile-angel rebuilds it.
+    foreach ($source in $allFiles) {
+        $compiled = "${source}c"
+        if (Test-Path -LiteralPath $compiled) {
+            Remove-Item -LiteralPath $compiled -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 # ── Summary ──

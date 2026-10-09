@@ -47,6 +47,10 @@ Assert-True -Condition ($source -match 'function Resolve-SafeDeploymentTarget') 
     -Message 'deploy.ps1 must define Resolve-SafeDeploymentTarget.'
 Assert-True -Condition ($source.Contains('$MyInvocation.InvocationName -ne ''.''')) `
     -Message 'deploy.ps1 must be safe to dot-source for focused tests.'
+Assert-True -Condition ($source -notmatch 'Get-ChildItem \$Target -Recurse -Filter "\*\.elc"') `
+    -Message 'deploy.ps1 must not delete compiled packages under the target elpa directory.'
+Assert-True -Condition ($source -notmatch 'Get-ChildItem "\$Target/elpa" -Directory') `
+    -Message 'deploy.ps1 must not put every elpa directory, including stale versions, on load-path.'
 
 . $DeployScript
 
@@ -117,8 +121,12 @@ Assert-True -Condition ($bashSource -match '\$SCRIPT_DIR" == "\$resolved/"\*') `
     -Message 'deploy.sh must reject targets containing the source tree.'
 Assert-True -Condition ($bashSource -match 'return "\$status"') `
     -Message 'deploy.sh verification must propagate a nonzero compiler status.'
+Assert-True -Condition ($bashSource -notmatch 'find "\$TARGET" -name ''\*\.elc'' -delete') `
+    -Message 'deploy.sh must not delete compiled packages under the target elpa directory.'
+Assert-True -Condition ($bashSource -match 'package-initialize') `
+    -Message 'deploy.sh verification must activate packages through package.el.'
 
 [pscustomobject]@{
     Passed = $true
-    Checks = 19
+    Checks = 23
 }
