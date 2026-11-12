@@ -161,6 +161,23 @@ Closing words.
         (should-not (equal a (my/index--file))))
       (should (string-match-p "/\\.cache/index-[0-9a-f]+\\.db\\'" a)))))
 
+(ert-deftest my/index-sees-a-save-inside-the-trusted-interval ()
+  (my/test-index--with-library
+    (let ((my/index-sync-interval 3600)
+          (note (expand-file-name "a.org" my/roam-dir)))
+      (my/test-index--write note ":PROPERTIES:\n:ID: a-1\n:END:\n#+title: Before\n")
+      (should (equal (plist-get (my/index-node "a-1") :title) "Before"))
+      (with-current-buffer (find-file-noselect note)
+        (unwind-protect
+            (progn
+              (goto-char (point-max))
+              (insert "See [[id:b-1][B]].\n")
+              (let ((after-save-hook (list #'my/index-after-save)))
+                (save-buffer))
+              (should (equal (my/index-links) '(("a-1" "b-1")))))
+          (set-buffer-modified-p nil)
+          (kill-buffer))))))
+
 (ert-deftest my/index-follows-org-on-heading-and-link-edge-cases ()
   (with-temp-buffer
     (insert "#+title: Edge\n#+TODO: OPEN | SHUT\n"

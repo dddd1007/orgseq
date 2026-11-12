@@ -187,6 +187,7 @@ with SPC as the prefix and M-SPC as the global prefix."
     "TAB" '(evil-switch-to-windows-last-buffer :wk "Last buffer")
     "'"   '(my/terminal-popup-toggle :wk "Terminal popup")
     "j"   '(evil-avy-goto-char-timer :wk "Jump to char")
+    "k"   '(my/palette :wk "Command palette")
     ;; Doom-compatible aliases; they only fill keys org-seq leaves free.
     "."   '(find-file :wk "Find file")
     ","   '(consult-buffer :wk "Switch buffer")
@@ -364,6 +365,8 @@ with SPC as the prefix and M-SPC as the global prefix."
     "#x"  '(my/node-remove-type :wk "Remove type")
     "#f"  '(my/node-set-field :wk "Set field")
     "#e"  '(org-set-property :wk "Edit Org property")
+    "#F"  '(my/node-fields-edit :wk "Edit a field (panel)")
+    "#P"  '(my/node-fields-toggle :wk "Toggle field panel")
     "#p"  '(my/node-promote :wk "Promote to node")
     "#n"  '(my/node-capture :wk "New note of type")
     "#v"  '(my/node-view :wk "Type view")

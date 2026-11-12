@@ -36,6 +36,8 @@
 (require 'org)
 (require 'orgseq-index)
 
+(declare-function my/node--type-capture-template "init-nodes" (type))
+(declare-function my/note-capture "init-capture" (&optional title template fields no-visit))
 (declare-function evil-insert-state-p "evil-states" (&optional state))
 (declare-function my/node-read "init-nodes" (&optional prompt))
 (declare-function my/node-visit "init-nodes" (node &optional other-window))
@@ -54,10 +56,6 @@
 ;; Section 1: Wrappers and helpers
 ;; ---------------------------------------------------------------------------
 
-(defconst my/palette--capture-candidates '(my/note-capture my/node-capture)
-  "Functions tried in order to create a note; each takes (TYPE TITLE).
-TYPE is a type struct, or nil for a note without a type.")
-
 (defconst my/palette--visit-candidates '(my/note-visit my/node-visit)
   "Functions tried in order to visit a node record.")
 
@@ -69,15 +67,11 @@ TYPE is a type struct, or nil for a note without a type.")
   (cl-find-if #'fboundp candidates))
 
 (defun my/palette--capture (type title)
-  "Create a note of TYPE (a type struct or nil) titled TITLE."
-  (let ((fn (or (my/palette--first-function my/palette--capture-candidates)
-                (user-error "No note capture function is available"))))
-    (when (and (null type) (eq fn 'my/node-capture))
-      (setq type (and (bound-and-true-p my/node-types)
-                      (my/node-read-type "Type for the new note: ")))
-      (unless type
-        (user-error "Define a node type first; notes here are typed")))
-    (funcall fn type title)))
+  "Create a note of TYPE (a type struct or nil) titled TITLE.
+Return what the capture command returns (the new note)."
+  (if type
+      (my/node-capture type title)
+    (my/note-capture title)))
 
 (defun my/palette--visit (record)
   "Visit the node RECORD."
@@ -372,45 +366,15 @@ CURSOR-COLUMN (default: end of line)."
   "Insert today's date as an inactive timestamp."
   (insert (format-time-string (org-time-stamp-format nil t))))
 
-(defun my/slash--link-new-node-after-capture (marker title)
-  "Insert a link to the node TITLE at MARKER once capture has finished."
-  (let (hook)
-    (setq hook
-          (lambda ()
-            (remove-hook 'org-capture-after-finalize-hook hook)
-            (let* ((matches (cl-remove-if-not
-                             (lambda (record)
-                               (equal (plist-get record :title) title))
-                             (ignore-errors (my/index-records))))
-                   (record (car (sort matches
-                                      (lambda (a b)
-                                        (time-less-p (plist-get b :mtime)
-                                                     (plist-get a :mtime))))))
-                   (buffer (marker-buffer marker)))
-              (if (and record (buffer-live-p buffer))
-                  (with-current-buffer buffer
-                    (save-excursion
-                      (goto-char marker)
-                      (insert (format "[[id:%s][%s]]" (plist-get record :id)
-                                      title))))
-                (message "New node \"%s\" not found; no link inserted" title)))))
-    (add-hook 'org-capture-after-finalize-hook hook)))
-
 (defun my/slash-insert-new-node-link ()
-  "Create a node of a chosen type and insert a link to it.
-The capture function may return the new record or its id; otherwise the
-link is inserted when the capture is finalized, found by title."
+  "Create a node of a chosen type and insert a link to it at point.
+The note is written without being shown, so the buffer being edited
+keeps the focus."
   (let* ((type (my/node-read-type "New node of type: "))
          (title (read-string (format "New %s: " (my/node-type-name type))))
-         (marker (point-marker))
-         (result (my/palette--capture type title))
-         (id (cond ((stringp result) result)
-                   ((and (consp result) (plist-get result :id)))))
-         (shown (or (and (consp result) (plist-get result :title)) title)))
-    (if id
-        (progn (goto-char marker)
-               (insert (format "[[id:%s][%s]]" id shown)))
-      (my/slash--link-new-node-after-capture marker title))))
+         (note (my/note-capture title (my/node--type-capture-template type)
+                                nil t)))
+    (insert (format "[[id:%s][%s]]" (plist-get note :id) title))))
 
 (defcustom my/slash-items
   '(("Link to node" . my/slash-insert-node-link)
@@ -671,6 +635,11 @@ The panel is an overlay; the property drawer stays the source of truth."
 
 (dolist (command '(my/node-set-field my/node-set-type my/node-remove-type))
   (advice-add command :after #'my/node-fields--refresh-if-on))
+
+;; Both modes do nothing outside Org buffers, and the field panel costs
+;; nothing in a buffer without a typed file-level node.
+(add-hook 'org-mode-hook #'my/slash-mode)
+(add-hook 'org-mode-hook #'my/node-fields-mode)
 
 (provide 'init-palette)
 ;;; init-palette.el ends here

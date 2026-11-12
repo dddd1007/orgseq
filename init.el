@@ -359,7 +359,7 @@ Absent optional packages are skipped silently, matching module loading."
 ;; ---- Load modules ----
 ;; Order: doctor -> packages -> popup -> keymap -> UI -> completion -> pyim -> python
 ;; -> markdown -> languages -> org -> capture -> roam (optional, off by default)
-;; -> gtd -> gtd-dashboard -> focus -> pkm -> nodes -> views -> sync
+;; -> gtd -> gtd-dashboard -> focus -> pkm -> nodes -> views -> palette -> sync
 ;; -> daily -> terminal
 ;; -> ai -> ai-cli -> dashboard -> dired
 ;; -> mouse -> frame -> workspace -> update -> tty -> evil (last)
@@ -392,6 +392,7 @@ Absent optional packages are skipped silently, matching module loading."
     init-pkm
     init-nodes
     init-views
+    init-palette
     init-sync
     init-daily
     init-terminal
@@ -468,6 +469,7 @@ Return non-nil when the file was loaded."
     (init-focus         . (init-org))
     (init-nodes         . (init-org init-capture))
     (init-views         . (init-org init-nodes))
+    (init-palette       . (init-org init-nodes init-views))
     (init-sync          . (init-org))
     (init-daily         . (init-capture init-ui))
     (init-terminal      . (init-popup init-org))

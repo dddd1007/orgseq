@@ -1469,5 +1469,8 @@ RET visits the node on the line."
           (lambda ()
             (run-with-idle-timer 0.6 nil #'my/node--ensure-library-files)))
 
+;; Keep the node index current with every save of a library file.
+(add-hook 'after-save-hook #'my/index-after-save)
+
 (provide 'init-nodes)
 ;;; init-nodes.el ends here

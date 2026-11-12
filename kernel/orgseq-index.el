@@ -473,6 +473,16 @@ every file."
         (setq my/index--cache nil)
         t))))
 
+(defun my/index-after-save ()
+  "Re-read the file just saved when it is inside the indexed scope.
+For `after-save-hook': a refresh trusted for `my/index-sync-interval'
+would otherwise miss an edit saved a moment after it."
+  (when (and buffer-file-name (my/index-file-p buffer-file-name))
+    (condition-case err
+        (my/index-update-file buffer-file-name)
+      (error (message "org-seq index: could not update %s: %s"
+                      buffer-file-name (error-message-string err))))))
+
 (defun my/index-rebuild ()
   "Throw the index away and build it again from the Org files."
   (interactive)

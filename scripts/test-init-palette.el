@@ -144,13 +144,16 @@
                    '((visit "h1") (capture "Reading" "Brand new")
                      (capture nil "Plain"))))))
 
-(ert-deftest my/palette-capture-wrapper-picks-first-bound ()
+(ert-deftest my/palette-capture-routes-by-type ()
+  "A typed note goes through the type capture, a plain one through capture."
   (let (called)
     (cl-letf (((symbol-function 'my/note-capture)
-               (lambda (type title) (setq called (list 'new type title)))))
+               (lambda (title &rest _) (push (list 'plain title) called)))
+              ((symbol-function 'my/node-capture)
+               (lambda (type title &rest _) (push (list 'typed type title) called))))
       (my/palette--capture nil "T")
-      (should (equal called '(new nil "T"))))
-    (should-not (fboundp 'my/note-capture))))
+      (my/palette--capture 'reading "R"))
+    (should (equal (nreverse called) '((plain "T") (typed reading "R"))))))
 
 ;;; Slash menu
 
@@ -242,8 +245,14 @@
   (cl-letf (((symbol-function 'my/node-read-type)
              (lambda (&rest _) (car (my/test-palette--types))))
             ((symbol-function 'read-string) (lambda (&rest _) "Fresh"))
-            ((symbol-function 'my/palette--capture)
-             (lambda (_type _title) (list :id "z9" :title "Fresh"))))
+            ((symbol-function 'my/node--type-capture-template)
+             (lambda (_type) 'template))
+            ((symbol-function 'my/note-capture)
+             (lambda (title template _fields no-visit)
+               ;; Written without being shown: the edited buffer keeps focus.
+               (should (eq template 'template))
+               (should no-visit)
+               (list :id "z9" :title title))))
     (should (equal (car (my/test-palette--insert
                          "^" #'my/slash-insert-new-node-link))
                    "[[id:z9][Fresh]]"))))
