@@ -9,7 +9,6 @@ attribution boundaries explicit.
 
 | Upstream | License | Local file | Adaptation |
 |---|---|---|---|
-| [Doom Emacs](https://github.com/doomemacs/doomemacs), historical Org/org-roam integration | MIT | `modules/notes/init-roam.el` | The Evil insertion-position advice and Vertico candidate-width advice were adapted to ordinary `define-advice` forms, renamed with the `my/` prefix, and detached from Doom macros and module APIs. |
 | [Doom Emacs](https://github.com/doomemacs/doomemacs), Org appearance defaults | MIT | `modules/notes/init-org.el` | Small org-modern checkbox and hidden-star compatibility adjustments were retained in native `use-package` configuration without Doom macros. |
 
 The local files retain comments beside these adaptations. No Doom package

@@ -1,6 +1,6 @@
 # org-seq
 
-A modular Emacs configuration for personal knowledge management, built on org-roam with Zettelkasten methodology.
+A modular Emacs configuration for personal knowledge management, built on its own Org node index with Zettelkasten methodology.
 
 Platforms: **Linux** is the primary target (P0). Windows and macOS are supported at P1: their scripts are kept consistent but are validated less often.
 
@@ -182,7 +182,7 @@ all work the same way.
 
 The sync unit is a whole file. When two devices changed the same file, the
 newer version wins and the other is kept next to it with a `.conflict` suffix
-for you to compare. The org-roam database is a local index: it is not synced
+for you to compare. The node index is a local cache: it is not synced
 and is refreshed after a sync brings changes in. Close a note on one device
 before editing it on another to avoid conflict copies.
 
@@ -245,14 +245,14 @@ claude mcp add org-seq -- ~/.emacs.d/bin/orgseq mcp
 
 Each call starts a batch Emacs (about three seconds). The command line keeps
 its own node index in `.cache/` and rebuilds it from the Org files, so it
-never competes with a running Emacs for the org-roam database; notes it
+never competes with a running Emacs for the index; notes it
 changes show up in a running Emacs when the buffer reverts.
 
 ### Node types
 
-Notes are org-roam nodes: every file or heading with an Org ID. org-seq adds
-types, fields, and table views on top of org-roam (`modules/notes/init-nodes.el`)
-without a second database. Supertag and TextUI were removed on 2026-10-22.
+Notes are nodes: every file or heading with an Org ID. org-seq reads them from
+its own index (`kernel/orgseq-index.el`) and adds types, fields, and table views
+on top of it (`modules/notes/init-nodes.el`) without a second database. Supertag and TextUI were removed on 2026-10-22, org-roam on 2026-11-12.
 
 - Types are defined in `~/NoteHQ/.orgseq/types.org` (`SPC # T`). Each level-1
   heading is one type; its properties `TYPE_TAG`, `TYPE_KEY`, and
@@ -268,8 +268,8 @@ without a second database. Supertag and TextUI were removed on 2026-10-22.
   for its fields. Fields are ordinary Org properties (`SPC # f`). A node is
   an instance of one type by default (`my/node-single-type`): applying a
   second type offers to replace the first, and field values always stay.
-- Org text is the only authority. The org-roam database is an index that
-  `M-x org-roam-db-sync` can rebuild at any time.
+- Org text is the only authority. The node index is disposable;
+  `M-x my/index-rebuild` (or `orgseq reindex`) recreates it at any time.
 
 See [the node model](doc/NOTES_ARCHITECTURE.md#四节点模型与权威边界) (Chinese).
 
@@ -367,7 +367,7 @@ owns this layer.
 |-----|--------|
 | `SPC SPC` | M-x (command palette) |
 | `SPC d` | Open Today's Daily Workspace |
-| `SPC c` | Capture a new note (org-roam) |
+| `SPC c` | Capture a new note |
 | `SPC m` | Casual menu for the current context |
 | `SPC /` | Project-wide search (ripgrep) |
 | `SPC j` | Jump to any character on screen (avy) |
@@ -401,19 +401,18 @@ keeps working: `SPC .` find file, `SPC ,` switch buffer, `SPC :` M-x,
 | `SPC t F` | Focus: open dashboard with recent slices + stats |
 | `SPC t X` | Focus: abort the currently running slice |
 
-### SPC n — Notes / org-roam
+### SPC n — Notes
 
 | Key | Action |
 |-----|--------|
 | `SPC n s` | Search all NoteHQ notes (Deft) |
-| `SPC n n` | Find note (org-roam) |
+| `SPC n n` | Find note |
 | `SPC n c` | New note (capture) |
 | `SPC n i` | Insert link |
-| `SPC n b` | Toggle backlinks |
+| `SPC n b` | Backlinks |
+| `SPC n l` | Forward links |
 | `SPC n /` | Search note text in Roam dir (ripgrep) |
-| `SPC n g` | Graph view |
 | `SPC n a` | Add alias |
-| `SPC n r` | Add ref |
 | `SPC n o` | Node action menu |
 | `SPC n d d` | Open Today's Daily Workspace (same as `SPC d`) |
 | `SPC n d a` | Append or reuse a capture-ready Daily node |
@@ -440,7 +439,7 @@ keeps working: `SPC .` find file, `SPC ,` switch buffer, `SPC :` M-x,
 | `SPC # v` | View of all nodes of a type (table, list or board) |
 | `SPC # V` | Open a saved view |
 | `SPC # r` | Review recent notes with no type or no links |
-| `SPC # s` | Find node (`org-roam-node-find`) |
+| `SPC # s` | Find node (`my/node-find`) |
 | `SPC # j` | Open Org link at point |
 | `SPC # T` | Edit `types.org` |
 | `SPC # c` | Edit free-form capture templates |
@@ -469,7 +468,7 @@ Dashboards in `00_Roam/dashboards/` are query-only. A table is an
 
 Refresh with `C-c C-c` on the block or `org-update-all-dblocks`; opening a
 dashboard with `SPC n v v`, `SPC n v w`, or `SPC n v i` also refreshes it.
-Results come from the org-roam database, which indexes saved files. Blocks
+Results come from the node index, which covers saved files. Blocks
 written for the removed Supertag package (`supertag-query`) still render for
 the forms `(tag ...)`, `(property K V)`, `(recent-days N)`, and `(and ...)`.
 
@@ -563,7 +562,7 @@ menu is visible (insert state), so the two bindings never collide.
 
 ### Auto-save
 
-Visited files are auto-saved in place every 2s of idle time (VS Code "Auto Save: afterDelay"). No `#autosave#` files are produced; the on-disk file itself is written. Toggle it off with `SPC u a`. Each note save is indexed by org-mem's updater, which re-indexes only the saved file, and saving an Emacs Lisp buffer runs compile-angel's on-save byte-compilation, which is the intended behavior but happens more often with auto-save on.
+Visited files are auto-saved in place every 2s of idle time (VS Code "Auto Save: afterDelay"). No `#autosave#` files are produced; the on-disk file itself is written. Toggle it off with `SPC u a`. Each note save is indexed incrementally, which re-reads only the saved file, and saving an Emacs Lisp buffer runs compile-angel's on-save byte-compilation, which is the intended behavior but happens more often with auto-save on.
 
 Under `SPC l` the most important sidebar controls are:
 
@@ -711,26 +710,25 @@ guarded module list below.
 | 9 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
 | 10 | `init-languages.el` | R/ESS + Python/eglot + Julia/Quarto tooling |
 | 11 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, status badges and tag pills, local leader (incl. types & fields `, #`) |
-| 12 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
-| 13 | `init-gtd.el` | GTD core: agenda views, state machine, context views, capture hooks |
-| 14 | `init-gtd-dashboard.el` | Live-count *GTD* dashboard buffer (org-ql) + debounced auto-refresh |
-| 15 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
-| 16 | `init-pkm.el` | org-transclusion + org-ql |
-| 17 | `init-nodes.el` | Node types, fields, table views, review, `orgseq-query` dashboards, node action menu, capture-template merging, PARA navigation, NoteHQ bootstrap |
-| 17a | `init-views.el` | Saved views: table, list and board layouts, filter language, `orgseq-view` dynamic block |
-| 17b | `init-sync.el` | Library location state, one-time `~/NoteHQ/` import, rclone-based sync (WebDAV, OneDrive, Google Drive) |
-| 18 | `init-daily.el` | Daily Workspace, 14-day sidebar, capture-ready ID nodes |
-| 19 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
-| 20 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + .orgseq AI config + KB overview |
-| 21 | `init-ai-cli.el` | AI CLI popups (Codex, OpenCode, kimi-cli) + Claude Code |
-| 22 | `init-dashboard.el` | Secondary dashboard with Daily Notes first, recent files, and quick actions |
-| 23 | `init-dired.el` | Dired + dirvish + yazi picker (file management, preview, quick-access) |
-| 24 | `init-mouse.el` | First-class mouse: context menus, org-mouse, NoteHQ menu bar, drag & drop |
-| 25 | `init-frame.el` | Adaptive GUI frame sizing and centering per monitor |
-| 26 | `init-workspace.el` | Daily-first startup plus Treemacs/imenu-list workspace transitions |
-| 27 | `init-update.el` | Periodic silent package auto-update (ELPA + vc, every 7 days) with pre-update snapshots |
-| 28 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, native Emacs 31 Corfu child frames with fallback, divider glyphs |
-| 29 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
+| 12 | `init-gtd.el` | GTD core: agenda views, state machine, context views, capture hooks |
+| 13 | `init-gtd-dashboard.el` | Live-count *GTD* dashboard buffer (org-ql) + debounced auto-refresh |
+| 14 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
+| 15 | `init-pkm.el` | org-transclusion + org-ql |
+| 16 | `init-nodes.el` | Node types, fields, table views, review, `orgseq-query` dashboards, node action menu, capture-template merging, PARA navigation, NoteHQ bootstrap |
+| 16a | `init-views.el` | Saved views: table, list and board layouts, filter language, `orgseq-view` dynamic block |
+| 16b | `init-sync.el` | Library location state, one-time `~/NoteHQ/` import, rclone-based sync (WebDAV, OneDrive, Google Drive) |
+| 17 | `init-daily.el` | Daily Workspace, 14-day sidebar, capture-ready ID nodes |
+| 18 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
+| 19 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + .orgseq AI config + KB overview |
+| 20 | `init-ai-cli.el` | AI CLI popups (Codex, OpenCode, kimi-cli) + Claude Code |
+| 21 | `init-dashboard.el` | Secondary dashboard with Daily Notes first, recent files, and quick actions |
+| 22 | `init-dired.el` | Dired + dirvish + yazi picker (file management, preview, quick-access) |
+| 23 | `init-mouse.el` | First-class mouse: context menus, org-mouse, NoteHQ menu bar, drag & drop |
+| 24 | `init-frame.el` | Adaptive GUI frame sizing and centering per monitor |
+| 25 | `init-workspace.el` | Daily-first startup plus Treemacs/imenu-list workspace transitions |
+| 26 | `init-update.el` | Periodic silent package auto-update (ELPA + vc, every 7 days) with pre-update snapshots |
+| 27 | `init-tty.el` | Terminal-mode polish: mouse, clipboard, native Emacs 31 Corfu child frames with fallback, divider glyphs |
+| 28 | `init-evil.el` | Evil + general.el leader keys + magit + casual + which-key |
 
 `init-packages.el` is the single source inventory for Git-hosted packages,
 including [`modusregel`](https://codeberg.org/jjba23/modusregel). Batch validation
@@ -802,7 +800,7 @@ Notes live under `my/note-home`, which defaults to `~/.emacs.d/notes/` and can b
 
 ```
 ~/.emacs.d/notes/
-├── 00_Roam/             ← Atomic notes (org-roam-directory) — flat, plus daily/, capture/, dashboards/
+├── 00_Roam/             ← Atomic notes — flat, plus daily/, capture/, dashboards/
 │   ├── daily/           ← Daily journal entries
 │   ├── capture/         ← Captured notes (timestamp-prefixed)
 │   └── dashboards/      ← Read-only orgseq-query views
@@ -815,9 +813,9 @@ Notes live under `my/note-home`, which defaults to `~/.emacs.d/notes/` and can b
 
 The numeric prefixes (10-step gaps) exist so the sidebar sorts the layers in workflow priority order (Roam first, Archives last) instead of alphabetical-by-name order.
 
-Classification is by **node type** (an Org tag defined in `.orgseq/types.org`), not directory — `00_Roam/` itself is flat. GTD agenda scans `00_Roam/` + `10_Outputs/` + `20_Practice/` (skips `30_Library/` and `40_Archives/`). `~/.emacs.d/notes/00_Roam/` is the org-roam directory; org-mem indexes `00_Roam/`, `10_Outputs/`, and `20_Practice/` and writes the org-roam database.
+Classification is by **node type** (an Org tag defined in `.orgseq/types.org`), not directory — `00_Roam/` itself is flat. GTD agenda scans `00_Roam/` + `10_Outputs/` + `20_Practice/` (skips `30_Library/` and `40_Archives/`). The node index covers `00_Roam/`, `10_Outputs/`, and `20_Practice/`.
 
-The graph is **Org-only** (no md-roam). First-time index of existing notes: `M-x org-roam-db-sync`.
+The node index is **Org-only** (Markdown files are not indexed). First-time index of existing notes: `M-x my/index-rebuild`.
 
 ## Reference
 

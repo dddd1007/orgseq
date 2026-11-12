@@ -1,10 +1,10 @@
 ;;; init-capture.el --- Note capture, Daily commands and note search -*- lexical-binding: t; -*-
 ;;
-;; Interactive note creation without org-roam.  New files are written by
+;; Interactive note creation.  New files are written by
 ;; the kernel (kernel/orgseq-note.el), the same function the command line
 ;; and the MCP tools use, and the kernel index picks them up at once.
 ;;
-;;   Templates  Capture templates in org-roam-capture format, from three
+;;   Templates  Capture templates in org-seq's capture format, from three
 ;;              sources: `my/default-capture-templates', the functions on
 ;;              `my/capture-template-functions' (init-nodes adds one per
 ;;              type in types.org) and the user's
@@ -99,7 +99,7 @@ can be filled in.  Set by init-nodes; nil adds no fields.")
 ;; fields and a view), define the type in types.org instead: org-seq
 ;; generates its capture template automatically.
 ;;
-;; Each entry follows the org-roam-capture-templates format:
+;; Each entry follows org-seq's capture template format:
 ;;   (KEY DESCRIPTION plain BODY :target (file+head PATH HEAD))
 ;; PATH is relative to 00_Roam/.  PATH, HEAD and BODY may use ${title},
 ;; ${slug}, %<TIME-FORMAT>, %t %T %u %U, and %? marks where the cursor
@@ -244,7 +244,7 @@ text the template's %i stands for.  Return the plist of
 
 (defun my/note-capture (&optional title template fields no-visit)
   "Create a new note titled TITLE and visit it.
-TEMPLATE is a capture template in org-roam format; nil asks when several
+TEMPLATE is a capture template in org-seq format; nil asks when several
 templates apply.  FIELDS is an alist of (NAME . VALUE) to set.  With
 NO-VISIT the note is written but not shown.  Return the note plist
 \(:id :file :title :cursor)."
@@ -343,13 +343,6 @@ current Daily buffer's date, else today.  Return nil when there is none."
   "Append TEXT as a timestamped heading to today's Daily note; visit it."
   (interactive (list (read-string "Today: ")))
   (my/daily-capture-date (current-time) text))
-
-(define-obsolete-function-alias 'my/org-roam-dailies--file-for-date
-  #'my/daily-file-for-date "2026-11-12")
-(define-obsolete-function-alias 'my/org-roam-dailies-open-date
-  #'my/daily-open-date "2026-11-12")
-(define-obsolete-function-alias 'my/org-roam-dailies-open-today
-  #'my/daily-open-today "2026-11-12")
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 5: Search

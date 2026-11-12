@@ -11,7 +11,7 @@
 ;;   Unit      Whole Org files.  When both sides changed the same file the
 ;;             newer one wins and the other is kept beside it with a
 ;;             ".conflict" suffix; `my/sync-conflicts' lists those copies.
-;;   Index     The org-roam database is a local index and is not synced;
+;;   Index     The node index lives under .cache/ and is not synced;
 ;;             it is refreshed after a sync brings changes in.
 ;;   Import    `my/storage-import' copies notes in from any folder (the old
 ;;             ~/NoteHQ/ included) and `my/storage-export' copies the
@@ -43,8 +43,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 
-(declare-function org-mem-reset "org-mem" (&optional takeover msg called-interactively))
-(declare-function org-roam-db-sync "org-roam-db" (&optional force))
+(declare-function my/index-sync "orgseq-index" (&optional force))
 (declare-function my/node-types-reload "init-nodes" ())
 
 ;; ═══════════════════════════════════════════════════════════════════════════
@@ -657,11 +656,8 @@ the baseline was lost); DRY-RUN only reports what would change."
 
 (defun my/sync--refresh-index ()
   "Bring the node index and the type registry in line with the files."
-  (cond
-   ((and (fboundp 'org-mem-reset) (bound-and-true-p org-mem-updater-mode))
-    (org-mem-reset))
-   ((featurep 'org-roam)
-    (org-roam-db-sync)))
+  (when (fboundp 'my/index-sync)
+    (my/index-sync 'check))
   (when (fboundp 'my/node-types-reload)
     (my/node-types-reload)))
 

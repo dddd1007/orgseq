@@ -78,7 +78,7 @@
 ** Key points
 ")
 
-;; ---- Template expansion (org-roam-capture format subset) ----
+;; ---- Template expansion ----
 
 (ert-deftest my/note-template-expand-title-slug-time-and-cursor ()
   (let* ((system-time-locale "C")
@@ -113,7 +113,7 @@
                              '("f" "File" plain "x" :target (file "f/${slug}.org")))
                             :path)
                  "f/${slug}.org"))
-  ;; No :target means org-roam's default target.
+  ;; No :target means the default target.
   (should (plist-get (my/note-template-parse '("n" "No target" plain "%?")) :head))
   (dolist (bad '(("e" "Entry" entry "* %?" :target (file+head "x.org" "h"))
                  ("o" "Olp" plain "%?" :target (file+head+olp "x.org" "h" ("A")))
@@ -285,10 +285,7 @@
     (should (equal (file-name-base (buffer-file-name)) "2026-07-03"))
     (my/daily-open-date (encode-time 0 0 12 20 7 2026))
     (should (equal (my/test-capture--contents (buffer-file-name))
-                   "#+title: 2026-07-20\n#+filetags: :daily:\n"))
-    ;; The old helper names still work.
-    (should (equal (my/org-roam-dailies--file-for-date (encode-time 0 0 12 20 7 2026))
-                   (buffer-file-name)))))
+                   "#+title: 2026-07-20\n#+filetags: :daily:\n"))))
 
 ;; ---- Node find, backlinks, id links ----
 
@@ -370,6 +367,26 @@
       (should (equal (file-name-nondirectory (buffer-file-name)) "b.org"))
       (should (equal (org-entry-get nil "ID") "node-b2")))
     (kill-buffer my/node-backlinks-buffer-name)))
+
+(ert-deftest my/node-forward-links-list-each-linked-node-once ()
+  (my/test-capture--with-library
+    (my/test-capture--write-graph)
+    (should (equal (mapcar (lambda (r) (plist-get r :id))
+                           (my/node-forward-link-records "node-c"))
+                   '("node-a")))
+    (should (equal (mapcar (lambda (r) (plist-get r :id))
+                           (my/node-forward-link-records "node-a"))
+                   '("node-b")))
+    (should-not (my/node-forward-link-records "node-b"))
+    (with-current-buffer (my/node-forward-links "node-c")
+      (should (derived-mode-p 'my/node-backlinks-mode))
+      (should (equal (buffer-name) my/node-forward-links-buffer-name))
+      (should (string-match-p "Links from " (buffer-string)))
+      (goto-char (point-min))
+      (search-forward "Working memory")
+      (my/node-backlinks-visit)
+      (should (equal (org-entry-get nil "ID") "node-a")))
+    (kill-buffer my/node-forward-links-buffer-name)))
 
 (ert-deftest my/id-links-open-through-the-index-then-org ()
   (my/test-capture--with-library

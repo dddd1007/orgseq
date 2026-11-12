@@ -92,8 +92,7 @@ per note library.  Distinct from API keys, which stay in `auth-source'."
 
 (defcustom my/roam-dir (expand-file-name "00_Roam/" my/note-home)
   "Atomic-notes layer: captured notes, Daily notes and dashboards.
-Also `org-roam-directory' when the optional init-roam module is enabled,
-and the home of the AI context files
+Also the home of the AI context files
 \(purpose.org, schema.org, overview.org).
 
 The \"00_\" numeric prefix exists so that the NoteHQ directory
@@ -154,7 +153,7 @@ Kept in .orgseq/ next to the type registry so it syncs with the library."
 
 (defcustom my/capture-templates-file
   (expand-file-name "capture-templates.el" my/orgseq-dir)
-  "User capture templates file (org-roam-capture template format)."
+  "User capture templates file (org-seq capture template format)."
   :type 'file
   :group 'org-seq)
 

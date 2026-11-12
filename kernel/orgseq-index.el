@@ -1,6 +1,6 @@
 ;;; orgseq-index.el --- Node index over the Org library -*- lexical-binding: t; -*-
 ;;
-;; Kernel file: no UI, no dependency on any module or on org-roam.
+;; Kernel file: no UI, no dependency on any module.
 ;;
 ;; The Org files are the only authority.  This index is a disposable copy
 ;; of what they say, kept in SQLite (built into Emacs) so views, searches

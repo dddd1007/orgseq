@@ -5,8 +5,8 @@
 ;; Requires: init-ui (my/centered-compute-width, my/centered-apply-face-remaps)
 ;;
 ;; Full Markdown editing experience with Obsidian-compatible features
-;; (wiki links, GFM).  Markdown files are NOT indexed by org-roam —
-;; PKM graph and backlinks are Org-only.  This module is for editing
+;; (wiki links, GFM).  Markdown files are NOT in the node index —
+;; links, backlinks and views are Org-only.  This module is for editing
 ;; .md files that may be shared with Obsidian or other Markdown tools.
 
 (declare-function my/centered-compute-width "init-ui"

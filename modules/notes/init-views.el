@@ -1,7 +1,7 @@
 ;;; init-views.el --- Saved views over nodes: table, list, board -*- lexical-binding: t; -*-
 ;;
 ;; A view is a query plus a layout (Notion database view, Tana live query).
-;; It never stores note data: rows are org-roam nodes read from the index,
+;; It never stores note data: rows are nodes read from the index,
 ;; and every edit made in a view is written to the node's Org file.
 ;;
 ;;   Query    A filter expression, sort keys, an optional group field and a
@@ -1410,7 +1410,7 @@ width.  Each cell carries the node id (when on a card) and group value."
   "g"   #'my/view-refresh)
 
 (define-derived-mode my/view-mode special-mode "View"
-  "Table, list or board of org-roam nodes.
+  "Table, list or board of nodes.
 \\{my/view-mode-map}"
   (setq truncate-lines t)
   (setq-local revert-buffer-function (lambda (&rest _) (my/view-refresh))))

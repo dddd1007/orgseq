@@ -56,6 +56,8 @@ and the highest-frequency actions are single top-level keys
      :description "Insert link")
     (:key "nb" :command my/node-backlinks
      :description "Backlinks")
+    (:key "nl" :command my/node-forward-links
+     :description "Forward links")
     (:key "ndt" :command my/daily-open-today
      :description "Open today's Daily note")
     (:key "nda" :command my/daily-new-node

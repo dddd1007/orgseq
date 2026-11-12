@@ -39,11 +39,11 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 
 与其罗列功能清单，不如想象一下你完整的一天：
 
-早上打开 Emacs，先进入今日 Daily Workspace，在当前时间节点里写下工作意图；需要校准任务时按 `SPC t d` 查看 GTD Dashboard，再回到 daily 继续工作流水。写着写着出现值得独立存放的想法，可以沿用 org-roam capture 创建带永久 Org ID 的笔记，并用普通 `[[id:...]]` 链接连接原记录。
+早上打开 Emacs，先进入今日 Daily Workspace，在当前时间节点里写下工作意图；需要校准任务时按 `SPC t d` 查看 GTD Dashboard，再回到 daily 继续工作流水。写着写着出现值得独立存放的想法，可以用 `SPC n c` 创建带永久 Org ID 的笔记，并用普通 `[[id:...]]` 链接连接原记录。
 
 需要归类时，按 `SPC # t` 给笔记加一个类型（例如 Reading），再用 `SPC # f` 填写该类型的字段（作者、年份、状态）；字段就是普通 Org properties，关联用普通 Org 链接。`SPC # v` 把同一类型的全部笔记列成表格。下午可用 `SPC a s` 摘要、`SPC a l` 翻译、`SPC a k` 建议相关笔记；AI 服务可能需要联网，发送范围遵循命令的确认设置。
 
-技术底座：**org-roam** 管理节点、双向链接与 capture；**org-agenda + org-ql** 驱动 GTD；**init-nodes** 在 org-roam 上提供类型、字段、表格视图和 dashboard 查询；**org-node / org-mem** 承担索引；**gptel 与 AI CLI** 提供 AI 交互；**Evil** 提供 Vim 操作；**Magit** 管理版本。类型、字段和链接都写在 Org 文本里，索引数据库可以随时从 Org 重建。
+技术底座：**内核节点索引**（`kernel/orgseq-index.el`）管理节点与链接，**init-capture** 管理 capture 和 Daily；**org-agenda + org-ql** 驱动 GTD；**init-nodes** 在索引上提供类型、字段、表格视图和 dashboard 查询；**gptel 与 AI CLI** 提供 AI 交互；**Evil** 提供 Vim 操作；**Magit** 管理版本。类型、字段和链接都写在 Org 文本里，索引数据库可以随时从 Org 重建。
 
 ### 1.3 核心理念
 
@@ -57,7 +57,7 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 
 ```
 ~/.emacs.d/notes/                  ← 笔记总目录
-├── 00_Roam/                       ← 原子笔记层（org-roam 管理）
+├── 00_Roam/                       ← 原子笔记层（节点索引范围）
 │   ├── daily/                     ← 每日笔记（思维流 + 任务录入）
 │   ├── capture/                   ← 所有捕获的笔记（扁平，时间戳前缀）
 │   ├── dashboards/                ← 查询入口文件（只放查询，不放数据）
@@ -88,7 +88,7 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 | **Git** | 任意版本 | 版本控制 + Magit | `winget install Git.Git` |
 | **ripgrep** | 任意版本 | 全文搜索 | `winget install BurntSushi.ripgrep` |
 | **fd** | 任意版本 | 文件查找 | `winget install sharkdp.fd` |
-| **SQLite** | 内置于 Emacs 30+ | org-roam 数据库 | 无需额外安装 |
+| **SQLite** | 内置于 Emacs 30+ | 节点索引 | 无需额外安装 |
 
 **验证 Emacs 版本和功能**（启动 Emacs 后按 `M-:` 输入）：
 
@@ -153,8 +153,8 @@ M-x nerd-icons-install-fonts
 ;; Windows 用户额外一步：找到刚下载的 .ttf 文件右键"安装"
 ;; macOS 可能会弹出 Font Book 确认窗口
 
-;; 已有笔记时，第一次建立 org-roam 索引
-M-x org-roam-db-sync
+;; 已有笔记时，第一次建立节点索引
+M-x my/index-rebuild
 ```
 
 ### 2.4 配置 AI（可选但推荐）
@@ -576,9 +576,9 @@ org-seq 把 Zettelkasten 的这三条原则落地成了一个三层架构，每�
 
 | 层 | 工具 | 它在做什么 |
 |----|------|------|
-| **图谱层** | org-roam | 管理节点、双向链接、反向链接、capture 模板——Zettelkasten 的原始形态 |
+| **图谱层** | 内核节点索引 + init-capture | 管理节点、双向链接、反向链接、正向链接、capture 模板——Zettelkasten 的原始形态 |
 | **结构层** | init-nodes | 节点类型、字段、按类型的表格视图、review 和 dashboard 查询；全部读写 Org 标签和 properties，不另建数据库 |
-| **性能层** | org-node + org-mem | 异步索引，让 3000+ 节点的搜索和反向链接刷新从几分钟降到两秒 |
+| **性能层** | SQLite + FTS5 索引 | 只重读时间或大小变了的文件，让搜索和链接列表不需要整库扫描 |
 
 这三层不是层层叠加的抽象，而是分工合作的三个引擎。日常写笔记时你感觉不到它们的存在；当你的笔记库长到上千条、开始需要查询和聚合时，你会感谢底层有这些东西在默默工作。
 
@@ -614,7 +614,6 @@ SPC # C      → 重载全部模板
 ```
 SPC n s        → 搜索全库笔记（Deft，最常用）
 SPC n /        → 在笔记内容中全文搜索（ripgrep 驱动）
-SPC n ?        → consult 增强搜索（支持实时预览）
 ```
 
 `SPC n s` 会打开 Deft，对整个 `~/.emacs.d/notes/` 目录做增量搜索；输入 `emacs config` 可以快速缩小到标题或正文里相关的 Org/Markdown 笔记。
@@ -635,17 +634,15 @@ SPC n i        → 插入链接到另一条笔记
 
 ```
 SPC n b        → 在侧边栏显示当前笔记的反向链接
-SPC n B        → 通过 consult 浏览反向链接（带预览）
-SPC n l        → 浏览正向链接（当前笔记链接了谁）
 ```
 
-### 8.6 知识图谱
+### 8.6 正向链接
 
 ```
-SPC n g        → 在浏览器中打开 org-roam-ui 交互图谱
+SPC n l        → 列出当前笔记链接到的笔记（RET 跳转）
 ```
 
-这会启动一个本地 Web 服务，在浏览器中展示你所有笔记的节点和连接关系——一张可交互的知识地图。
+反向链接回答“谁链接了我”，正向链接回答“我链接了谁”。两个列表都读节点索引，只列出本身是节点的链接目标。
 
 ### 8.7 Daily Notes（每日笔记）
 
@@ -664,7 +661,7 @@ SPC n d c      → 在今日笔记中 capture
 SPC n d C      → 选择日期并 capture
 ```
 
-Daily 文件是日期容器，不是单一 org-roam 节点。`SPC n d a` 会在文件
+Daily 文件是日期容器，不是单一节点。`SPC n d a` 会在文件
 末尾新建或复用一个一级时间标题，并确保它有 `:ID:`；每个一级标题都可
 独立使用 `, # t` 加类型，再用 `, # f` 填字段或 `, # e` 编辑普通 Org property。建议先捕捉，
 等内容值得整理时再加结构。
@@ -682,7 +679,7 @@ Daily capture 有三种模板：
 
 ### 8.8 节点类型与字段（先记录，后整理）
 
-org-roam 中每个带 Org ID 的文件或标题都是一个节点。org-seq 在此之上提供类型和字段（`modules/notes/init-nodes.el`），做法参照 Tana 的 supertag 和 Fibery 的数据库，但所有数据都写在 Org 文本里，不另建数据库。2026-10-22 之前使用的 Supertag 包已移除。
+每个带 Org ID 的文件或标题都是一个节点。org-seq 在此之上提供类型和字段（`modules/notes/init-nodes.el`），做法参照 Tana 的 supertag 和 Fibery 的数据库，但所有数据都写在 Org 文本里，不另建数据库。2026-10-22 之前使用的 Supertag 包已移除。
 
 **类型**定义在 `~/.emacs.d/notes/.orgseq/types.org`，每个一级标题是一个类型：
 
@@ -718,7 +715,7 @@ SPC # f / , # f  → 设置字段：从可选值或已有值中补全；node 字
 SPC # e / , # e  → 编辑任意 Org property
 SPC # p / , # p  → 有选区时提取为新笔记并留下链接；否则给当前标题加 ID，使其成为节点
 SPC # n          → 新建某个类型的笔记
-SPC # s          → 查找节点（org-roam-node-find）
+SPC # s          → 查找节点（`my/node-find`）
 SPC # j / , # j  → 打开光标处的 Org 链接
 SPC # T          → 编辑 types.org
 SPC # c / # C    → 编辑自由 capture 模板 / 重载全部模板
@@ -731,7 +728,7 @@ SPC # c / # C    → 编辑自由 capture 模板 / 重载全部模板
 - `SPC # v`（`, # v`）选择一个类型，列出该类型全部节点，每列一个字段。`RET` 打开，`o` 在另一个窗口打开，`f` 就地修改字段，`+` 新建该类型的节点，`/` 过滤，`g` 刷新，点击列标题或按 `S` 排序。
 - `SPC # r` 打开 review 表格：最近 14 天（`my/node-review-days`）修改过、没有类型或没有任何链接的笔记，不含 Daily 笔记。适合每周整理一次。
 
-**权威边界**：Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[id:]]` 链接。表格视图和 dashboard 读取 org-roam 数据库，只反映已保存的文件；数据库可以随时用 `M-x org-roam-db-sync` 重建。备份 Org 文件和 `.orgseq/` 即可。完整说明见[节点模型](NOTES_ARCHITECTURE.md#四节点模型与权威边界)。
+**权威边界**：Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[id:]]` 链接。表格视图和 dashboard 读取节点索引，只反映已保存的文件；索引可以随时用 `M-x my/index-rebuild` 重建。备份 Org 文件和 `.orgseq/` 即可。完整说明见[节点模型](NOTES_ARCHITECTURE.md#四节点模型与权威边界)。
 
 ### 8.9 Dashboard 视图
 
@@ -1048,7 +1045,7 @@ API 密钥**不在这个文件里**，而是在 `~/.authinfo.gpg` 中（加密�
 
 ### 11.1 概述
 
-org-seq 完整支持 Markdown 编辑，与 Obsidian 互操作（wiki 链接、GFM）。Markdown 文件**不被 org-roam 索引**——PKM 图谱和反向链接仅限 Org 文件。打开 `.md` 文件会自动启用：
+org-seq 完整支持 Markdown 编辑，与 Obsidian 互操作（wiki 链接、GFM）。Markdown 文件**不进入节点索引**——链接、反向链接和视图仅限 Org 文件。打开 `.md` 文件会自动启用：
 
 - GFM（GitHub Flavored Markdown）模式
 - 居中显示 + 自适应宽度
@@ -1287,7 +1284,7 @@ q              → 退出
 
 如果你翻一下 org-seq 的代码，会发现 `org-focus-timer` 不像其他功能那样住在 `modules/` 下的 `init-*.el` 里，而是独占一个子目录：`packages/org-focus-timer/`。旁边只有一个薄薄的 `modules/notes/init-focus.el`（大约 60 行）负责引用它。
 
-这个结构是有意为之的过渡形态。这个计时器对任何用 org-mode 的人都有价值——它不依赖 org-roam、不依赖节点类型层、不依赖 org-seq 的任何路径约定，核心是纯粹的 elisp + 时间计算 + 文件读写。等到 API 和日志格式稳定下来之后，它会**毕业**成一个独立的 GitHub 项目，那时候 `init-focus.el` 会从当前的 `:load-path` 引用改成 `:vc` 引用，`packages/org-focus-timer/` 这个目录会被移出 org-seq。
+这个结构是有意为之的过渡形态。这个计时器对任何用 org-mode 的人都有价值——它不依赖节点索引、不依赖节点类型层、不依赖 org-seq 的任何路径约定，核心是纯粹的 elisp + 时间计算 + 文件读写。等到 API 和日志格式稳定下来之后，它会**毕业**成一个独立的 GitHub 项目，那时候 `init-focus.el` 会从当前的 `:load-path` 引用改成 `:vc` 引用，`packages/org-focus-timer/` 这个目录会被移出 org-seq。
 
 在那之前，把源代码放在 org-seq 内部带来一个实用的好处：**迭代闭环更短**。你想改 `org-focus-timer.el` 的某段逻辑？直接编辑 `packages/org-focus-timer/org-focus-timer.el`，保存，`M-x eval-buffer`——下一次 `SPC t f` 就用上了新代码，不需要重新 deploy，不需要切换仓库。对于一个尚在打磨的功能，这种零摩擦的改动环境比"干净的包边界"更重要。
 
@@ -1390,7 +1387,7 @@ SPC u T        → 显示/隐藏可点击的 buffer 标签页（tab-line）
 SPC u a        → 开关失焦/空闲自动保存（auto-save-visited-mode，间隔 2 秒）
 ```
 
-`SPC u T` 控制的标签页会自动排除工具型缓冲区（Treemacs、Daily 侧栏、outline、终端/AI 雷神窗、Messages/Warnings 以及 special/dired/dashboard 模式），只显示真正的编辑缓冲区。`SPC u a` 打开时，每次保存都会由 org-mem 的更新器重新索引被保存的文件（只处理这一个文件），编辑本仓库的 Elisp 文件则会触发 compile-angel 的保存时编译（属预期行为，只是更频繁）。
+`SPC u T` 控制的标签页会自动排除工具型缓冲区（Treemacs、Daily 侧栏、outline、终端/AI 雷神窗、Messages/Warnings 以及 special/dired/dashboard 模式），只显示真正的编辑缓冲区。`SPC u a` 打开时，每次保存后节点索引只重读被保存的那个文件，编辑本仓库的 Elisp 文件则会触发 compile-angel 的保存时编译（属预期行为，只是更频繁）。
 
 `SPC u s` 打开的顶部标题面包屑以小号灰色文字显示当前位置的标题路径，用 ` / ` 分隔。
 
@@ -1475,7 +1472,7 @@ M-x customize-group RET org-seq RET
 | 变量 | 含义 | 默认值 |
 |------|------|--------|
 | `my/note-home` | 笔记总目录 | `ORG_SEQ_NOTE_HOME`，未设置时为 `~/.emacs.d/notes/` |
-| `my/roam-dir` | 原子笔记层（org-roam + AI context 指向此处） | `~/.emacs.d/notes/00_Roam/` |
+| `my/roam-dir` | 原子笔记层（AI context 指向此处） | `~/.emacs.d/notes/00_Roam/` |
 | `my/orgseq-dir` | 个性化配置目录（.orgseq/） | `~/.emacs.d/notes/.orgseq/` |
 | `my/types-file` | 节点类型定义文件 | `~/.emacs.d/notes/.orgseq/types.org` |
 | `my/node-review-days` | `SPC # r` 列出最近多少天的笔记 | `14` |
@@ -1498,7 +1495,7 @@ M-x customize-group RET org-seq RET
  '(my/gtd-context-tags '("@work" "@home" "@deep-work")))
 ```
 
-**注意**：修改 `my/note-home` 后应重启 Emacs，让 org-roam、org-mem 和节点类型注册表使用一致的派生路径。
+**注意**：修改 `my/note-home` 后应重启 Emacs，让节点索引和节点类型注册表使用一致的派生路径。
 
 ### 16.6 配置热重载
 
@@ -1653,13 +1650,9 @@ M-x customize-group RET org-seq RET
 | `SPC n i` | 插入链接 |
 | `SPC n b` | 反向链接面板 |
 | `SPC n /` | 全文搜索 |
-| `SPC n g` | 知识图谱 |
 | `SPC n o` | 当前节点动作菜单 |
 | `SPC n a` | 添加别名 |
-| `SPC n r` | 添加引用 |
 | `SPC n l` | 正向链接 |
-| `SPC n B` | 反向链接 (consult) |
-| `SPC n ?` | 搜索 (consult) |
 
 ### SPC n d — 每日笔记
 
@@ -1876,15 +1869,14 @@ M-x customize-group RET org-seq RET
 
 | 症状 | 检查方法 | 解决方案 |
 |------|---------|---------|
-| org-roam 不启动 | `M-: (sqlite-available-p)` | 必须返回 `t`，需要 Emacs 30+ 且编译时启用了 SQLite |
+| 节点索引不工作 | `M-: (sqlite-available-p)` | 必须返回 `t`，需要 Emacs 30+ 且编译时启用了 SQLite |
 | 没有 native-comp | `M-: (native-comp-available-p)` | 需要 MSYS2 构建的 Emacs（性能优化，非必须） |
 | 中文字体显示异常 | `M-: (font-family-list)` | 确认字体名称正确安装；安装 LXGW WenKai Mono |
 | ripgrep 未找到 | `M-: (executable-find "rg")` | `winget install BurntSushi.ripgrep` |
 | fd 未找到 | `M-: (executable-find "fd")` | `winget install sharkdp.fd` |
 | 启动很慢 | `M-x esup` | 查看启动耗时分析 |
-| org-node 缓存过旧 | `M-x org-mem-reset` | 强制全量重扫 |
-| org-roam-ui 图谱不完整 | 检查 `org-mem-roamy-do-overwrite-real-db` | 应为 `t` |
-| 表格视图或 dashboard 缺少刚改的字段 | 确认文件已保存 | 保存后在视图中按 `g` 或刷新动态块；仍不对时 `M-x org-roam-db-sync` 重建索引 |
+| 节点索引过旧 | `M-x my/index-rebuild` | 强制全量重扫 |
+| 表格视图或 dashboard 缺少刚改的字段 | 确认文件已保存 | 保存后在视图中按 `g` 或刷新动态块；仍不对时 `M-x my/index-rebuild` 重建索引 |
 | `SPC # t` 提示没有类型 | 检查 `~/.emacs.d/notes/.orgseq/types.org` | `SPC # T` 打开文件，至少定义一个一级标题并保存 |
 | AI 命令报错 "No API key" | 检查 `~/.authinfo` | 确认有 `machine openrouter.ai login apikey password sk-or-XXX` |
 | Transient 版本太旧 | 检查 `package-install-upgrade-built-in` | 确认为 `t` |

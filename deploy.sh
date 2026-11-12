@@ -104,7 +104,7 @@ check_prerequisites() {
         local sqlite
         sqlite="$(emacs --batch --eval '(message "%s" (sqlite-available-p))' 2>&1 | tail -1)"
         if [[ "$sqlite" == "t" ]]; then pass "SQLite support available"
-        else fail "SQLite not available. org-roam requires Emacs 30+ with SQLite."; all_ok=0; fi
+        else fail "SQLite not available. the node index requires Emacs 30+ with SQLite."; all_ok=0; fi
 
         local nc
         nc="$(emacs --batch --eval '(message "%s" (native-comp-available-p))' 2>&1 | tail -1)"
@@ -377,7 +377,7 @@ print_summary() {
     elif [[ "$(uname -s)" == *"MINGW"* || "$(uname -s)" == *"MSYS"* ]]; then
         echo "       Then right-click downloaded .ttf files → Install (Windows)"
     fi
-    echo "    4. Run:  M-x org-roam-db-sync  (first-time index of existing notes)"
+    echo "    4. Run:  M-x my/index-rebuild  (first-time index of existing notes)"
     echo "    5. Optional: Point Obsidian at $note_home as reading client"
     echo ""
     echo "  Note library:"

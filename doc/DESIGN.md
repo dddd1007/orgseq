@@ -15,7 +15,7 @@ org-seq 是一个面向个人知识管理的 Emacs 发行版：部署一次就�
 
 作者在 2026-11-12 定下的三件事：
 
-- org-roam 降为可选，org-seq 自己维护节点索引。
+- org-roam 先降为可选，随后整体移除（2026-11-12）；org-seq 自己维护节点索引。
 - 源码按发行版核心、笔记内核、功能模块重排目录。
 - 平台优先级：Linux 为 P0，每项改动都在 Linux 上验证；Windows 和 macOS 为 P1，脚本保持一致但不阻塞 Linux 上的工作。
 
@@ -30,7 +30,7 @@ kernel/      笔记内核，无界面：orgseq-paths.el（路径）、orgseq-ind
 modules/     功能模块，按领域分组，文件名仍是 init-*.el
   ui/        主题与排版、仪表盘、工作区、弹窗、鼠标、终端界面、首次启动引导页
   editor/    evil、按键约定、补全、输入法
-  notes/     Org、采集与日记、GTD、节点类型、视图、命令面板、存储与同步、org-roam（可选）
+  notes/     Org、采集与日记、GTD、节点类型、视图、命令面板、存储与同步
   tools/     终端、AI、文件管理
   lang/      Python、Markdown、其他语言
 packages/    可独立发布的子项目
@@ -47,7 +47,7 @@ notes/       笔记库（只存在于部署后的目录）
 | 设备状态 | `.cache/`、`elpa/`、`eln-cache/`、`package-snapshots/` | Emacs 运行时 | 可重建，不需要备份 |
 | 快照 | Emacs 目录之外，Linux 为 `~/.local/share/org-seq/snapshots/` | 只有快照命令 | 本身就是副本 |
 
-`user/` 的三个文件：`modules.el` 在模块加载前读取，用 `my/init-disabled-modules` 关掉不需要的模块，用 `my/init-enabled-optional-modules` 打开可选模块（目前只有 `init-roam`），用 `my/init-user-modules` 登记放在 `user/` 里的自己的模块；`config.el` 在所有模块之后加载，放个人设置；`custom.el` 是 Customize 的保存位置。部署脚本只在这些文件不存在时创建示例，旧版本留在顶层的 `custom.el` 会被移进来一次。
+`user/` 的三个文件：`modules.el` 在模块加载前读取，用 `my/init-disabled-modules` 关掉不需要的模块，用 `my/init-user-modules` 登记放在 `user/` 里的自己的模块；`config.el` 在所有模块之后加载，放个人设置；`custom.el` 是 Customize 的保存位置。部署脚本只在这些文件不存在时创建示例，旧版本留在顶层的 `custom.el` 会被移进来一次。
 
 模块的加载顺序由依赖计算：`my/init-module-requires` 记录每个模块依赖谁，启动时做一次稳定的拓扑排序，`init-doctor` 固定在最前、`init-evil` 固定在最后。使用者的模块走同一套排序和同一个带保护的加载器，依赖缺失时跳过并给出警告。`M-x my/init-report` 显示每个模块的来源、位置和跳过原因。
 
@@ -71,13 +71,13 @@ notes/       笔记库（只存在于部署后的目录）
 
 索引范围是笔记库里除 `30_Library/`、`40_Archives/`、隐藏目录和同步冲突副本之外的 `.org` 文件。
 
-org-roam 默认不加载。采集（`my/note-capture`，兼容 `.orgseq/capture-templates.el` 里 org-roam 格式模板的常用写法）、日记命令、查找节点、插入链接、反向链接列表、id 链接跳转都由内核和 `init-capture`、`init-nodes` 提供。需要图谱界面（org-roam-ui）或 consult-org-roam 时，在 `user/modules.el` 里启用 `init-roam`；未启用时相应按键会提示如何启用。
+org-roam 不再是 org-seq 的一部分（2026-11-12 移除，也没有可选模块机制）。采集（`my/note-capture`，兼容 `.orgseq/capture-templates.el` 里原 org-roam-capture 格式模板的常用写法）、日记命令、查找节点、插入链接、反向链接与正向链接列表、id 链接跳转都由内核和 `init-capture`、`init-nodes` 提供。图谱界面（org-roam-ui）和 consult-org-roam 随之取消。
 
 交互层在 `init-palette`：`SPC k` 打开命令面板（节点、`#类型` 新建、`@视图`、`>命令` 在一个补全界面里）；Org 缓冲区行首输入 `/` 弹出插入菜单；带类型的文件级节点在标题下显示字段面板（只是显示，属性抽屉仍是数据来源）。首次启动时 `init-welcome` 显示一次引导页，列出笔记库位置、下一步和自检结果，之后用 `SPC h w` 打开。
 
 ## 四、存储模型
 
-笔记库是 `notes/` 下的普通 Org 文件，Org 文本是唯一权威，org-roam 数据库和命令行索引都是可以重建的索引。
+笔记库是 `notes/` 下的普通 Org 文件，Org 文本是唯一权威，节点索引（`.cache/` 下）是可以重建的索引。
 
 内容进出笔记库的四条通道：
 
@@ -121,7 +121,7 @@ org-roam 默认不加载。采集（`my/note-capture`，兼容 `.orgseq/capture-
 3. 真实网盘上的同步验证，以及带认证的远端上的 `orgseq upgrade`。两者都只用本地目录充当远端测试过。
 4. 模块自己登记自检项和按键。加载顺序已由依赖计算，但按键仍集中在 `init-evil.el`，自检项集中在 `init-doctor.el`。
 5. 带版本号的发布包。现在升级来源是 git 仓库的某个分支，没有打包好的发行文件。
-6. 采集模板只支持 org-roam 格式的常用子集（`plain` 类型、`file+head` 目标、`${title}`、`${slug}`、`%<时间格式>`）。其他写法会被跳过并警告一次。
+6. 采集模板只支持 org-roam-capture 格式的常用子集（即 org-seq 自己的模板格式；`plain` 类型、`file+head` 目标、`${title}`、`${slug}`、`%<时间格式>`）。其他写法会被跳过并警告一次。
 
 ## 七、需要确认的取舍
 

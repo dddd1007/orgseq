@@ -1,6 +1,6 @@
 ;;; orgseq-note.el --- Writing new notes and Daily entries -*- lexical-binding: t; -*-
 ;;
-;; Kernel file: no UI, no dependency on any module or on org-roam.
+;; Kernel file: no UI, no dependency on any module.
 ;;
 ;; The one write path for new note files.  The interactive capture
 ;; (modules/notes/init-capture.el), the command line and the MCP tools
@@ -16,9 +16,9 @@
 ;;
 ;;   Body
 ;;
-;; Capture templates are user data written in org-roam-capture format.
-;; This file expands the common subset of that format without org-roam:
-;; plain templates with a `file' or `file+head' target, ${title},
+;; Capture templates are user data (.orgseq/capture-templates.el).
+;; This is the common subset of the org-roam-capture format, so existing templates keep working.
+;; The format: plain templates with a `file' or `file+head' target, ${title},
 ;; ${slug}, %<TIME-FORMAT>, %t %T %u %U, %i, %% and the %? cursor mark.
 ;; A template outside that subset is reported as unsupported, never
 ;; half-expanded.
@@ -26,7 +26,7 @@
 ;; ┌─────────────────────────────────────────────────────────────────┐
 ;; │ Section 1  Ids, slugs and file names                             │
 ;; │ Section 2  Creating a note file                                  │
-;; │ Section 3  Capture templates (org-roam-capture format subset)    │
+;; │ Section 3  Capture templates                                     │
 ;; │ Section 4  Daily files                                           │
 ;; └─────────────────────────────────────────────────────────────────┘
 
@@ -134,16 +134,16 @@ POS is the buffer position at which BODY begins in the new file."
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
 ;; A template is (KEY DESCRIPTION plain BODY [:target TARGET] [OPTIONS...]).
-;; TARGET is (file+head PATH HEAD) or (file PATH); without :target the
-;; org-roam default applies.  Options such as :unnarrowed only change how
-;; org-roam shows its capture buffer and are ignored here.  A two-element
+;; TARGET is (file+head PATH HEAD) or (file PATH); without :target
+;; the default target applies.  Options such as :unnarrowed only change how
+;; a capture buffer is shown and are ignored here.  A two-element
 ;; entry (KEY DESCRIPTION) is a menu group and is not a template.
 
 (define-error 'my/note-template-unsupported "Unsupported capture template")
 
 (defconst my/note-default-target
   '(file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
-  "Target of a template that names none (org-roam's default).")
+  "Target of a template that names none (the default target).")
 
 (defun my/note-template-expand (text title &optional time initial)
   "Expand capture template TEXT for a note titled TITLE.
@@ -234,7 +234,7 @@ The plist has :key :description :body :path :head (HEAD is nil for a
     (format "%S" template)))
 
 (cl-defun my/note-create-from-template (template title &key props initial time)
-  "Create a note titled TITLE from capture TEMPLATE (org-roam format).
+  "Create a note titled TITLE from capture TEMPLATE (org-seq capture format).
 PROPS is an alist of (NAME . VALUE) for the property drawer; INITIAL is
 the text %i stands for; TIME the capture time.  Return the plist of
 `my/note-create' plus :cursor, the position of the %? mark (or the start

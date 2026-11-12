@@ -33,7 +33,7 @@
 
 (ert-deftest my/startup-numeric-defers-have-explicit-rationale ()
   (let ((sites (my/test--numeric-defer-sites)))
-    (should (= (length sites) 3))
+    (should (= (length sites) 2))
     (dolist (site sites)
       (should (string-match-p "NOTE(startup):"
                               (plist-get site :context))))))

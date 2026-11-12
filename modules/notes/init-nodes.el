@@ -25,9 +25,9 @@
 ;;            database page of the type), a Review table for unsorted
 ;;            notes, and the `orgseq-query' dynamic block for dashboards.
 ;;   Actions  One node menu (Tana command line): type, field, link, promote,
-;;            extract, backlinks.
+;;            extract, backlinks, forward links.
 ;;   Finding  Node find and link insertion over the index (titles and
-;;            ROAM_ALIASES), a backlinks buffer, and id links that open
+;;            ROAM_ALIASES), a backlinks and a forward links buffer, and id links that open
 ;;            through the index before Org's own id lookup.
 ;;
 ;; Org text is the only authority.  Everything here reads Org through the
@@ -484,7 +484,7 @@ Templates and view settings are not inherited."
         :unnarrowed t))
 
 (defun my/node-type-capture-templates ()
-  "Return capture templates (org-roam format) generated from `my/node-types'.
+  "Return capture templates generated from `my/node-types'.
 Each type gets the key \"t\" + TYPE_KEY for its default template; its
 named templates follow it with that key plus a number.  Default keys are
 assigned first, so adding a named template never changes another
@@ -531,7 +531,7 @@ type's key."
     "TODO" "CLOSED" "DEADLINE" "SCHEDULED" "TIMESTAMP" "TIMESTAMP_IA"
     "CLOCKSUM" "CLOCKSUM_T" "OLP" "ROAM_ALIASES" "ROAM_REFS" "ROAM_EXCLUDE"
     "STYLE" "LAST_REPEAT")
-  "Org and org-roam properties that are not user fields.")
+  "Org and org-seq properties that are not user fields.")
 
 (defun my/node--ensure-org ()
   "Signal a user error unless the current buffer is an Org buffer."
@@ -1374,6 +1374,7 @@ Supports (tag T), (property K V), (recent-days N) and (and ...)."
                    types)
            '(("Insert link to another node" . my/node-insert-link)
              ("Show backlinks" . my/node-backlinks)
+             ("Show forward links" . my/node-forward-links)
              ("Copy node link" . my/node-copy-id-link)
              ("Add alias" . my/node-add-alias)
              ("Edit any Org property" . org-set-property)
@@ -1449,7 +1450,7 @@ Node find offers aliases next to titles."
                      (combine-and-quote-strings (append aliases (list alias)))))
     (message "Aliases: %s" (org-entry-get pos "ROAM_ALIASES"))))
 
-;; ---- Backlinks ----
+;; ---- Backlinks and forward links ----
 
 (defun my/node-backlink-records (id)
   "Return the records of nodes that link to node ID, sorted by title.
@@ -1461,11 +1462,28 @@ Each node appears once, however many links it has."
     (sort (delq nil (mapcar #'my/index-node sources))
           (lambda (a b) (string< (plist-get a :title) (plist-get b :title))))))
 
+(defun my/node-forward-link-records (id)
+  "Return the records of nodes that node ID links to, sorted by title.
+Each node appears once, however many links point to it.  Link targets
+that are not nodes in the index are left out."
+  (let ((targets nil))
+    (pcase-dolist (`(,source ,dest) (my/index-links))
+      (when (and (equal source id) (not (equal dest id)))
+        (cl-pushnew dest targets :test #'equal)))
+    (sort (delq nil (mapcar #'my/index-node targets))
+          (lambda (a b) (string< (plist-get a :title) (plist-get b :title))))))
+
 (defconst my/node-backlinks-buffer-name "*Backlinks*"
   "Buffer name of the backlinks list.")
 
+(defconst my/node-forward-links-buffer-name "*Forward links*"
+  "Buffer name of the forward links list.")
+
 (defvar-local my/node-backlinks--id nil
-  "Id of the node whose backlinks the current buffer lists.")
+  "Id of the node whose links the current buffer lists.")
+
+(defvar-local my/node-backlinks--direction 'back
+  "Which links the current buffer lists: `back' or `forward'.")
 
 (defvar-keymap my/node-backlinks-mode-map
   :parent special-mode-map
@@ -1474,23 +1492,29 @@ Each node appears once, however many links it has."
   "g"   #'my/node-backlinks-refresh)
 
 (define-derived-mode my/node-backlinks-mode special-mode "Backlinks"
-  "List of nodes that link to one node.
+  "List of nodes that link to one node, or that one node links to.
 \\{my/node-backlinks-mode-map}"
   (setq-local truncate-lines t))
 
 (defun my/node-backlinks-refresh ()
-  "Redraw the backlinks list from the index."
+  "Redraw the backlinks or forward links list from the index."
   (interactive)
   (let* ((id my/node-backlinks--id)
+         (forward (eq my/node-backlinks--direction 'forward))
          (node (my/index-node id))
-         (records (my/node-backlink-records id))
+         (records (if forward
+                      (my/node-forward-link-records id)
+                    (my/node-backlink-records id)))
          (inhibit-read-only t))
     (erase-buffer)
-    (insert (propertize (format "Links to %s" (if node (plist-get node :title) id))
+    (insert (propertize (format (if forward "Links from %s" "Links to %s")
+                                (if node (plist-get node :title) id))
                         'face 'bold)
             (format "  (%d)\n\n" (length records)))
     (if (null records)
-        (insert "No node links here yet.\n")
+        (insert (if forward
+                    "This node links to no other node yet.\n"
+                  "No node links here yet.\n"))
       (dolist (record records)
         (insert (propertize
                  (concat "  " (plist-get record :title)
@@ -1504,22 +1528,37 @@ Each node appears once, however many links it has."
     (goto-char (point-min))
     (forward-line 2)))
 
-(defun my/node-backlinks (&optional id)
-  "List the nodes that link to node ID (default: the node at point).
-RET visits the node on the line."
-  (interactive)
+(defun my/node-links--show (id direction)
+  "List the links of node ID in DIRECTION and return the buffer.
+DIRECTION is `back' or `forward'.  ID defaults to the node at point."
   (let* ((id (or id
                  (and (derived-mode-p 'org-mode)
                       (when-let* ((pos (my/node-position)))
                         (org-entry-get pos "ID")))
                  (user-error "Not inside a node")))
-         (buffer (get-buffer-create my/node-backlinks-buffer-name)))
+         (buffer (get-buffer-create
+                  (if (eq direction 'forward)
+                      my/node-forward-links-buffer-name
+                    my/node-backlinks-buffer-name))))
     (with-current-buffer buffer
       (my/node-backlinks-mode)
-      (setq my/node-backlinks--id id)
+      (setq my/node-backlinks--id id
+            my/node-backlinks--direction direction)
       (my/node-backlinks-refresh))
     (display-buffer buffer)
     buffer))
+
+(defun my/node-backlinks (&optional id)
+  "List the nodes that link to node ID (default: the node at point).
+RET visits the node on the line."
+  (interactive)
+  (my/node-links--show id 'back))
+
+(defun my/node-forward-links (&optional id)
+  "List the nodes that node ID (default: the node at point) links to.
+RET visits the node on the line."
+  (interactive)
+  (my/node-links--show id 'forward))
 
 (defun my/node-backlinks--id-at-point ()
   "Return the id of the node on the current backlinks line."

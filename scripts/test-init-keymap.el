@@ -27,6 +27,7 @@
                       ("nc" . my/note-capture)
                       ("ni" . my/node-insert-link)
                       ("nb" . my/node-backlinks)
+                      ("nl" . my/node-forward-links)
                       ("ndt" . my/daily-open-today)
                       ("nda" . my/daily-new-node)
                       ("##" . my/node-action)
@@ -48,12 +49,6 @@
                  my/leader-critical-bindings)))
       (should spec)
       (should (eq (plist-get spec :command) (cdr expected))))))
-
-(ert-deftest my/keymap-contract-names-no-org-roam-command ()
-  "org-roam is optional, so no critical binding may depend on it."
-  (dolist (spec my/leader-critical-bindings)
-    (should-not (string-prefix-p "org-roam"
-                                 (symbol-name (plist-get spec :command))))))
 
 (ert-deftest my/keymap-metadata-has-descriptions-and-no-eaf-contract ()
   (dolist (spec (append my/leader-prefixes my/leader-critical-bindings))

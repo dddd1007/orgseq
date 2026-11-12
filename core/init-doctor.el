@@ -92,7 +92,7 @@ Each entry contains :id, :label, and :check keys.")
 (defun my/init-report-render (results)
   "Render module load RESULTS and return the report buffer.
 Each line shows status, elapsed time and module, then where the module
-comes from (built-in, optional or user) and its position in the load
+comes from (built-in or user) and its position in the load
 order.  Modules left out of the load order are listed after the results
 with the reason."
   (let ((buffer (get-buffer-create "*org-seq init report*"))
@@ -415,10 +415,7 @@ nil when the source or the constant cannot be found."
 
 (defun my/doctor--check-active-packages ()
   "Check representative packages required by active core workflows."
-  (let* ((libraries (append '("general" "evil" "org-ql")
-                            ;; org-roam is optional; check it only when enabled.
-                            (and (memq 'init-roam (bound-and-true-p my/init-modules))
-                                 '("org-roam" "org-node"))))
+  (let* ((libraries '("general" "evil" "org-ql"))
          (missing (cl-remove-if #'locate-library libraries)))
     (if missing
         (my/doctor--payload

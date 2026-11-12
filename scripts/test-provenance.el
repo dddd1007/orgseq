@@ -29,8 +29,38 @@ The literal list lives in the `my/init-modules-default' defconst;
     (dolist (required '("Doom Emacs" "MIT"
                         "Spacemacs" "GPL-3.0"
                         "LazyVim" "Apache-2.0"
-                        "design-only" "modules/notes/init-roam.el"))
+                        "design-only"))
       (should (string-match-p (regexp-quote required) contents)))))
+
+;; org-roam is not part of org-seq.  The only text that may still name it
+;; is the old database file name (old libraries can still hold one that
+;; sync and snapshots must skip) and the one sentence saying where the
+;; capture template format comes from.
+(defconst my/test-provenance-roam-allowed-lines
+  '("org-roam.db" "common subset of the org-roam-capture format")
+  "Substrings that excuse a source line from the org-roam residue check.")
+
+(ert-deftest my/runtime-has-no-org-roam-residue ()
+  (let ((case-fold-search nil)
+        (offenders nil))
+    (dolist (dir '("core" "kernel" "modules"))
+      (dolist (file (directory-files-recursively
+                     (expand-file-name dir my/test-provenance-root) "\\.el\\'"))
+        (unless (equal (file-name-nondirectory file) "dashboard-quotes.el")
+          (with-temp-buffer
+            (insert-file-contents file)
+            (let ((n 0))
+              (dolist (line (split-string (buffer-string) "\n"))
+                (setq n (1+ n))
+                (when (and (string-match-p
+                            "org-roam-\\|org-node\\|org-mem\\|init-roam" line)
+                           (not (seq-some (lambda (ok) (string-search ok line))
+                                          my/test-provenance-roam-allowed-lines)))
+                  (push (format "%s:%d" (file-relative-name
+                                         file my/test-provenance-root)
+                                n)
+                        offenders))))))))
+    (should-not offenders)))
 
 (ert-deftest my/runtime-has-no-eaf-module-or-terminal-residue ()
   (should-not (file-exists-p

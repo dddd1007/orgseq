@@ -17,8 +17,7 @@
 ;;
 ;; The batch process reads the kernel node index (kernel/orgseq-index.el),
 ;; the same file the interactive session uses.  It is derived from the Org
-;; files and refreshed on demand, so it needs no backup and no sync, and
-;; org-roam is not loaded for any command here.
+;; files and refreshed on demand, so it needs no backup and no sync.
 
 (require 'cl-lib)
 (require 'subr-x)

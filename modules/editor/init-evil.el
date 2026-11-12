@@ -46,21 +46,6 @@
         (dashboard-open)
       (message "dashboard-open unavailable; try M-x dashboard-refresh-buffer"))))
 
-;; ---- Keys for the optional org-roam module ----
-;; org-roam is off by default (see `my/init-optional-modules' in init.el).
-;; Keys for features only it provides stay bound and say how to enable it.
-
-(defun my/roam-required (command)
-  "Return a command that runs COMMAND when the init-roam module is loaded.
-Otherwise the command explains how to enable the module."
-  (lambda ()
-    (interactive)
-    (if (and (featurep 'init-roam) (fboundp command))
-        (call-interactively command)
-      (user-error "%s needs org-roam: add init-roam to \
-my/init-enabled-optional-modules in user/modules.el and restart Emacs"
-                  command))))
-
 ;; Set before either evil or evil-collection loads to suppress the
 ;; evil-collection runtime warning.
 (defvar evil-want-keybinding)
@@ -84,9 +69,7 @@ my/init-enabled-optional-modules in user/modules.el and restart Emacs"
 
 (use-package evil-collection
   :after evil
-  :config (evil-collection-init
-           (append '(bookmark dired ibuffer info magit org)
-                   (and (featurep 'init-roam) '(org-roam)))))
+  :config (evil-collection-init '(bookmark dired ibuffer info magit org)))
 
 ;; ---- evil-surround: manage delimiters/pairs (vim-surround) ----
 ;; ys/cs/ds add/change/delete surroundings; visual S surrounds a selection.
@@ -213,7 +196,7 @@ with SPC as the prefix and M-SPC as the global prefix."
     "tc"  '(org-capture :wk "Capture task")
     "te"  '(my/gtd-set-state :wk "Set state")
     "tg"  '(org-agenda :wk "Agenda dispatcher")
-    "tR"  '((lambda () (interactive) (my/org-roam-agenda-files t)) :wk "Refresh cache")
+    "tR"  '((lambda () (interactive) (my/agenda-files t)) :wk "Refresh cache")
     ;; Focus timer (Vitamin-R-style slices)
     "tf"  '(org-focus-start :wk "Focus: start slice")
     "tF"  '(org-focus-dashboard :wk "Focus: dashboard")
@@ -322,18 +305,11 @@ with SPC as the prefix and M-SPC as the global prefix."
     "n/"  '(my/note-search-text :wk "Search note text")
     "ni"  '(my/node-insert-link :wk "Insert link")
     "nb"  '(my/node-backlinks :wk "Backlinks")
-    "ng"  `(,(my/roam-required 'org-roam-ui-mode) :wk "Graph view (org-roam)")
     "no"  '(my/node-action :wk "Node actions")
     "na"  '(my/node-add-alias :wk "Add alias")
-    "nr"  `(,(my/roam-required 'org-roam-ref-add) :wk "Add ref (org-roam)")
     "nL"  '(org-cliplink :wk "Paste link (cliplink)")
     "nI"  '(org-download-clipboard :wk "Paste image")
-    "nl"  `(,(my/roam-required 'consult-org-roam-forward-links)
-            :wk "Forward links (org-roam)")
-    "nB"  `(,(my/roam-required 'consult-org-roam-backlinks)
-            :wk "Backlinks (consult-org-roam)")
-    "n?"  `(,(my/roam-required 'consult-org-roam-search)
-            :wk "Search (consult-org-roam)")
+    "nl"  '(my/node-forward-links :wk "Forward links")
 
     ;; SPC n v — Views / dashboards (read-only query windows)
     "nv"  '(:ignore t :wk "views")

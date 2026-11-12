@@ -76,7 +76,8 @@
                         my/popup-rules)))
     (should spec)
     (should (string-match-p (plist-get spec :matcher) "*Backlinks*"))
-    (should (string-match-p (plist-get spec :matcher) "*org-roam*"))
+    (should (string-match-p (plist-get spec :matcher) "*Forward links*"))
+    (should-not (string-match-p (plist-get spec :matcher) "*org-roam*"))
     (should (eq (plist-get spec :side) 'right))
     (should (= (plist-get spec :width) 0.33))))
 

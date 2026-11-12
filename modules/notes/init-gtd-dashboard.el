@@ -30,7 +30,7 @@
 (defvar my/gtd-context-tags)  ; forward-declare from init-gtd
 (declare-function org-ql-select "org-ql")
 (declare-function my/org-refresh-agenda-files "init-gtd")
-(declare-function my/org-roam-agenda-files "init-gtd" (&optional force))
+(declare-function my/agenda-files "init-gtd" (&optional force))
 (declare-function my/gtd--active-state-p "init-gtd" (state))
 (declare-function my/org-open-inbox "init-gtd")
 (declare-function my/org-open-today "init-gtd")
@@ -159,7 +159,7 @@ Uses org-ql for efficient querying across agenda files."
   (require 'org-ql)
   (my/org-refresh-agenda-files)
   (my/gtd--cleanup-markers)
-  (let* ((files (my/org-roam-agenda-files))
+  (let* ((files (my/agenda-files))
          (inbox    (length (org-ql-select files
                              '(and (tags "fleeting") (not (todo)))
                              :action 'element)))

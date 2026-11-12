@@ -12,10 +12,7 @@
          ("C-c t m" . org-transclusion-transient-menu))
   :config
   (add-to-list 'org-transclusion-extensions 'org-transclusion-indent-mode)
-  (require 'org-transclusion-indent-mode)
-  (when (boundp 'org-roam-db-extra-links-exclude-keys)
-    (setq org-roam-db-extra-links-exclude-keys
-          (remove "transclude" org-roam-db-extra-links-exclude-keys))))
+  (require 'org-transclusion-indent-mode))
 
 (use-package org-ql
   :after org

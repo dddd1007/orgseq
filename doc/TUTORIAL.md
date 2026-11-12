@@ -26,13 +26,13 @@
 
 ### 从 Tana 的世界观出发
 
-可以把记录理解为逐步形成的节点，但不要求“万物一开始就是节点”。先写正文，需要引用时才保留 Org ID；Daily、org-roam、PARA 与 GTD 继续分工，不为类比某个产品而重排笔记。
+可以把记录理解为逐步形成的节点，但不要求“万物一开始就是节点”。先写正文，需要引用时才保留 Org ID；Daily、PARA 与 GTD 继续分工，不为类比某个产品而重排笔记。
 
-**节点层**：Tana 的每个节点对应 org-roam 里的一个文件节点。org-roam 给每个节点生成全局唯一的 UUID（存在 `:ID:` 属性里），跨文件链接就靠这个 ID。一个文件可以有多个节点——文件头部是"文件节点"，每个带 ID 的 heading 是"段落节点"。
+**节点层**：Tana 的每个节点对应 org-seq 里一个带 Org ID 的文件或标题。每个节点有全局唯一的 UUID（存在 `:ID:` 属性里），跨文件链接就靠这个 ID。一个文件可以有多个节点——文件头部是"文件节点"，每个带 ID 的 heading 是"段落节点"。
 
 **类型层**：Tana 的 supertag 和 Fibery 的数据库对应 org-seq 的节点类型。类型定义在 `~/.emacs.d/notes/.orgseq/types.org`：一个类型就是一个 Org 标签、一组字段和一个 capture 模板。给节点加类型就是加上这个标签，字段就是普通 Org properties，节点之间的关系是 `[[id:]]` 链接。所有数据都在 Org 文本里，没有第二个数据库。
 
-**查询层**：org-ql 查询 Org 文件内容，主要服务 GTD；`orgseq-query` 动态块和 `SPC # v` 表格视图查询 org-roam 数据库，按类型、字段值和修改时间筛选节点。数据库只反映已保存的文件。org-seq 的 dashboard 打开入口会刷新块，块本身不持续自动刷新。
+**查询层**：org-ql 查询 Org 文件内容，主要服务 GTD；`orgseq-query` 动态块和 `SPC # v` 表格视图查询节点索引，按类型、字段值和修改时间筛选节点。数据库只反映已保存的文件。org-seq 的 dashboard 打开入口会刷新块，块本身不持续自动刷新。
 
 **AI 层**：Tana 的 AI Command Node 对应 gptel 命令。区别在于 org-seq 把你的 `purpose.org`（知识库目标）和 `schema.org`（笔记结构规则）注入每一次 AI 请求的 system prompt，让模型真正"理解"你的知识库语境。
 
@@ -40,11 +40,11 @@
 
 ```
 init-nodes    ←  类型层（类型、字段、表格视图，读写 Org 标签和 properties）
-org-roam      ←  图谱层（节点 ID、双向链接、搜索）
-org-mem       ←  性能层（替代 org-roam 的慢速文件扫描）
+init-capture  ←  采集层（capture、Daily、节点查找、链接、反链和正向链接）
+节点索引      ←  索引层（内置 SQLite，只重读变化的文件）
 ```
 
-org-mem 是关键。org-roam 扫描 3000 个节点需要近三分钟，org-mem 约两秒。org-mem 不是替代品——它在后台维护缓存，同时写入 org-roam 的 SQLite 数据库，让 org-roam-ui 图谱保持同步。这套组合让系统在大规模笔记库下依然流畅。
+节点索引（`kernel/orgseq-index.el`）是关键。它是从 Org 文件扫描出来的一份缓存，放在 `.cache/` 下，只重读时间或大小变了的文件，所以笔记库变大后仍然很快；它随时可以用 `M-x my/index-rebuild` 重建，也不需要备份。
 
 ### NoteHQ 目录结构
 
@@ -189,14 +189,14 @@ org-seq 现在把 `pyim` 和 `sis` 组合在一起使用：`pyim` 负责真正�
 
 选模板后进入编辑界面，写完用 `C-c C-c` 保存，`C-c C-k` 放弃。
 
-如果你的日常有固定的捕获需求——比如文献阅读、实验记录、学生个案——并且需要按字段查看和筛选，在 `types.org` 里为它定义一个类型（`SPC # T`，保存即生效，见第 4 节）。只需要固定正文骨架时，在 `~/.emacs.d/notes/.orgseq/capture-templates.el` 里定义 `my/user-capture-templates`，格式与 `org-roam-capture-templates` 相同；`SPC # c` 打开这个文件，改完后 `SPC # C` 重载，无需重启 Emacs。
+如果你的日常有固定的捕获需求——比如文献阅读、实验记录、学生个案——并且需要按字段查看和筛选，在 `types.org` 里为它定义一个类型（`SPC # T`，保存即生效，见第 4 节）。只需要固定正文骨架时，在 `~/.emacs.d/notes/.orgseq/capture-templates.el` 里定义 `my/user-capture-templates`，格式是 org-seq 的 capture 模板格式（是 org-roam-capture 格式的常用子集，已有模板继续可用）；`SPC # c` 打开这个文件，改完后 `SPC # C` 重载，无需重启 Emacs。
 
 ### 每日笔记：工作流的入口
 
 `SPC d` 打开今天的 Daily Workspace；启动 Emacs 时它已经是默认入口。
 `SPC n d a` 会在日期文件末尾新建或复用一个一级时间标题，并确保该标题有
 `:ID:`。日期文件只是容器，每个一级标题才是可链接、可添加类型的
-org-roam 节点。先记录内容，稍后用 `, # t` 加类型、`, # f` 填字段、`, # e` 编辑普通 Org property。
+节点。先记录内容，稍后用 `, # t` 加类型、`, # f` 填字段、`, # e` 编辑普通 Org property。
 
 每日笔记支持三种 capture 子模板：`d`（默认条目，带时间）、`t`（任务，带 SCHEDULED）、`j`（日记，带时间戳）。用 `SPC n d c` 触发带模板的捕获写入当日文件。
 
@@ -207,14 +207,7 @@ org-roam 节点。先记录内容，稍后用 `, # t` 加类型、`, # f` 填字
 
 ### 查找笔记
 
-`SPC n n` 打开 org-roam 节点搜索（模糊匹配），每个候选项显示：
-
-```
-[类型]        标题                    [反链数] [标签]
-capture       Bayesian 模型的直觉解释    3      :statistics:
-```
-
-类型字段显示节点所在子目录（`capture`、`daily`、`roam` 等）。反链数告诉你这条笔记被多少其他笔记引用——在 Zettelkasten 里，反链多的笔记往往是知识图谱的枢纽节点。
+`SPC n n` 打开节点搜索（模糊匹配），候选项是节点标题和别名，选中后跳到该节点。反链多的笔记往往是知识图谱的枢纽节点，用 `SPC n b` 可以看到某条笔记被哪些笔记引用。
 
 Orderless 补全：输入时可以用空格分隔多个关键词，无需考虑顺序。"认知 贝叶斯" 和 "贝叶斯 认知" 会匹配到相同结果。
 
@@ -222,25 +215,15 @@ Orderless 补全：输入时可以用空格分隔多个关键词，无需考虑�
 
 ### 链接笔记
 
-在任意 org 文件内，`SPC n i` 插入到另一个节点的链接。它调起同样的节点搜索界面，选中后插入 `[[id:UUID][标题]]` 格式的链接。这是 org-roam 双链的核心——链接用 ID 而不是文件名，重命名文件不会破坏链接。
+在任意 org 文件内，`SPC n i` 插入到另一个节点的链接。它调起同样的节点搜索界面，选中后插入 `[[id:UUID][标题]]` 格式的链接。这是双链的核心——链接用 ID 而不是文件名，重命名文件不会破坏链接。
 
 如果你在浏览器里看到一篇文章想记录，把 URL 复制到剪贴板，然后 `SPC n L`（org-cliplink）会自动抓取页面标题并插入格式化链接。图片同理，`SPC n I` 从剪贴板粘贴图片并存为附件。
 
-### 反链面板
+### 反链与正向链接
 
-`SPC n b` 切换右侧反链面板。这个面板显示所有链接到当前笔记的节点——是 Zettelkasten 图谱的局部视图。写完一条笔记后看反链，往往能发现意想不到的关联。
+`SPC n b` 在右侧打开反链列表。它列出所有链接到当前笔记的节点——是 Zettelkasten 图谱的局部视图。写完一条笔记后看反链，往往能发现意想不到的关联。光标移到某一行按 `RET` 跳转，`g` 刷新。
 
-反链面板有两种查询方式：
-- 直接反链（其他笔记里有指向当前节点的链接）
-- 引用（其他笔记里 cite 了当前节点的 ref）
-
-`SPC n B` 用 consult 界面浏览反链，可以模糊搜索。
-
-### 图谱可视化
-
-`SPC n g` 在浏览器里打开 org-roam-ui 图谱，展示整个知识库的节点与链接关系。这是宏观视角——当你想了解哪些领域的笔记密集、哪些概念是跨领域的桥梁时，图谱比文件列表更直观。
-
-org-mem 确保图谱始终与实际文件同步：它写入 org-roam 的 SQLite 数据库，org-roam-ui 直接读取这个数据库。
+`SPC n l` 打开正向链接列表，反过来列出当前笔记链接到的节点，操作相同。想看更大范围的关系，用 `SPC # v` 的表格视图和 `orgseq-query` 动态块按类型、字段筛选。
 
 ### 内容嵌入（Transclusion）
 
@@ -260,7 +243,7 @@ org-mem 确保图谱始终与实际文件同步：它写入 org-roam 的 SQLite 
 - 添加别名、编辑任意 Org property
 - 新建某个类型的笔记、打开 review 表格
 - 当前标题还不是节点时，把它变成节点
-- 把选中区域提取为新 Roam 节点（新节点带 Source 链接回原处）
+- 把选中区域提取为新节点（新节点带 Source 链接回原处）
 
 "Extract region to new note" 特别有用：当一条笔记写得太长，选中某个段落，从菜单提取，它变成独立笔记，原位置自动替换为指向新笔记的链接。
 
@@ -270,7 +253,7 @@ org-mem 确保图谱始终与实际文件同步：它写入 org-roam 的 SQLite 
 
 ### 先写 Org，再整理
 
-org-roam 中每个带 Org ID 的文件或标题都是节点。类型和字段是写完之后再加的结构，不是记录时必须填写的表单。Supertag 包已于 2026-10-22 移除，现在由 `modules/notes/init-nodes.el` 在 org-roam 上提供这一层。
+每个带 Org ID 的文件或标题都是节点。类型和字段是写完之后再加的结构，不是记录时必须填写的表单。Supertag 包已于 2026-10-22 移除，现在由 `modules/notes/init-nodes.el` 在节点索引上提供这一层；org-roam 已于 2026-11-12 移除。
 
 ### 定义类型：`types.org`
 
@@ -335,7 +318,7 @@ org-roam 中每个带 Org ID 的文件或标题都是节点。类型和字段是
 
 在块上 `C-c C-c` 或 `org-update-all-dblocks` 刷新。可用参数还有 `:recent-days`、`:sort`、`:order` 和 `:limit`。旧 dashboard 中的 `supertag-query` 块对 `(tag ...)`、`(property K V)`、`(recent-days N)`、`(and ...)` 仍能渲染，新建时用 `orgseq-query`。
 
-Org 文本是唯一权威：类型是标签，字段是 property。表格视图和 dashboard 读取 org-roam 数据库，只反映已保存的文件；数据库可以随时用 `M-x org-roam-db-sync` 从 Org 重建。备份 Org 文件和 `.orgseq/` 即可。
+Org 文本是唯一权威：类型是标签，字段是 property。表格视图和 dashboard 读取节点索引，只反映已保存的文件；索引可以随时用 `M-x my/index-rebuild` 从 Org 重建。备份 Org 文件和 `.orgseq/` 即可。
 完整说明见[架构文档第四节](NOTES_ARCHITECTURE.md#四节点模型与权威边界)。
 
 ---
@@ -483,7 +466,7 @@ machine openrouter.ai login apikey password sk-or-YOUR-KEY
 | `SPC a K` | 从底部唤出 NoteHQ 的 kimi-cli |
 | `SPC a C` | 打开 Claude Code CLI Transient 菜单 |
 
-`SPC a o`（知识库概览）收集 org-roam 的统计数据——总节点数、前 15 个高频 tag、最近 10 条笔记标题——发送给 LLM，生成包含四个部分的分析报告：主要知识领域、欠充分的主题、可能的意外关联、建议探索的方向。结果保存到 `00_Roam/overview.org`，带时间戳，覆盖写入。
+`SPC a o`（知识库概览）收集节点索引的统计数据——总节点数、前 15 个高频 tag、最近 10 条笔记标题——发送给 LLM，生成包含四个部分的分析报告：主要知识领域、欠充分的主题、可能的意外关联、建议探索的方向。结果保存到 `00_Roam/overview.org`，带时间戳，覆盖写入。
 
 ### ob-gptel：笔记里的 AI 代码块
 
@@ -590,7 +573,7 @@ org-fragtog 对 LaTeX 片段做同样的事：光标移出 LaTeX 片段后自动
 
 ### Markdown 支持
 
-`.md` 文件支持 Obsidian 风格的 `[[wiki links]]`，用于与 Obsidian 笔记库互操作。但 Markdown 文件不被 org-roam 索引。
+`.md` 文件支持 Obsidian 风格的 `[[wiki links]]`，用于与 Obsidian 笔记库互操作。但 Markdown 文件不进入节点索引。
 
 | 键位 | 效果 |
 |------|------|
@@ -720,16 +703,15 @@ emacsclient -s org-seq -c    ← 连接 daemon，今日 Daily Workspace 出现
 
 | 键位 | 效果 |
 |------|------|
-| `SPC n n` | 搜索笔记节点（模糊，显示类型+反链+标签）|
+| `SPC n n` | 搜索笔记节点（模糊，标题和别名）|
 | `SPC n c` | Capture 新笔记 |
 | `SPC n i` | 插入到另一个节点的链接 |
-| `SPC n b` | 切换反链面板 |
-| `SPC n g` | 打开 org-roam-ui 图谱 |
+| `SPC n b` | 反链列表 |
+| `SPC n l` | 正向链接列表 |
 | `SPC n o` | 节点操作菜单（Tana `/ ` 命令等价）|
 | `SPC n s` | Deft 全库搜索 |
 | `SPC n /` | ripgrep 搜索 00_Roam |
 | `SPC n a` | 给当前节点添加别名 |
-| `SPC n r` | 给当前节点添加 ref（URL 等）|
 | `SPC n L` | 从剪贴板粘贴 URL 并自动获取标题 |
 
 ### 每日笔记（`SPC n d`）

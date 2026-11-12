@@ -45,7 +45,7 @@
   (expand-file-name "user/" user-emacs-directory)
   "Directory for the user's own configuration.
 modules.el there runs before the modules load (set
-`my/init-disabled-modules' and `my/init-enabled-optional-modules'),
+`my/init-disabled-modules' and `my/init-user-modules'),
 config.el after them, and custom.el holds
 Customize settings.  Deployment never writes this directory.")
 
@@ -371,7 +371,7 @@ Absent optional packages are skipped silently, matching module loading."
 ;; ---- Load modules ----
 ;; Canonical order (the tie-break; the load order is computed from
 ;; `my/init-module-requires'): doctor -> packages -> popup -> keymap -> UI -> completion -> pyim -> python
-;; -> markdown -> languages -> org -> capture -> roam (optional, off by default)
+;; -> markdown -> languages -> org -> capture
 ;; -> gtd -> gtd-dashboard -> focus -> pkm -> nodes -> views -> palette -> sync
 ;; -> daily -> terminal
 ;; -> ai -> ai-cli -> dashboard -> dired
@@ -398,7 +398,6 @@ Absent optional packages are skipped silently, matching module loading."
     init-languages
     init-org
     init-capture
-    init-roam
     init-gtd
     init-gtd-dashboard
     init-focus
@@ -457,37 +456,19 @@ Set it in user/modules.el, for example (setq my/init-disabled-modules
 \='(init-pyim init-python)).  Startup warns when an enabled module
 depends on a disabled one.")
 
-(defconst my/init-optional-modules '(init-roam)
-  "Modules in `my/init-modules-default' that load only when enabled.
-They keep their place in the canonical order; see
-`my/init-enabled-optional-modules'.  No module of the default set may
-depend on one of them.")
-
-(defvar my/init-enabled-optional-modules nil
-  "Optional modules (from `my/init-optional-modules') to load.
-Set it in user/modules.el, for example (setq
-my/init-enabled-optional-modules \='(init-roam)) to add org-roam, its
-graph view and consult-org-roam.")
-
 (defun my/init-module-skip-reason (module)
   "Return why MODULE is not loaded by configuration, or nil."
-  (cond ((memq module my/init-disabled-modules)
-         "disabled in my/init-disabled-modules")
-        ((and (memq module my/init-optional-modules)
-              (not (memq module my/init-enabled-optional-modules)))
-         "optional, not in my/init-enabled-optional-modules")))
+  (when (memq module my/init-disabled-modules)
+    "disabled in my/init-disabled-modules"))
 
 (defun my/init-effective-modules (&optional modules)
   "Return MODULES (default `my/init-modules') as they are actually loaded.
-Modules in `my/init-disabled-modules' are dropped, and so are optional
-modules that are not in `my/init-enabled-optional-modules'."
+Modules in `my/init-disabled-modules' are dropped."
   (cl-remove-if #'my/init-module-skip-reason (or modules my/init-modules)))
 
 (defun my/init-module-source (module)
-  "Return where MODULE comes from: `built-in', `optional' or `user'."
-  (cond ((memq module my/init-optional-modules) 'optional)
-        ((memq module my/init-modules-default) 'built-in)
-        (t 'user)))
+  "Return where MODULE comes from: `built-in' or `user'."
+  (if (memq module my/init-modules-default) 'built-in 'user))
 
 (defun my/load-user-file (name)
   "Load NAME from `my/user-directory' when it exists; report failures.
@@ -512,7 +493,6 @@ Return non-nil when the file was loaded."
     (init-languages     . (init-completion init-python))
     (init-org           . (init-packages init-ui))
     (init-capture       . (init-org))
-    (init-roam          . (init-org init-capture))
     (init-gtd           . (init-org))
     (init-gtd-dashboard . (init-gtd init-ui))
     (init-focus         . (init-org))
@@ -730,8 +710,8 @@ Return non-nil when MODULE loads successfully."
 (defvar my/--init-requires nil
   "`my/init-module-requires' extended with the loaded user modules.")
 
-;; Compute the load order from the declared dependencies.  Disabled and
-;; optional modules drop out first; accepted user modules join the sort.
+;; Compute the load order from the declared dependencies.  Disabled
+;; modules drop out first; accepted user modules join the sort.
 (let* ((enabled (my/init-effective-modules my/init-modules))
        (plan (my/init-plan-modules enabled my/init-user-modules))
        (cycle (plist-get plan :cycle)))

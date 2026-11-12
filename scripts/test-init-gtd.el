@@ -233,7 +233,7 @@
               (in-archives (my/gtd-test--make-note archives "old.org")))
           (my/org-invalidate-agenda-cache)
           (let ((files (mapcar (function file-truename)
-                               (my/org-roam-agenda-files t))))
+                               (my/agenda-files t))))
             (should (member (file-truename roam) files))
             (should (member (file-truename outputs) files))
             (should (member (file-truename practice) files))
@@ -252,11 +252,11 @@
         (progn
           (my/gtd-test--make-note my/roam-dir "first.org")
           (my/org-invalidate-agenda-cache)
-          (should (= (length (my/org-roam-agenda-files t)) 1))
+          (should (= (length (my/agenda-files t)) 1))
           (my/gtd-test--make-note my/roam-dir "second.org")
-          (should (= (length (my/org-roam-agenda-files)) 1))
+          (should (= (length (my/agenda-files)) 1))
           (my/org-invalidate-agenda-cache)
-          (should (= (length (my/org-roam-agenda-files)) 2)))
+          (should (= (length (my/agenda-files)) 2)))
       (my/org-invalidate-agenda-cache)
       (delete-directory root t))))
 
@@ -270,9 +270,9 @@
         (progn
           (my/gtd-test--make-note my/roam-dir "first.org")
           (my/org-invalidate-agenda-cache)
-          (should (= (length (my/org-roam-agenda-files)) 1))
+          (should (= (length (my/agenda-files)) 1))
           (my/gtd-test--make-note my/roam-dir "second.org")
-          (should (= (length (my/org-roam-agenda-files)) 2)))
+          (should (= (length (my/agenda-files)) 2)))
       (my/org-invalidate-agenda-cache)
       (delete-directory root t))))
 

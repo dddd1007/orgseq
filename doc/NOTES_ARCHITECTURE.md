@@ -10,7 +10,9 @@
 >
 > **实现层面的事实**（函数名、加载顺序、键位、安装方式）请以下列源文件为准，因为它们随项目迭代而变化：
 > - `modules/notes/init-org.el` — 路径常量 `my/note-home` / `my/roam-dir` / `my/orgseq-dir` / `my/types-file`（defcustom，属于 `org-seq` customize group）
-> - `modules/notes/init-roam.el` — org-roam + org-node/org-mem + capture templates
+> - `modules/notes/init-capture.el` 与 `kernel/orgseq-note.el` — 采集、capture 模板、Daily 命令
+> - `kernel/orgseq-index.el` — 节点索引
+> - 2026-11-12：org-roam 已从 org-seq 移除，下文凡提到 org-roam 的设计说明，现由节点索引、`init-capture` 和 `init-nodes` 承担。
 > - `modules/notes/init-views.el` — 保存的视图（表格、列表、看板）、筛选语言、`orgseq-view` 动态块
 > - `modules/notes/init-sync.el` — 笔记库的设备本地状态、旧库导入、rclone 同步
 > - `core/orgseq-cli.el` 与 `bin/orgseq` — 命令行与 MCP 服务
@@ -27,7 +29,7 @@
 
 本文档定义 `~/NoteHQ/` 笔记库的物理结构、tag 体系思路、capture 模板、dashboard 设计与生长原则，作为 org-seq 配置开发与数据初始化的依据。
 
-这段设计文档基于一个核心承诺：**笔记系统应该跟随使用情况自然生长，而不是预先规划完整 schema**。下文的 properties、模板和 dashboard 都是按需采用的示例，不代表已经替用户迁移笔记。节点模型见第四节；Daily、PARA、GTD 和 org-roam 保持现状。
+这段设计文档基于一个核心承诺：**笔记系统应该跟随使用情况自然生长，而不是预先规划完整 schema**。下文的 properties、模板和 dashboard 都是按需采用的示例，不代表已经替用户迁移笔记。节点模型见第四节；Daily、PARA、GTD 保持现状。
 
 ---
 
@@ -35,7 +37,7 @@
 
 整个笔记库的物理结构和数据流向都可以从两条原则推导出来。
 
-第一条：**把碎片想法和正式产出物物理分开存放**。原子笔记（一个想法一条）进入 `00_Roam/` 这个扁平目录，由 org-roam 负责索引和反向链接；正式产出物（论文、课件、申请书这类有明确交付时刻的东西）进入类 PARA 层级目录，文件结构反映可交付物自身的内在组织。两层之间通过 `[[id:...]]` 链接和 `org-transclusion` 通信，但不互相混杂。这条原则同时解决了两个常见痛点：一是当你的笔记库里混入 30 页的论文草稿，org-roam 的索引会开始变慢，搜索结果里也会出现大段无关的噪音；二是当你的项目目录里塞满未成形的想法碎片，你再也找不到"这个项目真正的可交付文件是哪几个"。分开存放让两类文件各得其所，也让两种工作模式（捕捉 vs. 打磨）保持清晰的边界。
+第一条：**把碎片想法和正式产出物物理分开存放**。原子笔记（一个想法一条）进入 `00_Roam/` 这个扁平目录，由节点索引负责检索和反向链接；正式产出物（论文、课件、申请书这类有明确交付时刻的东西）进入类 PARA 层级目录，文件结构反映可交付物自身的内在组织。两层之间通过 `[[id:...]]` 链接和 `org-transclusion` 通信，但不互相混杂。这条原则同时解决了两个常见痛点：一是当你的笔记库里混入 30 页的论文草稿，org-roam 的索引会开始变慢，搜索结果里也会出现大段无关的噪音；二是当你的项目目录里塞满未成形的想法碎片，你再也找不到"这个项目真正的可交付文件是哪几个"。分开存放让两类文件各得其所，也让两种工作模式（捕捉 vs. 打磨）保持清晰的边界。
 
 第二条：**分类靠 tag，不靠新增类型目录**。`00_Roam/` 保留 `daily/`、`capture/` 和 `dashboards/` 等功能目录；默认独立笔记落在 `capture/`，Daily 标题也可持有自己的 Org ID。类别/主题可用标签，任务进度用 Org TODO，需要查询的附加信息用普通 Org properties，笔记间关系用 Org 链接。不是所有状态都该做成节点类型，也不要求记录时完成分类。
 
@@ -98,7 +100,7 @@ orgseq 的 GTD keyword 序列是 `PROJECT/TODO → NEXT → IN-PROGRESS → WAIT
 
 ### 阶段 4：汇总与整理 — Dashboard 作为周期性 review 入口
 
-每天结束、每周末、或某项工作收尾时，按 `SPC n v v` 选择 dashboard。它是**查询窗口**，由 org-roam 数据库中已保存笔记的索引渲染；org-seq 的打开入口刷新动态块，动态块本身不会持续自动刷新。另用 `SPC # r` 打开 review 表格，列出最近没有类型或没有链接的笔记。在 dashboard 和 review 里你做的事情：
+每天结束、每周末、或某项工作收尾时，按 `SPC n v v` 选择 dashboard。它是**查询窗口**，由节点索引中已保存笔记渲染；org-seq 的打开入口刷新动态块，动态块本身不会持续自动刷新。另用 `SPC # r` 打开 review 表格，列出最近没有类型或没有链接的笔记。在 dashboard 和 review 里你做的事情：
 
 - 看本周新增的笔记是否需要补充类型、字段或链接
 - 看某个主题的所有相关碎片是否暗示着新的洞察
@@ -113,7 +115,7 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 ```
 ~/NoteHQ/
-├── 00_Roam/                              ← 原子层 (org-roam-directory)
+├── 00_Roam/                              ← 原子层 (节点索引范围)
 │   ├── daily/                         ← 每日笔记 (唯一例外子目录)
 │   ├── dashboards/                    ← 查询入口文件 (唯一例外子目录)
 │   └── capture/20260409143022-*.org    ← 默认独立笔记,时间戳前缀文件名
@@ -156,16 +158,11 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 (defcustom my/roam-dir    (expand-file-name "00_Roam/"   my/note-home) ...) ; 原子层
 (defcustom my/orgseq-dir  (expand-file-name ".orgseq/" my/note-home) ...); 个性化配置
 
-;; init-roam.el —— org-roam 锁在 00_Roam/
-(use-package org-roam
-  :custom
-  (org-roam-directory my/roam-dir)
-  (org-roam-db-location (expand-file-name "org-roam.db" my/roam-dir))
-  ...)
+;; kernel/orgseq-index.el —— 节点索引读取 00_Roam/ 等层，缓存在 .cache/，不进笔记库
 
 ;; init-gtd.el —— agenda 跨 Roam + Outputs + Practice
 ;; daily 笔记里的 TODO/PROJECT 通过这个范围进入 GTD 视图
-(my/org-roam-agenda-files)  ; returns 00_Roam/ + 10_Outputs/ + 20_Practice/ (not 30_Library/ or 40_Archives/)
+(my/agenda-files)  ; returns 00_Roam/ + 10_Outputs/ + 20_Practice/ (not 30_Library/ or 40_Archives/)
 
 ;; init-org.el —— 节点类型注册表放在 .orgseq/,不在 agenda 扫描范围内
 (defcustom my/types-file (expand-file-name "types.org" my/orgseq-dir) ...)
@@ -187,11 +184,11 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 ## 四、节点模型与权威边界
 
-2026-10-22 起，org-seq 不再使用 Supertag 和 TextUI。笔记结构直接建立在 org-roam 上，由 `modules/notes/init-nodes.el` 提供类型、字段、表格视图和查询。设计参照 Tana 的 supertag 和 Fibery 的数据库，但不引入第二个数据库。
+2026-10-22 起，org-seq 不再使用 Supertag 和 TextUI。笔记结构直接建立在节点索引上（当时是 org-roam，2026-11-12 起 org-roam 已移除），由 `modules/notes/init-nodes.el` 提供类型、字段、表格视图和查询。设计参照 Tana 的 supertag 和 Fibery 的数据库，但不引入第二个数据库。
 
 ### 节点
 
-节点是任何带 Org ID 的文件或标题，也就是 org-roam 节点。节点之间的关系是 `[[id:...]]` 链接。没有 ID 的标题不是节点；`SPC # p` 可以给当前标题补上 ID，使它成为原位节点。
+节点是任何带 Org ID 的文件或标题。节点之间的关系是 `[[id:...]]` 链接。没有 ID 的标题不是节点；`SPC # p` 可以给当前标题补上 ID，使它成为原位节点。
 
 ### 类型：`.orgseq/types.org`
 
@@ -276,7 +273,7 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 ### 单一权威
 
-Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[id:]]` 链接。org-roam 数据库（由 org-mem 写入）只是索引，随时可以用 `M-x org-roam-db-sync` 从 Org 文件重建；org-mem 的更新器在每次保存时重新索引被保存的文件。
+Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[id:]]` 链接。节点索引只是缓存，随时可以用 `M-x my/index-rebuild` 从 Org 文件重建；每次刷新只重读时间或大小变了的文件。
 
 由此得到两条规则：
 
@@ -296,9 +293,9 @@ Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[
 
 ## 五、Capture 模板
 
-`org-roam-capture-templates` 由三个来源按顺序合并（`my/reload-capture-templates`）：
+Capture 模板由三个来源按顺序合并（`my/reload-capture-templates`）：
 
-1. **内置默认模板**：定义在 `modules/notes/init-roam.el`，只有一个 `d`（Default），落到 `00_Roam/capture/%<%Y%m%dT%H%M%S>-${slug}.org`，不带 filetag。这是部署时会被覆盖的部分，**不建议**修改。
+1. **内置默认模板**：定义在 `modules/notes/init-capture.el`（`my/default-capture-templates`），只有一个 `d`（Default），落到 `00_Roam/capture/%<%Y%m%dT%H%M%S>-${slug}.org`，不带 filetag。这是部署时会被覆盖的部分，**不建议**修改。
 
 2. **类型模板**：由 `types.org` 自动生成，归在 `t`（Typed note）组下，键为 `t` 加 `TYPE_KEY`（省略 `TYPE_KEY` 时取标签首字母，重复时追加数字）。目标文件同样在 `00_Roam/capture/`，文件头带 `#+filetags: :TYPE_TAG:`，正文取自类型标题的正文。新笔记创建后自动加上该类型的空字段。修改 `types.org` 并保存后，这部分模板随之更新。
 
@@ -334,17 +331,17 @@ Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[
 
 > **实现参考**：真实代码在 `modules/notes/init-nodes.el`，请以源文件为准。本节只说明模块的**设计职责**。
 
-`init-nodes.el` 在 org-roam 之上提供类型、字段、视图和操作，并承担原 `init-supertag.el` 中与 Supertag 无关的职责：
+`init-nodes.el` 在节点索引之上提供类型、字段、视图和操作，并承担原 `init-supertag.el` 中与 Supertag 无关的职责：
 
 1. **消费集中路径常量**：`my/types-file`、`my/capture-templates-file`、`my/dashboards-dir` 以及 PARA 各层路径全部在 `init-org.el` 中从 `my/note-home` 派生，本模块只通过 `defvar` 使用。
 
 2. **类型注册表**：解析 `types.org`（`my/node-types`），文件缺失时创建起始文件（`my/node-types-ensure-file`），保存时重载（`my/node-types-reload`）。对应 `SPC # T`。
 
-3. **Capture 模板合并**：内置默认模板、类型模板和用户模板按此顺序合并到 `org-roam-capture-templates`；`my/edit-capture-templates` / `my/reload-capture-templates` 对应 `SPC # c` / `SPC # C`。
+3. **Capture 模板合并**：内置默认模板、类型模板和用户模板按此顺序合并为 org-seq 的 capture 模板列表；`my/edit-capture-templates` / `my/reload-capture-templates` 对应 `SPC # c` / `SPC # C`。
 
 4. **节点命令**：`my/node-set-type`、`my/node-remove-type`、`my/node-set-field`、`my/node-promote`、`my/node-capture-region-as-note`、`my/node-copy-id-link`、`my/node-capture`。
 
-5. **查询**：`my/node-query` 按标签、字段值、修改天数筛选 org-roam 节点，并排序和截断。表格视图和 dashboard 动态块都用它。
+5. **查询**：`my/node-query` 按标签、字段值、修改天数筛选节点，并排序和截断。表格视图和 dashboard 动态块都用它。
 
 6. **视图入口**：`my/node-view` 打开类型视图，交给 `init-views.el` 的 `my/view-show-type`；`my/node-review`（待整理笔记）使用本模块的 `my/node-view-mode` 表格。
 
@@ -364,7 +361,7 @@ Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[
 
 ### 加载顺序要求
 
-`init-nodes.el` 依赖 `init-org`（路径常量）和 `init-roam`（默认 capture 模板），加载位置在 `init-pkm.el` 之后、`init-daily.el` 之前。完整链条见 `AGENTS.md` 的 "Load Order" 小节。
+`init-nodes.el` 依赖 `init-org`（路径常量）和 `init-capture`（默认 capture 模板），加载位置在 `init-pkm.el` 之后、`init-daily.el` 之前。完整链条见 `AGENTS.md` 的 "Load Order" 小节。
 
 ### 函数命名约定
 
@@ -391,7 +388,7 @@ Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[
   - ~SPC # v~ 查看某个类型的全部节点
   - ~SPC # r~ 整理最近没有类型或链接的笔记
   - ~SPC # p~ 把选区提取为新笔记，或把标题变成节点
-  - ~SPC n c~ 新建 org-roam 笔记
+  - ~SPC n c~ 新建笔记
   - ~SPC # #~ 节点操作菜单
   - ~SPC P o/p/l~ PARA 导航 (10_Outputs/20_Practice/Library)
 
@@ -459,7 +456,7 @@ Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[
 | `:limit N` | 最多 N 行 |
 | `:columns` | 要显示的字段列表；省略时取该类型的全部字段 |
 
-第一列总是链接到节点的标题。动态块以 `#+END:` 结束；在块上 `C-c C-c` 或 `org-update-all-dblocks` 刷新，org-seq 的 dashboard 打开入口也会刷新。结果来自 org-roam 数据库，只反映已保存的文件。没有匹配节点时块内显示 `No matching nodes.`。
+第一列总是链接到节点的标题。动态块以 `#+END:` 结束；在块上 `C-c C-c` 或 `org-update-all-dblocks` 刷新，org-seq 的 dashboard 打开入口也会刷新。结果来自节点索引，只反映已保存的文件。没有匹配节点时块内显示 `No matching nodes.`。
 
 ---
 
@@ -604,10 +601,10 @@ Library 层存放被取用而非被维护的素材:
 
 脚本本身不会替你制定标签体系。跑完之后可以：
 
-1. 先按现有 Daily/org-roam capture 写笔记，需要时再加类型和字段（参考 §4；`SPC # T` 编辑 `types.org`）
+1. 先按现有 Daily/capture 写笔记，需要时再加类型和字段（参考 §4；`SPC # T` 编辑 `types.org`）
 2. 在 `~/NoteHQ/00_Roam/dashboards/index.org` 写 dashboard 索引（参考 §7；`SPC # D` 创建）
-3. （可选）把 Org 笔记和 `.orgseq/` 纳入版本控制；org-roam 数据库不需要纳入
-4. 运行 `M-x org-roam-db-sync` 为已有笔记建立索引
+3. （可选）把 Org 笔记和 `.orgseq/` 纳入版本控制；节点索引不需要纳入
+4. 运行 `M-x my/index-rebuild` 为已有笔记建立索引
 
 ### 更新部署的 NoteHQ/Codex 脚手架
 
@@ -645,7 +642,7 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 | 代码执行 | 是 (org-babel) | 否 |
 | 跨设备同步 | git push/pull | Obsidian Sync E2EE |
 
-**约定**：移动端临时输入不改变当前目录边界。`.md` 文件不会自动进入 org-roam 的 Org 节点图谱；回桌面后再决定是否转换成带 ID 的 `.org`。类型和字段都是 Org 文本，外部编辑器修改标签和 properties 就是修改全部数据；在 Emacs 中运行 `M-x org-roam-db-sync` 后修改进入查询结果。
+**约定**：移动端临时输入不改变当前目录边界。`.md` 文件不会自动进入节点索引；回桌面后再决定是否转换成带 ID 的 `.org`。类型和字段都是 Org 文本，外部编辑器修改标签和 properties 就是修改全部数据；在 Emacs 中运行 `M-x my/index-rebuild`（或等下一次索引刷新）后修改进入查询结果。
 
 ---
 
@@ -683,7 +680,7 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 
 ### 关于版本控制与备份
 
-保留 Org 文本和 `.orgseq/`（`types.org`、`capture-templates.el`）的版本历史，这就是完整的数据。org-roam 数据库是索引，恢复或跨机迁移时用 `git checkout` 取回 Org 文件，再运行 `M-x org-roam-db-sync` 重建。重命名类型标签前，先用 `SPC # v` 或 ripgrep 确认受影响的笔记。历史 `supertag-schema.el` 和 `.supertag-metadata.eld` 可以作为档案保留，但不再被读取。
+保留 Org 文本和 `.orgseq/`（`types.org`、`capture-templates.el`）的版本历史，这就是完整的数据。节点索引是缓存，恢复或跨机迁移时用 `git checkout` 取回 Org 文件，再运行 `M-x my/index-rebuild` 重建。重命名类型标签前，先用 `SPC # v` 或 ripgrep 确认受影响的笔记。历史 `supertag-schema.el` 和 `.supertag-metadata.eld` 可以作为档案保留，但不再被读取。
 
 ---
 
@@ -710,7 +707,7 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 - `SPC n S c`（`my/sync-setup`）选择网盘、登录、指定网盘上的文件夹。
 - 第一次同步把两边合并，不删除任何一边的文件。之后启动后不久同步一次，并每隔 `my/sync-auto-interval` 分钟（默认 15）同步一次；`SPC n S s` 立即同步，`SPC n S p` 只预览。
 - 同步单位是整个文件。两台设备改了同一个文件时，较新的一份生效，另一份保留在旁边，文件名带 `.conflict` 后缀；`SPC n S x` 列出这些冲突副本。
-- org-roam 数据库是本机索引，不同步；同步带来变化后自动刷新索引和类型定义。
+- 节点索引是本机缓存，不同步（旧库里残留的 `org-roam.db` 同样被跳过）；同步带来变化后自动刷新索引和类型定义。
 
 ### 类型（SuperTag）的扩充
 
@@ -798,4 +795,4 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 
 `bin/orgseq` 不打开 Emacs 界面即可操作同一个笔记库：`add`、`daily`、`search`、`show`、`set`、`retype`、`append`、`types`、`views`、`query`、`sync`、`doctor`、`update`、`reindex`、`info`，加 `--json` 输出 JSON。`orgseq mcp` 以标准输入输出提供 MCP 服务，工具与命令行共用同一组 `my/api-*` 函数和同一条写入路径。
 
-命令行和图形界面读同一个内核索引（Emacs 目录下 `.cache/index-<哈希>.db`，每个笔记库路径一个文件），由 Org 文件增量刷新，`orgseq reindex` 可整体重建。命令行不再加载 org-roam。
+命令行和图形界面读同一个内核索引（Emacs 目录下 `.cache/index-<哈希>.db`，每个笔记库路径一个文件），由 Org 文件增量刷新，`orgseq reindex` 可整体重建。命令行不加载任何笔记包。

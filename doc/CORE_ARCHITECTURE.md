@@ -33,7 +33,7 @@ loading out of order.
 
 - `M-x my/init-errors` shows legacy failure details.
 - `M-x my/init-report` shows ordered module status and timings, where each
-  module came from (built-in, optional, user), its position in the computed
+  module came from (built-in, user), its position in the computed
   order, and the modules left out of it with the reason.
 - `M-x my/doctor` checks requirements without installing, downloading, or
   creating user directories.
@@ -107,8 +107,9 @@ changed and before imports and full comparisons) and sync.
 doctor and `orgseq info`. See [DESIGN.md](DESIGN.md) for the layer model. `modules/notes/init-sync.el`
 syncs it with a cloud remote through rclone bisync (WebDAV, OneDrive, Google
 Drive): whole Org files are the sync unit, the newer side wins a conflict and
-the other version is kept as a `.conflict` copy, and the org-roam database is
-excluded because it is a rebuildable local index. Device-local state lives in
+the other version is kept as a `.conflict` copy, and the node index is not
+synced because it is a rebuildable local cache (a leftover `org-roam.db` in an old
+library is skipped too). Device-local state lives in
 `.cache/` under the Emacs directory.
 
 `bin/orgseq` runs a batch Emacs with the same configuration and exposes the
@@ -128,8 +129,10 @@ interactive session, the daemon and `bin/orgseq` share the file. Records are
 plists (`:id :title :tags :file :mtime :props :todo :priority :level :olp
 :pos`); views, node tables, dashboard blocks, the command line and MCP all
 read them through `my/index-records`, `my/index-node`, `my/index-links` and
-`my/index-search`. org-roam remains only for interactive capture, node
-find/insert, the backlinks buffer and the Daily commands.
+`my/index-search`. Interactive capture, node find/insert, the backlinks and
+forward links buffers and the Daily commands are org-seq's own
+(`init-capture`, `init-nodes`, `kernel/orgseq-note.el`); org-roam was removed
+on 2026-11-12.
 
 ### Views
 
@@ -155,7 +158,7 @@ keeps no database of its own:
 Supertag and its `textui` dependency were removed on 2026-10-22. `init-pkm`
 now configures only org-transclusion and org-ql. Old `supertag-query`
 dashboard blocks still render for the forms `(tag ...)`, `(property K V)`,
-`(recent-days N)`, and `(and ...)`. Existing org-roam capture, Daily, PARA, and
+`(recent-days N)`, and `(and ...)`. Existing capture, Daily, PARA, and
 GTD remain separate responsibilities.
 See [the node model](NOTES_ARCHITECTURE.md#四节点模型与权威边界).
 
@@ -181,8 +184,8 @@ Workspace. It is a `special-mode` navigation buffer, not a popup rule:
 rendering computes 14 calendar-date records without creating files, and opening
 a missing date is the explicit mutation boundary. Each Daily file remains a
 plain Org container; capture-ready top-level headings receive normal Org IDs
-and become org-roam nodes. Saving a Daily file needs no extra hook: org-mem's
-updater re-indexes every saved Org file under the watched directories.
+and become nodes. Saving a Daily file needs no extra hook: the kernel index
+re-reads every changed Org file on its next refresh.
 
 `init-workspace` owns the transition between persistent sidebars. Opening
 the Daily Workspace closes only Treemacs in the selected frame; opening the
@@ -196,7 +199,7 @@ for bottom/side popup placement and does not register the Daily sidebar.
 
 - `my/leader-prefixes` records every top-level SPC namespace and description.
 - `my/leader-critical-bindings` records a focused cross-section of terminal,
-  GTD, focus, org-roam, node type, AI CLI, and yazi workflows.
+  GTD, focus, node type, AI CLI, and yazi workflows.
 
 `init-evil` defines the complete map and then calls
 `my/keymap-apply-general-contract`. The contract is applied through the
@@ -215,7 +218,6 @@ real background readiness. Every such site must carry a nearby
 
 The current retained delays are:
 
-- org-roam graph and accelerator readiness after the first frame;
 - pyim dictionary/input readiness without blocking frame creation;
 - dirvish global Dired takeover after UI setup.
 

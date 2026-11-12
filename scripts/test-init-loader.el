@@ -183,24 +183,20 @@
     (should (eq (car order) 'init-doctor))
     (should (eq (car (last order)) 'init-evil))))
 
-(ert-deftest my/init-effective-modules-drops-disabled-and-optional ()
-  (let ((my/init-disabled-modules '(init-pyim))
-        (my/init-enabled-optional-modules nil))
+(ert-deftest my/init-effective-modules-drops-disabled ()
+  (let ((my/init-disabled-modules '(init-pyim)))
     (let ((effective (my/init-effective-modules my/init-modules-default)))
       (should-not (memq 'init-pyim effective))
-      (should-not (memq 'init-roam effective))
       (should (memq 'init-org effective))
       (should (equal (my/init-module-skip-reason 'init-pyim)
                      "disabled in my/init-disabled-modules"))
-      (should (my/init-module-skip-reason 'init-roam))))
-  (let ((my/init-disabled-modules nil)
-        (my/init-enabled-optional-modules '(init-roam)))
-    (should (memq 'init-roam (my/init-effective-modules my/init-modules-default)))
-    (should-not (my/init-module-skip-reason 'init-roam))))
+      (should-not (my/init-module-skip-reason 'init-org))))
+  (let ((my/init-disabled-modules nil))
+    (should (equal (my/init-effective-modules my/init-modules-default)
+                   my/init-modules-default))))
 
 (ert-deftest my/init-module-source-classifies-modules ()
   (should (eq (my/init-module-source 'init-org) 'built-in))
-  (should (eq (my/init-module-source 'init-roam) 'optional))
   (should (eq (my/init-module-source 'my-research) 'user)))
 
 ;; ---- User modules ----
@@ -229,9 +225,9 @@
 
 (ert-deftest my/init-user-modules-skipped-for-disabled-dependency ()
   "A built-in module that is not enabled is not a usable dependency."
-  (let* ((my/init-modules-default '(init-org init-roam))
+  (let* ((my/init-modules-default '(init-org init-pyim))
          (plan (my/init-plan-modules '(init-org)
-                                     '((my-a . (init-roam))) nil nil)))
+                                     '((my-a . (init-pyim))) nil nil)))
     (should (equal (plist-get plan :order) '(init-org)))
     (should (assq 'my-a (plist-get plan :skipped)))))
 
@@ -308,7 +304,7 @@
 (ert-deftest my/init-report-shows-source-position-and-skips ()
   (require 'init-doctor)
   (let ((my/init-modules '(init-org my-a))
-        (my/--init-skipped '((init-roam . "optional, not enabled")))
+        (my/--init-skipped '((init-pyim . "disabled in my/init-disabled-modules")))
         (results '((:module init-org :status loaded :elapsed 0.1 :error nil)
                    (:module my-a :status failed :elapsed 0.2
                             :error (error "boom")))))
@@ -318,7 +314,7 @@
             (let ((text (buffer-string)))
               (should (string-match-p "LOADED.*init-org +built-in +#1" text))
               (should (string-match-p "FAILED.*my-a +user +#2" text))
-              (should (string-match-p "SKIP +init-roam +optional +optional, not" text))))
+              (should (string-match-p "SKIP +init-pyim +built-in +disabled in" text))))
         (kill-buffer buffer)))))
 
 ;; ---- Generated dependency block ----

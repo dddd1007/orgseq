@@ -112,7 +112,7 @@ GTD 教材通常会强调一个"无摩擦 inbox"——意思是你要能在 10 �
 ```
 SPC d  → 在今日 daily note 中直接写入（推荐）
 SPC t c    → 通用 org-capture（进入 Inbox）
-SPC n c    → org-roam capture（创建新笔记节点）
+SPC n c    → capture（创建新笔记节点）
 ```
 
 ### 处理（Process）
@@ -195,8 +195,8 @@ SPC # C  → 重载 capture 模板（无需重启 Emacs）
 
 ```
 SPC n i    → 在当前位置插入到另一个笔记的链接
-SPC n b    → 侧边栏显示当前笔记的 backlinks
-SPC n g    → 在浏览器中打开 org-roam-ui 图谱
+SPC n b    → 列出当前笔记的 backlinks
+SPC n l    → 列出当前笔记链接到的笔记（forward links）
 SPC n /    → 在 Roam 目录全文搜索（ripgrep）
 SPC n q s  → 用 org-ql 进行结构化查询
 SPC n q v  → org-ql 保存视图
@@ -238,7 +238,7 @@ SPC # T  → 编辑 types.org
 
 类型定义在 `~/.emacs.d/notes/.orgseq/types.org`，每个一级标题是一个类型：`TYPE_TAG` 是它的标签，`TYPE_FIELDS` 列出字段（`NAME:node` 表示链接到另一个节点），`NAME_ALL` 给出可选值，标题正文是 capture 模板。给笔记加类型只是加上这个标签，字段就是普通 Org properties，所有数据都在 Org 文本里。
 
-现有 Daily、PARA、GTD 和 org-roam capture 保留。增加类型和字段的时机是反复遇到真实的分类和查询需求，而不是先设计完整的类型体系。已有标签与某个类型的 `TYPE_TAG` 相同时，带这个标签的旧笔记直接属于该类型。
+现有 Daily、PARA、GTD 和 capture 保留。增加类型和字段的时机是反复遇到真实的分类和查询需求，而不是先设计完整的类型体系。已有标签与某个类型的 `TYPE_TAG` 相同时，带这个标签的旧笔记直接属于该类型。
 
 ### Transclusion（内容嵌入）
 
@@ -270,7 +270,7 @@ Daily sidebar 内使用 `RET` 打开日期、`t` 回到 Today、`g` 刷新、
 
 ## 四、Dashboard 与 Review 工作流
 
-Dashboard 是**查询窗口**，由 org-roam 数据库中已保存笔记的索引渲染。org-seq 的打开入口刷新动态块，或在块上 `C-c C-c` / `org-update-all-dblocks` 刷新；块本身不会持续自动更新。结果区域不是数据录入入口，注释应写到独立节点。
+Dashboard 是**查询窗口**，由节点索引中已保存的笔记渲染。org-seq 的打开入口刷新动态块，或在块上 `C-c C-c` / `org-update-all-dblocks` 刷新；块本身不会持续自动更新。结果区域不是数据录入入口，注释应写到独立节点。
 
 ### 查看 Dashboard
 
@@ -326,7 +326,7 @@ NoteHQ 分为两大区域：**00_Roam/（原子层）** 和 **PARA 层（产出/
 
 ```
 ~/.emacs.d/notes/
-├── 00_Roam/                   ← 原子层 (org-roam 索引范围)
+├── 00_Roam/                   ← 原子层 (节点索引范围)
 │   ├── daily/              ← 每日笔记
 │   ├── dashboards/         ← 查询入口文件
 │   └── capture/            ← 所有 capture 落地（扁平，时间戳前缀）
@@ -388,7 +388,7 @@ SPC a r    → 改写选中区域（diff 模式，可接受/拒绝）
 
 ```
 SPC a s    → 摘要当前笔记或选区
-SPC a t    → 根据内容建议 org-roam filetags
+SPC a t    → 根据内容建议 filetags
 SPC a l    → 翻译选区（中英互译）
 SPC a k    → 基于当前笔记建议关联概念
 SPC a p    → 润色选中文本的写作质量
@@ -446,9 +446,9 @@ Casual 会弹出一个 Transient 面板，列出当前模式下所有可用操�
 
 ## 九、与其他工具共存
 
-Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。正文、Org ID、标签、properties 与链接是唯一的权威；类型就是标签，字段就是 properties。org-roam 数据库是索引，可以随时用 `M-x org-roam-db-sync` 从 Org 重建，备份 Org 文件和 `.orgseq/` 即可。见[节点模型](NOTES_ARCHITECTURE.md#四节点模型与权威边界)。
+Roam 层以 **纯 Org** 为主（已移除 md-roam 和 org-roam）。正文、Org ID、标签、properties 与链接是唯一的权威；类型就是标签，字段就是 properties。节点索引是缓存，可以随时用 `M-x my/index-rebuild` 从 Org 重建，备份 Org 文件和 `.orgseq/` 即可。见[节点模型](NOTES_ARCHITECTURE.md#四节点模型与权威边界)。
 
-若仍用 Obsidian 等工具指向 `~/.emacs.d/notes/`：适合浏览目录中的 Org/Markdown；**主编辑与图谱闭环建议在 Emacs** 中完成，避免 Markdown 笔记不被 org-roam 索引。
+若仍用 Obsidian 等工具指向 `~/.emacs.d/notes/`：适合浏览目录中的 Org/Markdown；**主编辑与图谱闭环建议在 Emacs** 中完成，避免 Markdown 笔记不被节点索引收录。
 
 ---
 
@@ -460,7 +460,7 @@ Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。正
 |------|------|------|
 | 找笔记 | `SPC n s` | Deft 全库搜索 |
 | 写日记 | `SPC d` | 今日 daily note（推荐任务录入入口） |
-| 新建笔记 | `SPC n c` | org-roam capture（d=默认, t…=类型模板） |
+| 新建笔记 | `SPC n c` | capture（d=默认, t…=类型模板） |
 | 插入链接 | `SPC n i` | 在当前位置插入 Roam 节点链接 |
 | 看 backlinks | `SPC n b` | 侧边栏显示反向链接 |
 | 搜 Roam 正文 | `SPC n /` | consult-ripgrep，限 Roam 目录 |

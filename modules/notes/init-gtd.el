@@ -11,7 +11,7 @@
 ;; │                       Table of Contents                          │
 ;; ├─────────────────────────────────────────────────────────────────┤
 ;; │ Section  1  Agenda file cache                                    │
-;; │              `my/agenda-cache', `my/org-roam-agenda-files'       │
+;; │              `my/agenda-cache', `my/agenda-files'       │
 ;; │                                                                  │
 ;; │ Section  2  GTD constants and context tags                       │
 ;; │              `my/gtd-closed-states', `my/gtd-active-states',     │
@@ -77,7 +77,7 @@
   "Seconds before the agenda file cache expires."
   :type 'integer :group 'org-seq)
 
-(defun my/org-roam-agenda-files (&optional force)
+(defun my/agenda-files (&optional force)
   "Return the .org files under Roam/, Outputs/ and Practice/.
 The actionable layers are listed directly; Library/ and Archives/ are
 not scanned, so reference material and completed work stay out of GTD
@@ -107,7 +107,7 @@ non-nil FORCE (or prefix arg interactively), bypass the cache."
 
 (defun my/org-refresh-agenda-files ()
   "Set `org-agenda-files' from the cached file list."
-  (setq org-agenda-files (my/org-roam-agenda-files)))
+  (setq org-agenda-files (my/agenda-files)))
 
 (defun my/org-invalidate-agenda-cache ()
   "Force the next agenda access to rescan NoteHQ."
@@ -401,7 +401,7 @@ Excludes the current heading itself."
   (interactive)
   (require 'org-ql)
   (my/org-refresh-agenda-files)
-  (org-ql-search (my/org-roam-agenda-files)
+  (org-ql-search (my/agenda-files)
     '(and (not (done))
           (not (todo "SOMEDAY"))
           (scheduled :from today))

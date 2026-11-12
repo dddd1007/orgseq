@@ -197,7 +197,7 @@ function Test-Prerequisites {
         $sqliteExpr = '(princ (if (sqlite-available-p) "t" "nil"))'
         $sqlite = (& $emacsPath --batch --eval $sqliteExpr 2>&1 | Select-Object -Last 1).ToString().Trim()
         if ($sqlite -eq "t") { Write-Pass "SQLite support available" }
-        else { Write-Fail "SQLite not available. org-roam requires Emacs 30+ with SQLite."; $allOk = $false }
+        else { Write-Fail "SQLite not available. the node index requires Emacs 30+ with SQLite."; $allOk = $false }
     }
 
     # Native-comp (optional)
@@ -630,7 +630,7 @@ function Write-PostInstall {
     Write-Host "    2. Launch Emacs — packages auto-install on first run (needs internet)"
     Write-Host "    3. Run:  M-x nerd-icons-install-fonts"
     Write-Host "       Then right-click downloaded .ttf files → Install (Windows)"
-    Write-Host "    4. Run:  M-x org-roam-db-sync  (first-time index of existing notes)"
+    Write-Host "    4. Run:  M-x my/index-rebuild  (first-time index of existing notes)"
     Write-Host "    5. Optional: Point Obsidian at $noteHome as reading client"
     Write-Host ""
     Write-Host "  Note library:" -ForegroundColor DarkGray

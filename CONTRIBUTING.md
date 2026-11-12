@@ -17,7 +17,7 @@ Whether you're sending a PR or returning to the codebase later, this is the orie
 ```
 init-doctor  →  init-packages  →  init-popup  →  init-keymap  →  init-ui  →  init-completion  →  init-pyim
         →  init-python  →  init-markdown
-        →  init-languages  →  init-org  →  init-capture  →  init-roam (optional)  →  init-gtd  →  init-gtd-dashboard  →  init-focus  →  init-pkm
+        →  init-languages  →  init-org  →  init-capture  →  init-gtd  →  init-gtd-dashboard  →  init-focus  →  init-pkm
         →  init-nodes  →  init-views  →  init-sync  →  init-daily  →  init-terminal  →  init-ai  →  init-ai-cli  →  init-dashboard  →  init-dired
         →  init-mouse  →  init-frame  →  init-workspace  →  init-update  →  init-tty  →  init-evil
 ```
@@ -37,8 +37,7 @@ The short version:
 - `init-org` defines the path constants and base Org behavior used downstream
 - `init-capture`, `init-gtd`, `init-focus`, `init-pkm`, `init-nodes`, and `init-ai` all build on that foundation
 - `init-capture` owns note capture (writing through `kernel/orgseq-note.el`), the capture-template registry, the Daily commands, and note text search
-- `init-roam` is optional and off by default (`my/init-optional-modules`); users enable it with `my/init-enabled-optional-modules` in `user/modules.el`, and no default module may depend on it
-- `init-nodes` owns node types, fields, table views, `orgseq-query` dashboard blocks, type capture templates, node find, link insertion, backlinks, id-link following, and NoteHQ directory bootstrap
+- `init-nodes` owns node types, fields, table views, `orgseq-query` dashboard blocks, type capture templates, node find, link insertion, backlinks, forward links, id-link following, and NoteHQ directory bootstrap
 - `init-views` owns saved views (table, list, board), the filter language, and the `orgseq-view` dynamic block
 - `init-sync` owns the library location's device-local state, the one-time `~/NoteHQ/` import, and rclone-based cloud sync
 - `core/orgseq-cli.el` (loaded only by `bin/orgseq`) owns the command line and the MCP server
@@ -97,14 +96,14 @@ For Git-hosted packages, use the central inventory and `my/vc-package-ensure`. B
 A note is a node: a file or heading with an Org ID, read through the kernel
 index (`kernel/orgseq-index.el`). `modules/notes/init-nodes.el` adds types,
 fields, table views, and dashboard queries on top of it without a second
-database; org-roam is an optional extra (`init-roam`).
+database. org-roam is not part of org-seq (removed 2026-11-12).
 Supertag and its `textui` dependency were removed on 2026-10-22; do not add
 them back or add another package that stores its own copy of note data.
 
 - Node types are defined in `.orgseq/types.org` under NoteHQ (`my/types-file`),
   not in Elisp.
 - Types are Org tags, fields are ordinary Org properties, relations are
-  `[[id:]]` links. The kernel index (and org-roam's database, when enabled)
+  `[[id:]]` links. The kernel index
   can always be rebuilt from the Org files.
 - Dashboards stay query-only and use `orgseq-query` dynamic blocks.
 - Preserve capture, Daily, PARA, and GTD rather than migrating note

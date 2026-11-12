@@ -77,6 +77,7 @@ Each entry is (ID LABEL COMMAND); COMMAND runs at CLICK's position."
      menu 'my/mouse-org-note "Note"
      '((link       "Insert Note Link..."  my/node-insert-link)
        (backlinks  "Show Backlinks"       my/node-backlinks)
+       (forward    "Show Forward Links"   my/node-forward-links)
        (transclude "Add Transclusion"     org-transclusion-add)
        (daily-node "Append Daily Node"    my/daily-new-node))
      click)
