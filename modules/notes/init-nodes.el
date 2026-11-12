@@ -12,12 +12,18 @@
 ;;   Fields   Property values.  Choices come from KEY_ALL on the type
 ;;            heading or from values already used in the library; a field
 ;;            declared NAME:node stores an [[id:]] link to another node
-;;            (a Fibery relation).  NAME:date, NAME:number and NAME:check
-;;            pick a matching reader.  A type may extend one parent type
-;;            (TYPE_EXTENDS) and inherits its fields.
-;;   Views    A sortable, filterable table per type (Fibery table view) with
-;;            inline field editing, a Review table for unsorted notes, and the
-;;            `orgseq-query' dynamic block for dashboards.
+;;            (a Fibery relation), NAME:nodes several such links.
+;;            NAME:date, NAME:number, NAME:check, NAME:url and NAME:multi
+;;            (several values from NAME_ALL) pick a matching reader.  A
+;;            type may extend one parent type (TYPE_EXTENDS) and inherits
+;;            its fields and formulas.
+;;   Formulas FORMULA_NAME properties on the type heading: expressions
+;;            evaluated by init-views when a view runs, never stored.
+;;   Templates The type heading's body, plus "Template: NAME" children
+;;            (Notion database templates).
+;;   Views    Every type opens as a view of its nodes (init-views, the
+;;            database page of the type), a Review table for unsorted
+;;            notes, and the `orgseq-query' dynamic block for dashboards.
 ;;   Actions  One node menu (Tana command line): type, field, link, promote,
 ;;            extract, backlinks.
 ;;   Finding  Node find and link insertion over the index (titles and
@@ -36,7 +42,7 @@
 ;; │ Section 3  Node at point: position, tags, types, fields          │
 ;; │ Section 4  Commands: set/remove type, set field, promote, capture│
 ;; │ Section 5  Queries over the node index                           │
-;; │ Section 6  Table views (type view, review)                       │
+;; │ Section 6  Review table; type views open through init-views      │
 ;; │ Section 7  Dashboard dynamic blocks                              │
 ;; │ Section 8  Node action menu, find, links, backlinks, id links    │
 ;; │ Section 9  Dashboard files, PARA navigation, NoteHQ bootstrap    │
@@ -116,20 +122,29 @@ Nil when `my/node-add-empty-fields' is off."
 ;;
 ;; TYPE_TAG defaults to the heading name in lower case.  TYPE_FIELDS lists
 ;; property keys; a ":node" suffix makes the field a link to another node,
-;; ":date" a date, ":number" a number, ":check" a yes/no value.
+;; ":nodes" several links, ":date" a date, ":number" a number, ":check" a
+;; yes/no value, ":url" a web address, ":multi" several values of NAME_ALL.
 ;; TYPE_EXTENDS names one parent type (by name or tag): the type inherits
-;; the parent's fields and choices, and queries for the parent type also
-;; return nodes of the child type.
+;; the parent's fields, choices and formulas, and queries for the parent
+;; type also return nodes of the child type.
 ;; NAME_ALL gives the allowed values of field NAME (Org's own convention).
-;; The heading body is the capture template, one level shallower; "%?"
-;; marks where the cursor lands.
+;; FORMULA_NAME defines the computed column NAME (see init-views).
+;; TYPE_VIEW_LAYOUT, TYPE_VIEW_GROUP, TYPE_VIEW_SORT, TYPE_VIEW_COLUMNS,
+;; TYPE_VIEW_FILTER and TYPE_VIEW_LIMIT customize the type's default view.
+;; The heading body is the default capture template, one level shallower;
+;; "%?" marks where the cursor lands.  A child heading "Template: NAME" is
+;; a further named template (its body, two levels shallower); it is not
+;; part of the default template and not a type.
 ;;
 ;; The file lives in .orgseq/, outside every directory GTD scans, so TODO
 ;; headings inside templates never reach the agenda.
 
 (cl-defstruct (my/node-type (:constructor my/node-type--create))
-  "A note type: an Org tag with fields and a capture template."
-  name tag key fields choices template parent)
+  "A note type: an Org tag with fields, formulas and capture templates.
+TEMPLATE is the default template body; TEMPLATES an alist of (NAME .
+BODY); FORMULAS a list of plists (:name :kind formula :expr); VIEW an
+alist of TYPE_VIEW_* settings (\"LAYOUT\" . VALUE)."
+  name tag key fields choices template parent templates formulas view)
 
 (defvar my/node-types nil
   "Types parsed from `my/types-file', in file order.")
@@ -141,22 +156,34 @@ Nil when `my/node-add-empty-fields' is off."
 # One heading per type.  Applying a type to a node adds TYPE_TAG to it;
 # TYPE_FIELDS become Org properties on the node.  NAME_ALL lists allowed
 # values for field NAME; a field written NAME:node stores a link to another
-# node, NAME:date a date, NAME:number a number, NAME:check a yes/no value.
+# node (NAME:nodes several), NAME:date a date, NAME:number a number,
+# NAME:check a yes/no value, NAME:url a web address, NAME:multi several
+# values from NAME_ALL.
 # TYPE_EXTENDS names a parent type whose fields are inherited.
-# The heading body is the capture template (\"%?\" = cursor).
+# FORMULA_NAME is a column computed when a view runs and never stored,
+# e.g. (days (today) @created), or a rollup such as (count <-reading).
+# The heading body is the capture template (\"%?\" = cursor); a child
+# heading \"Template: NAME\" adds another template to choose from.
 # Save this file to apply changes.
 
 * Reading
 :PROPERTIES:
 :TYPE_TAG:    reading
 :TYPE_KEY:    r
-:TYPE_FIELDS: AUTHORS YEAR STATUS TOPIC:node
+:TYPE_FIELDS: AUTHORS YEAR STATUS TOPIC:node LABELS:multi
 :STATUS_ALL:  queued reading read cited
+:LABELS_ALL:  method theory data
+:FORMULA_QUEUED_DAYS: (if (= STATUS \"queued\") (days (today) @created))
 :END:
 ** Summary
 %?
 ** Key points
 ** My commentary
+** Template: Paper
+*** Question
+%?
+*** Method and data
+*** Findings
 
 * Concept
 :PROPERTIES:
@@ -164,6 +191,7 @@ Nil when `my/node-add-empty-fields' is off."
 :TYPE_KEY:    c
 :TYPE_FIELDS: STAGE SOURCE:node
 :STAGE_ALL:   seed growing evergreen
+:FORMULA_READINGS: (count <-reading)
 :END:
 ** Definition
 %?
@@ -193,17 +221,85 @@ Nil when `my/node-add-empty-fields' is off."
               (list :name (upcase token) :kind 'text)))
           (and spec (split-string spec "[ \t,]+" t))))
 
-(defun my/node-types--template-body ()
-  "Return the body of the type heading at point as a capture template."
+(defconst my/node-types--template-regexp "\\`Template:[ \t]*\\(.+?\\)[ \t]*\\'"
+  "Matches the title of a named template heading and captures the name.")
+
+(defun my/node-types--named-templates ()
+  "Return (NAME BEG END) for each \"Template: NAME\" child of the heading at point."
+  (save-excursion
+    (let ((end (save-excursion (org-end-of-subtree t t) (point)))
+          (child (format "^\\*\\{%d\\}[ \t]" (1+ (org-current-level))))
+          result)
+      (forward-line 1)
+      (while (re-search-forward child end t)
+        (beginning-of-line)
+        (let ((title (org-get-heading t t t t))
+              (beg (point)))
+          (when (string-match my/node-types--template-regexp title)
+            (push (list (match-string 1 title) beg
+                        (save-excursion (org-end-of-subtree t t) (point)))
+                  result)))
+        (forward-line 1))
+      (nreverse result))))
+
+(defun my/node-types--shift (text levels)
+  "Return TEXT with each heading made LEVELS levels shallower."
+  (string-trim
+   (replace-regexp-in-string
+    (format "^\\*\\{%d\\}\\(\\*+[ \t]\\)" levels) "\\1" text)))
+
+(defun my/node-types--template-body (&optional skip)
+  "Return the body of the type heading at point as a capture template.
+SKIP lists (NAME BEG END) regions, the named templates, left out."
   (save-excursion
     (let ((end (save-excursion (org-end-of-subtree t t) (point))))
       (org-end-of-meta-data t)
       (if (>= (point) end)
           ""
-        (string-trim
-         (replace-regexp-in-string
-          "^\\*\\(\\*+[ \t]\\)" "\\1"
-          (buffer-substring-no-properties (point) end)))))))
+        (let ((pos (point))
+              parts)
+          (pcase-dolist (`(,_name ,beg ,stop) skip)
+            (when (> beg pos)
+              (push (buffer-substring-no-properties pos beg) parts))
+            (setq pos (max pos stop)))
+          (when (< pos end)
+            (push (buffer-substring-no-properties pos end) parts))
+          (my/node-types--shift (apply #'concat (nreverse parts)) 1))))))
+
+(defun my/node-types--named-template-body (beg end)
+  "Return the body of the named template heading between BEG and END."
+  (save-excursion
+    (goto-char beg)
+    (org-end-of-meta-data t)
+    (if (>= (point) end)
+        ""
+      (my/node-types--shift (buffer-substring-no-properties (point) end) 2))))
+
+(defun my/node-types--parse-formulas ()
+  "Return the FORMULA_NAME properties of the heading at point as specs."
+  (let (formulas)
+    (pcase-dolist (`(,key . ,value) (org-entry-properties nil 'standard))
+      (let ((key (upcase key)))
+        (when (and (string-prefix-p "FORMULA_" key) (> (length key) 8)
+                   value (not (string-blank-p value)))
+          (push (list :name (substring key 8) :kind 'formula
+                      :expr (string-trim value))
+                formulas))))
+    ;; `org-entry-properties' lists the drawer last line first.
+    formulas))
+
+(defconst my/node-types--view-keys
+  '("LAYOUT" "GROUP" "SORT" "COLUMNS" "FILTER" "LIMIT")
+  "Suffixes of the TYPE_VIEW_* properties a type heading may set.")
+
+(defun my/node-types--parse-view ()
+  "Return the TYPE_VIEW_* settings of the heading at point as an alist."
+  (delq nil
+        (mapcar (lambda (key)
+                  (let ((value (org-entry-get nil (concat "TYPE_VIEW_" key))))
+                    (and value (not (string-blank-p value))
+                         (cons key (string-trim value)))))
+                my/node-types--view-keys)))
 
 (defun my/node-types-parse-buffer ()
   "Parse type definitions from the current Org buffer."
@@ -213,6 +309,7 @@ Nil when `my/node-add-empty-fields' is off."
      (while (re-search-forward "^\\* " nil t)
        (beginning-of-line)
        (let* ((name (org-get-heading t t t t))
+              (named (my/node-types--named-templates))
               (fields (my/node-types--parse-fields
                        (org-entry-get nil "TYPE_FIELDS")))
               (choices
@@ -231,7 +328,14 @@ Nil when `my/node-add-empty-fields' is off."
                 :key (org-entry-get nil "TYPE_KEY")
                 :fields fields
                 :choices choices
-                :template (my/node-types--template-body)
+                :template (my/node-types--template-body named)
+                :templates (mapcar (lambda (entry)
+                                     (cons (car entry)
+                                           (my/node-types--named-template-body
+                                            (nth 1 entry) (nth 2 entry))))
+                                   named)
+                :formulas (my/node-types--parse-formulas)
+                :view (my/node-types--parse-view)
                 :parent (org-entry-get nil "TYPE_EXTENDS"))
                types))
        (forward-line 1)))
@@ -246,10 +350,11 @@ Nil when `my/node-add-empty-fields' is off."
                    types)))
 
 (defun my/node-types--resolve-inheritance (types)
-  "Give each type in TYPES the fields and choices of its ancestors.
-Inheritance is single: TYPE_EXTENDS names one parent.  Parent fields come
-first; a field redeclared by the child keeps the child's definition.  An
-unknown parent or a cycle leaves the type as written."
+  "Give each type in TYPES the fields, choices and formulas of its ancestors.
+Inheritance is single: TYPE_EXTENDS names one parent.  Parent fields and
+formulas come first; one redeclared by the child keeps the child's
+definition.  An unknown parent or a cycle leaves the type as written.
+Templates and view settings are not inherited."
   (let ((done (make-hash-table :test 'eq)))
     (cl-labels
         ((resolve (type trail)
@@ -258,14 +363,19 @@ unknown parent or a cycle leaves the type as written."
              (let ((parent (my/node-types--find (my/node-type-parent type) types)))
                (when (and parent (not (eq parent type)) (not (memq parent trail)))
                  (resolve parent (cons type trail))
-                 (let* ((own (my/node-type-fields type))
-                        (own-names (mapcar (lambda (f) (plist-get f :name)) own)))
+                 (cl-flet ((merge (own inherited)
+                             (let ((names (mapcar (lambda (f) (plist-get f :name))
+                                                  own)))
+                               (append (cl-remove-if
+                                        (lambda (f) (member (plist-get f :name) names))
+                                        inherited)
+                                       own))))
                    (setf (my/node-type-fields type)
-                         (append
-                          (cl-remove-if
-                           (lambda (f) (member (plist-get f :name) own-names))
-                           (my/node-type-fields parent))
-                          own))
+                         (merge (my/node-type-fields type)
+                                (my/node-type-fields parent)))
+                   (setf (my/node-type-formulas type)
+                         (merge (my/node-type-formulas type)
+                                (my/node-type-formulas parent)))
                    (setf (my/node-type-choices type)
                          (append
                           (my/node-type-choices type)
@@ -347,33 +457,67 @@ unknown parent or a cycle leaves the type as written."
     (cl-find (completing-read (or prompt "Type: ") names nil t)
              types :key #'my/node-type-name :test #'equal)))
 
+(defun my/node-type-column-names (type)
+  "Return the default columns of TYPE: its fields, then its formulas."
+  (delete-dups
+   (mapcar (lambda (spec) (plist-get spec :name))
+           (append (my/node-type-fields type) (my/node-type-formulas type)))))
+
+(defun my/node-type-formula (type name)
+  "Return the formula spec NAME of TYPE, or nil."
+  (cl-find (upcase name) (my/node-type-formulas type)
+           :key (lambda (spec) (plist-get spec :name)) :test #'equal))
+
+(defun my/node--template-description (type name)
+  "Return the capture menu description of TYPE's template NAME."
+  (format "%s / %s" (my/node-type-name type) name))
+
+(defun my/node--capture-entry (key description type body)
+  "Return a capture template KEY DESCRIPTION for TYPE with template BODY."
+  (list key description 'plain
+        (if (string-empty-p body) "%?" body)
+        :target
+        (list 'file+head
+              "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
+              (format "#+title: ${title}\n#+filetags: :%s:\n"
+                      (my/node-type-tag type)))
+        :unnarrowed t))
+
 (defun my/node-type-capture-templates ()
-  "Return capture templates (org-roam format) generated from `my/node-types'."
+  "Return capture templates (org-roam format) generated from `my/node-types'.
+Each type gets the key \"t\" + TYPE_KEY for its default template; its
+named templates follow it with that key plus a number.  Default keys are
+assigned first, so adding a named template never changes another
+type's key."
   (when my/node-types
-    (let ((used (make-hash-table :test 'equal)))
+    (let* ((used (make-hash-table :test 'equal))
+           (claim (lambda (base start)
+                    (let ((key (if start (format "%s%d" base start) base))
+                          (n (or start 1)))
+                      (while (gethash key used)
+                        (setq key (format "%s%d" base (cl-incf n))))
+                      (puthash key t used)
+                      key)))
+           (keys (mapcar (lambda (type)
+                           (funcall claim
+                                    (or (my/node-type-key type)
+                                        (substring (my/node-type-tag type) 0 1))
+                                    nil))
+                         my/node-types)))
       (cons
        '("t" "Typed note")
-       (mapcar
-        (lambda (type)
-          (let* ((base (or (my/node-type-key type)
-                           (substring (my/node-type-tag type) 0 1)))
-                 (key base)
-                 (n 1))
-            (while (gethash key used)
-              (setq key (format "%s%d" base (cl-incf n))))
-            (puthash key t used)
-            (list (concat "t" key)
-                  (my/node-type-name type)
-                  'plain
-                  (let ((body (my/node-type-template type)))
-                    (if (string-empty-p body) "%?" body))
-                  :target
-                  (list 'file+head
-                        "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
-                        (format "#+title: ${title}\n#+filetags: :%s:\n"
-                                (my/node-type-tag type)))
-                  :unnarrowed t)))
-        my/node-types)))))
+       (cl-loop
+        for type in my/node-types
+        for key in keys
+        append
+        (cons (my/node--capture-entry (concat "t" key) (my/node-type-name type)
+                                      type (my/node-type-template type))
+              (mapcar (lambda (entry)
+                        (my/node--capture-entry
+                         (concat "t" (funcall claim key 2))
+                         (my/node--template-description type (car entry))
+                         type (cdr entry)))
+                      (my/node-type-templates type))))))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 3: Node at point
@@ -558,16 +702,52 @@ CURRENT is the existing value, offered as the default."
                    (string-match-p "\\`-?[0-9]+\\(?:\\.[0-9]+\\)?\\'" value))
          (user-error "%s expects a number" field-name))
        value))
+    ('nodes
+     (let* ((table (my/node-candidates (my/index-records) t))
+            (labels (completing-read-multiple
+                     (format "%s (nodes, comma separated): " field-name)
+                     table nil t)))
+       (mapconcat (lambda (label)
+                    (let ((node (gethash label table)))
+                      (format "[[id:%s][%s]]" (plist-get node :id)
+                              (plist-get node :title))))
+                  labels " ")))
     ('check
      (completing-read (format "%s: " field-name) '("yes" "no") nil t))
+    ('url
+     (let ((value (string-trim (read-string (format "%s (URL): " field-name)
+                                            current))))
+       (unless (or (string-empty-p value)
+                   (string-match-p "\\`[a-zA-Z][a-zA-Z0-9+.-]*:" value))
+         (user-error "%s expects a URL such as https://example.org" field-name))
+       value))
+    ('multi
+     (combine-and-quote-strings
+      (completing-read-multiple
+       (format "%s (several, comma separated): " field-name)
+       (my/node--field-choices field-name types) nil nil
+       (and current (not (string-empty-p current))
+            (string-join (my/node-split-multi current) ",")))))
     (_
-    (let ((choices (or (cl-some (lambda (type)
-                                  (cdr (assoc field-name
-                                              (my/node-type-choices type))))
-                                types)
-                       (my/node--existing-values field-name))))
-      (completing-read (format "%s: " field-name) choices nil nil
-                       (and current (not (string-empty-p current)) current))))))
+     (completing-read (format "%s: " field-name)
+                      (my/node--field-choices field-name types) nil nil
+                      (and current (not (string-empty-p current)) current)))))
+
+(defun my/node--field-choices (field-name types)
+  "Return the values offered for FIELD-NAME: NAME_ALL of TYPES, else used ones."
+  (or (cl-some (lambda (type)
+                 (cdr (assoc field-name (my/node-type-choices type))))
+               types)
+      (my/node--existing-values field-name)))
+
+(defun my/node-split-multi (value)
+  "Return the values of a NAME:multi field VALUE.
+Values are separated by commas when VALUE has one, else by spaces with
+Org's quoting for values that contain spaces."
+  (if (string-search "," value)
+      (split-string value "," t "[ \t]+")
+    (or (ignore-errors (split-string-and-unquote value))
+        (split-string value nil t))))
 
 (defun my/node-set-field-at (pos)
   "Prompt for a field of the node at POS and set it."
@@ -652,20 +832,63 @@ in place, as any block can be referenced in Tana."
           (call-interactively #'my/node-set-type)
         (message (if had-id "Already a node" "Heading is now a node"))))))
 
-(defun my/node--type-capture-template (type)
-  "Return the generated capture template of TYPE."
-  (or (cl-find (my/node-type-name type)
-               (cdr (my/node-type-capture-templates))
-               :key #'cadr :test #'equal)
-      (user-error "Type %s has no capture template" (my/node-type-name type))))
+(defun my/node--check-template (type name)
+  "Signal a user error unless TYPE has a named template NAME."
+  (unless (assoc name (my/node-type-templates type))
+    (user-error "Type %s has no template %s (templates: %s)"
+                (my/node-type-name type) name
+                (if (my/node-type-templates type)
+                    (mapconcat #'car (my/node-type-templates type) ", ")
+                  "only the default"))))
 
-(defun my/node-capture (type title &optional fields)
+(defun my/node--type-capture-template (type &optional template)
+  "Return the generated capture template of TYPE.
+TEMPLATE names one of its \"Template: NAME\" templates; nil or `default'
+is the type's own body."
+  (let ((description (if (memq template '(nil default))
+                         (my/node-type-name type)
+                       (my/node--check-template type template)
+                       (my/node--template-description type template))))
+    (or (cl-find description (cdr (my/node-type-capture-templates))
+                 :key #'cadr :test #'equal)
+        (user-error "Type %s has no capture template" (my/node-type-name type)))))
+
+(defun my/node-type-template-body (type &optional template)
+  "Return the body of TYPE's template TEMPLATE (nil: the default)."
+  (if (memq template '(nil default))
+      (my/node-type-template type)
+    (my/node--check-template type template)
+    (cdr (assoc template (my/node-type-templates type)))))
+
+(defconst my/node--default-template-label "(default)"
+  "Label of a type's own template when choosing among its templates.")
+
+(defun my/node-read-template (type)
+  "Ask which template of TYPE to use; return its name, or `default'.
+A type without named templates returns `default' without asking."
+  (let ((names (mapcar #'car (my/node-type-templates type))))
+    (if (null names)
+        'default
+      (let ((choice (completing-read
+                     (format "%s template: " (my/node-type-name type))
+                     (cons my/node--default-template-label names)
+                     nil t nil nil my/node--default-template-label)))
+        (if (member choice names) choice 'default)))))
+
+(defun my/node-capture (type title &optional fields template)
   "Create a new note of TYPE titled TITLE and visit it.
 FIELDS is an alist of (FIELD . VALUE) to set on the new note; a view
-passes the values it filters or groups by."
-  (interactive (list (my/node-read-type "New note of type: ")
-                     (read-string "Title: ")))
-  (my/note-capture title (my/node--type-capture-template type) fields))
+passes the values it filters or groups by.  TEMPLATE names one of the
+type's \"Template: NAME\" templates, or is `default' for the type's own
+body; nil asks when the type has several templates and the session is
+interactive, and uses the default otherwise."
+  (interactive
+   (let* ((type (my/node-read-type "New note of type: "))
+          (template (my/node-read-template type)))
+     (list type (read-string "Title: ") nil template)))
+  (let ((template (or template
+                      (if noninteractive 'default (my/node-read-template type)))))
+    (my/note-capture title (my/node--type-capture-template type template) fields)))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 5: Queries
@@ -830,9 +1053,9 @@ OTHER-WINDOW shows it in another window."
 ;; Section 6: Table views
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
-;; One row per node, one column per field.  Click a column header (or S) to
+;; The review table: one row per node.  Click a column header (or S) to
 ;; sort, / to filter, RET to open, f to edit a field in place, + to create a
-;; node of the viewed type, g to refresh.
+;; node, g to refresh.  Type views are init-views buffers (`my/node-view').
 
 (defvar-local my/node-view--spec nil
   "Plist describing the current view: :title :type :rows-fn :columns.")
@@ -924,36 +1147,17 @@ OTHER-WINDOW shows it in another window."
       (tabulated-list-print))
     (pop-to-buffer-same-window buffer)))
 
-(declare-function my/view-show-type "init-views" (type))
+(declare-function my/view-show-type "init-views" (type &optional choose))
 
-(defun my/node-view (type)
-  "Show the view of all nodes of TYPE.
-With init-views loaded this opens the type's saved view (table, list or
-board); otherwise it falls back to the plain table below."
-  (interactive (list (my/node-read-type "View type: ")))
-  (if (fboundp 'my/view-show-type)
-      (my/view-show-type type)
-    (my/node-view--table type)))
-
-(defun my/node-view--table (type)
-  "Show the plain table of all nodes of TYPE."
-  (let* ((fields (mapcar (lambda (f) (plist-get f :name))
-                         (my/node-type-fields type)))
-         (tag (my/node-type-tag type)))
-    (my/node-view--show
-     (format "%s nodes" (my/node-type-name type))
-     (list :title (my/node-type-name type)
-           :type type
-           :columns (append '("Title") fields '("Modified"))
-           :rows-fn
-           (lambda ()
-             (mapcar (lambda (node)
-                       (append (list (plist-get node :id)
-                                     (plist-get node :title))
-                               (mapcar (lambda (f) (my/node-field node f)) fields)
-                               (list (format-time-string
-                                      "%Y-%m-%d" (plist-get node :mtime)))))
-                     (my/node-query :type tag :sort "modified" :order 'desc)))))))
+(defun my/node-view (type &optional choose)
+  "Open TYPE as a database: the view of all its nodes and subtypes' nodes.
+That is the saved view named after the type, else the type's default
+table (see `my/view-type-default' in init-views).  With CHOOSE
+\(interactively, a prefix argument), pick among it and the other saved
+views of TYPE."
+  (interactive (list (my/node-read-type "View type: ") current-prefix-arg))
+  (require 'init-views)
+  (my/view-show-type type choose))
 
 (defun my/node--daily-p (node)
   "Return non-nil when NODE lives in a Daily note.

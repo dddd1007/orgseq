@@ -195,7 +195,7 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 ### 类型：`.orgseq/types.org`
 
-类型是一个 Org 标签、一组字段和一个 capture 模板。所有类型定义在 `~/NoteHQ/.orgseq/types.org`（变量 `my/types-file`，在 `init-org.el` 中定义），每个一级标题定义一个类型：
+类型是一个 Org 标签、一组字段、若干公式和若干 capture 模板，相当于 Notion 的一个数据库或 Tana 的一个 supertag。所有类型定义在 `~/NoteHQ/.orgseq/types.org`（变量 `my/types-file`，在 `init-org.el` 中定义），每个一级标题定义一个类型：
 
 ```org
 * Reading
@@ -215,10 +215,27 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 |---|---|
 | `TYPE_TAG` | 类型对应的 Org 标签；省略时取标题名的小写形式 |
 | `TYPE_KEY` | capture 键；生成的模板键为 `t` 加该字母（上例为 `tr`） |
-| `TYPE_FIELDS` | 字段名，空格分隔；写成 `NAME:node` 的字段保存指向另一个节点的 `[[id:]]` 链接 |
+| `TYPE_FIELDS` | 字段名，空格分隔；写成 `NAME:node` 的字段保存指向另一个节点的 `[[id:]]` 链接，其他字段种类见第十二节 |
 | `NAME_ALL` | 字段 `NAME` 的可选值，沿用 Org 自身的 `KEY_ALL` 约定 |
+| `FORMULA_NAME` | 公式列 `NAME`，在视图运行时计算，不写回笔记，见第十二节 |
+| `TYPE_VIEW_*` | 该类型默认视图的布局、分组、排序、列、筛选和数量上限，见第十二节 |
 
-标题正文就是该类型的 capture 模板，层级比定义处浅一级，`%?` 是光标落点。
+标题正文就是该类型的默认 capture 模板，层级比定义处浅一级，`%?` 是光标落点。名为 `Template: 名称` 的二级子标题是另一个具名模板（相当于 Notion 数据库模板），它的正文比子标题浅两级；具名模板不属于默认模板，也不是类型，里面的属性抽屉不影响字段：
+
+```org
+* Reading
+:PROPERTIES:
+:TYPE_FIELDS: AUTHORS YEAR STATUS
+:END:
+** Summary
+%?
+** Template: Paper
+*** Question
+%?
+*** Method and data
+```
+
+只有正文没有 `Template:` 子标题的旧 `types.org` 照常使用，含义不变。
 
 `types.org` 放在 `.orgseq/`，不放在 `00_Roam/`：GTD agenda 扫描 `00_Roam/`、`10_Outputs/` 和 `20_Practice/`，模板里的 TODO 标题如果放在这些目录中会进入 agenda。文件不存在时 org-seq 自动创建一份带 Reading、Concept、Person 三个示例的起始文件。`SPC # T` 打开该文件，保存后类型立即重载（`my/node-types-reload`）。
 
@@ -247,7 +264,7 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 ### 视图与回顾
 
-- `SPC # v`（`my/node-view`）显示某个类型全部节点的表格：每行一个节点，每列一个字段，最后一列是修改日期。`RET` 打开节点，`o` 在另一个窗口打开，`f` 就地编辑字段（写回文件并更新该文件的索引），`+` 新建该类型的节点，`/` 过滤，`g` 刷新，点击列标题或按 `S` 排序。
+- `SPC # v`（`my/node-view`）打开某个类型的视图，相当于 Notion 的数据库页面：`views.org` 里与类型同名的视图，没有时是该类型的默认视图（包括子类型的节点，字段和公式作为列）。加前缀参数（`C-u SPC # v`）时，可以在它和该类型的其他保存视图之间选择。视图内的按键见第十二节“视图”。
 - `SPC # r`（`my/node-review`）列出最近 `my/node-review-days`（默认 14）天内修改过、没有类型或没有任何 id 链接（入链和出链都为 0）的笔记，不含带 `daily` 标签的笔记。列为标题、类型、入链数、出链数和修改日期。这是周回顾时的整理清单：给笔记加类型、建立链接，或者确认它保持为碎片。
 - Dashboard 中的 `orgseq-query` 动态块按同样的条件生成 Org 表格，见第七节。
 
@@ -329,7 +346,7 @@ Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[
 
 5. **查询**：`my/node-query` 按标签、字段值、修改天数筛选 org-roam 节点，并排序和截断。表格视图和 dashboard 动态块都用它。
 
-6. **表格视图**：`my/node-view`（类型表格）和 `my/node-review`（待整理笔记），共用 `my/node-view-mode`。
+6. **视图入口**：`my/node-view` 打开类型视图，交给 `init-views.el` 的 `my/view-show-type`；`my/node-review`（待整理笔记）使用本模块的 `my/node-view-mode` 表格。
 
 7. **Dashboard 动态块**：`orgseq-query` 块的渲染函数，以及旧 `supertag-query` 块的兼容渲染。
 
@@ -698,8 +715,68 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 ### 类型（SuperTag）的扩充
 
 - `TYPE_EXTENDS` 指定一个父类型（单继承）：子类型继承父类型的字段和可选值；查询或查看父类型时也包含子类型的节点。
-- 字段类型：`NAME:node`（指向另一个节点的关系）、`NAME:date`、`NAME:number`、`NAME:check`，其余为文本；有 `NAME_ALL` 的字段从可选值里选。
+- 字段类型：`NAME:node`（指向另一个节点的关系）、`NAME:nodes`（同一个属性里的多个 `[[id:]]` 链接，每个都参与路径列和汇总）、`NAME:date`、`NAME:number`、`NAME:check`、`NAME:url`（视图里可以点击，`mouse-1` 或 `C-c C-o` 打开）、`NAME:multi`（`NAME_ALL` 中的多个值，存在同一个属性里，用空格或逗号分隔，含空格的值加引号），其余为文本；有 `NAME_ALL` 的字段从可选值里选。之前写下的值照常读取：一个 `node` 字段里有多个链接时显示为逗号分隔的标题。
 - 一个节点默认只属于一个类型（`my/node-single-type`）：再加一个类型时询问是否替换，原类型的字段值始终保留在节点上。已经带多个类型标签的笔记照常工作。
+- 公式（`FORMULA_NAME`）随 `TYPE_EXTENDS` 继承，子类型可以用同名公式覆盖；具名模板和 `TYPE_VIEW_*` 不继承。
+
+### 类型即数据库：默认视图
+
+每个类型不需要定义就有一个视图：该类型（含子类型）全部节点的表格，列是类型的字段加公式，按修改时间倒序。打开方式：`SPC # v`、节点操作菜单里的“View all … nodes”、命令面板里每个 `#类型` 条目后面的 `#类型 view` 条目。类型标题上的可选属性改变默认视图，写法与 `views.org` 的 `VIEW_*` 相同：
+
+| 属性 | 例子 |
+|---|---|
+| `TYPE_VIEW_LAYOUT` | `board`（`table`、`list`、`board`） |
+| `TYPE_VIEW_GROUP` | `STATUS` |
+| `TYPE_VIEW_SORT` | `YEAR desc, @title` |
+| `TYPE_VIEW_COLUMNS` | `AUTHORS YEAR count(<-reading)` |
+| `TYPE_VIEW_FILTER` | `(not (field "STATUS" "cited"))` |
+| `TYPE_VIEW_LIMIT` | `200` |
+
+`views.org` 里与类型同名的保存视图整体取代默认视图；在默认视图里按 `w` 保存（名字默认就是类型名）得到的正是这样的视图。
+
+### 记录模板
+
+- 新建某类型的笔记（`SPC # n`、视图里的 `+`、命令面板的 `#类型`、`/` 菜单的新节点链接）时，类型有具名模板就先问用哪一个，默认模板排在第一位。
+- `my/node-capture` 的第四个参数是模板名（`default` 表示默认模板），非交互调用不提问，省略时用默认模板。
+- 命令行：`orgseq add 标题 --type reading --template Paper`；MCP 的 `create_node` 有同名参数 `template`；`orgseq types --json` 列出每个类型的 `templates` 和 `formulas`。
+- capture 菜单里具名模板排在所属类型后面，键是类型键加数字（`tr` 之后是 `tr2`、`tr3`），已有类型的键不因此改变。
+
+### 汇总与公式
+
+两者都在视图运行时从索引计算，从不写入 Org 文件，在视图里只读（在这样的列上按 `e` 会说明原因）。它们可以作为视图列、排序键、分组字段和筛选字段，`orgseq query --columns` 和 `orgseq-view` 动态块都会输出。
+
+汇总列写成 `函数(路径)`，路径就是任意一种列写法：
+
+| 写法 | 含义 |
+|---|---|
+| `count(<-reading)` | 链接到本节点的 reading 节点个数（含子类型） |
+| `sum(<-task.HOURS)` / `avg(...)` | 这些节点 `HOURS` 的和 / 平均值，非数字的值跳过 |
+| `min(...)` / `max(...)` | 全是数字时按数值，否则按文本 |
+| `earliest(<-meeting.DUE)` / `latest(<-meeting.@modified)` | 值里的日期（`YYYY-MM-DD`，包括 Org 时间戳）中最早 / 最晚的一个 |
+| `list(<-reading.@title)` | 去重后用逗号连接 |
+| `count(TOPICS)` | 正向关系：`TOPICS` 字段里的链接个数 |
+
+空集合时 `count` 和 `sum` 为 `0`，其他为空。路径 `<-task.HOURS` 本身也可以作为普通列，显示所有值。
+
+公式是类型标题上的属性 `FORMULA_名称`，值是一个 s 表达式。它只被读取，不会作为 Lisp 执行，能用的只有下面这些：
+
+```org
+:FORMULA_LEFT:     (- BUDGET (sum <-task.HOURS))
+:FORMULA_LOAD:     (if (> (count <-task) 5) "heavy" "light")
+:FORMULA_WAITING:  (if (= STATUS "queued") (days (today) @created))
+```
+
+| 类别 | 写法 |
+|---|---|
+| 值 | 数字、`"文本"`；不加引号的名字是本节点的列（字段、`@created`、`TOPIC.AREA`、`<-task.HOURS`、其他公式） |
+| 算术 | `+ - * /`、`(round x 位数)`、`(abs x)` |
+| 比较 | `= != < > <= >=`，两边都是数字时按数值比较 |
+| 逻辑 | `(if 条件 是 否)`、`and`、`or`、`not`、`(empty x)` |
+| 文本 | `(concat a b ...)`、`(contains a b)` |
+| 日期 | `(today)`、`(days a b)`：从日期 b 到日期 a 的天数 |
+| 汇总 | `(count 路径)` 等，与汇总列相同 |
+
+空字段的值为空：参与算术或日期计算时结果为空，`(or HOURS 0)` 提供默认值。结果为真、假时显示 `yes`、`no`。出错（除以零、不是数字、未知函数、公式写错、公式引用自身）时单元格显示 `#ERR: 原因`，视图的其他部分照常显示。公式名不要与字段名相同，相同时公式优先。
 
 ### 视图
 
@@ -707,9 +784,9 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 
 - 布局：表格（每行一个节点，每列一个字段）、列表（每个节点一行）、看板（分组字段的每个取值一列，`H`/`L` 移动卡片即修改该字段；按 `@todo` 分组时修改 TODO 状态）。`v` 切换布局。
 - 视图内按键：`RET` 打开，`e` 编辑光标所在字段，`t` 设 TODO，`+` 新建节点（自动带上视图的类型、筛选条件要求的字段值和光标所在的分组值），`/` 快速筛选，`G` 分组，`s` 排序，`F` 筛选条件，`c` 列，`w` 保存，`g` 刷新。
-- 筛选条件：`(type "reading")`、`(tag "x")`、`(todo "NEXT")`、`(field "YEAR" > 2020)`、`(field "TOPIC" = current)`、`(field "TOPIC" empty)`、`(modified-within 7)`、`(created-within 7)`、`(links-to ID)`、`(linked-from ID)`、`(under ID)`、`(title "x")`、`(text "x")`，用 `and`、`or`、`not` 组合。
-- 列：字段名；多跳路径 `TOPIC.AREA`（沿 `TOPIC` 里的链接取目标节点的 `AREA`）；反向关系 `<-reading`（链接到本节点的 reading 节点）；`@title @todo @tags @modified @created @in @out`。
-- 保存的视图放在 `.orgseq/views.org`，每个一级标题一个视图，随笔记库同步。`SPC # v` 打开某类型的视图，`SPC n v o` 打开保存的视图，`SPC n v n` 新建。
+- 筛选条件：`(type "reading")`、`(tag "x")`、`(todo "NEXT")`、`(field "YEAR" > 2020)`、`(field "TOPIC" = current)`、`(field "TOPIC" empty)`、`(field "LABELS" has "method")`（多值字段、`nodes` 字段或 `<-tag` 中有一个值等于它；链接字段也可以写节点 ID）、`(field "count(<-reading)" > 2)`、`(modified-within 7)`、`(created-within 7)`、`(links-to ID)`、`(linked-from ID)`、`(under ID)`、`(title "x")`、`(text "x")`，用 `and`、`or`、`not` 组合。
+- 列：字段名或公式名；多跳路径 `TOPIC.AREA`（沿 `TOPIC` 里的链接取目标节点的 `AREA`）；反向关系 `<-reading`（链接到本节点的 reading 节点）和 `<-reading.YEAR`；汇总 `count(<-reading)` 等（见上一节）；`@title @todo @tags @modified @created @in @out`。
+- 保存的视图放在 `.orgseq/views.org`，每个一级标题一个视图，随笔记库同步。`SPC # v` 打开某类型的视图（见“类型即数据库”），`SPC n v o` 打开保存的视图，`SPC n v n` 新建。
 - `orgseq-view` 动态块把视图嵌入任意笔记，筛选条件里的 `current` 指动态块所在的节点，例如在课程页里放“所属课程等于当前节点”的资料列表：
 
 ```org

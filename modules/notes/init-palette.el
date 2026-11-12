@@ -3,8 +3,9 @@
 ;; The interaction layer over nodes, types and views:
 ;;
 ;;   Palette  `my/palette' (Tana command line): one completing-read over
-;;            nodes, "#Type" (new note of a type), "@View" (open a saved
-;;            view) and ">Command" entries.  Input that matches nothing
+;;            nodes, "#Type" (new note of a type), "#Type view" (open the
+;;            type as a database), "@View" (open a saved view) and
+;;            ">Command" entries.  Input that matches nothing
 ;;            offers to create a note with that title.
 ;;   Slash    `my/slash-mode' (Notion slash menu): typing "/" on an empty
 ;;            line of an Org buffer opens a menu of things to insert.
@@ -36,12 +37,16 @@
 (require 'org)
 (require 'orgseq-index)
 
-(declare-function my/node--type-capture-template "init-nodes" (type))
+(declare-function my/node--type-capture-template "init-nodes"
+                  (type &optional template))
 (declare-function my/note-capture "init-capture" (&optional title template fields no-visit))
 (declare-function evil-insert-state-p "evil-states" (&optional state))
 (declare-function my/node-read "init-nodes" (&optional prompt))
 (declare-function my/node-visit "init-nodes" (node &optional other-window))
-(declare-function my/node-capture "init-nodes" (type title &optional fields))
+(declare-function my/node-capture "init-nodes"
+                  (type title &optional fields template))
+(declare-function my/node-view "init-nodes" (type &optional choose))
+(declare-function my/node-read-template "init-nodes" (type))
 (declare-function my/node-read-type "init-nodes" (&optional prompt types))
 (declare-function my/node-type-name "init-nodes" (type))
 (declare-function my/node-type-tag "init-nodes" (type))
@@ -139,7 +144,8 @@ Entries whose command is not defined when the palette opens are skipped."
   :group 'org-seq)
 
 (defconst my/palette--groups
-  '((node . "Nodes") (type . "New note") (view . "Views") (command . "Commands"))
+  '((node . "Nodes") (type . "New note") (type-view . "Views") (view . "Views")
+    (command . "Commands"))
   "Group title of each candidate kind.")
 
 (defun my/palette--available-commands (&optional commands)
@@ -150,9 +156,11 @@ Entries whose command is not defined when the palette opens are skipped."
 (defun my/palette--candidates (records types views commands)
   "Return the palette candidates as an alist (LABEL . (KIND DATA NOTE)).
 RECORDS are node records, TYPES type structs, VIEWS view plists and
-COMMANDS an alist of (LABEL . COMMAND).  KIND is `node', `type', `view'
-or `command'; DATA is the record, type, view name or command symbol; NOTE
-is the text shown beside the label."
+COMMANDS an alist of (LABEL . COMMAND).  KIND is `node', `type',
+`type-view', `view' or `command'; DATA is the record, type, view name or
+command symbol; NOTE is the text shown beside the label.  Each type has
+a `type' entry \"#Name\" (new note) followed by a `type-view' entry
+\"#Name view\" (open the type's view)."
   (append
    (mapcar (lambda (cell)
              (let* ((record (cdr cell))
@@ -168,12 +176,15 @@ is the text shown beside the label."
                            "  ")))
                (list (car cell) 'node record note)))
            (my/palette--node-labels records))
-   (mapcar (lambda (type)
-             (let ((count (length (my/node-type-fields type))))
-               (list (concat "#" (my/node-type-name type)) 'type type
-                     (format "new note, %d field%s" count
-                             (if (= count 1) "" "s")))))
-           types)
+   (cl-mapcan (lambda (type)
+                (let ((count (length (my/node-type-fields type)))
+                      (name (my/node-type-name type)))
+                  (list (list (concat "#" name) 'type type
+                              (format "new note, %d field%s" count
+                                      (if (= count 1) "" "s")))
+                        (list (concat "#" name " view") 'type-view type
+                              (format "open all %s nodes" name)))))
+              types)
    (mapcar (lambda (view)
              (list (concat "@" (plist-get view :name)) 'view
                    (plist-get view :name)
@@ -215,6 +226,7 @@ them and keeps the candidate order."
     ('type (let ((type (nth 1 entry)))
              (my/palette--capture
               type (read-string (format "New %s: " (my/node-type-name type))))))
+    ('type-view (my/node-view (nth 1 entry)))
     ('view (my/view-open (nth 1 entry)))
     ('command (call-interactively (nth 1 entry)))
     (_ (user-error "Unknown palette entry"))))
@@ -372,7 +384,11 @@ The note is written without being shown, so the buffer being edited
 keeps the focus."
   (let* ((type (my/node-read-type "New node of type: "))
          (title (read-string (format "New %s: " (my/node-type-name type))))
-         (note (my/note-capture title (my/node--type-capture-template type)
+         (template (my/node-read-template type))
+         (note (my/note-capture title
+                                (if (eq template 'default)
+                                    (my/node--type-capture-template type)
+                                  (my/node--type-capture-template type template))
                                 nil t)))
     (insert (format "[[id:%s][%s]]" (plist-get note :id) title))))
 

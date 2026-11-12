@@ -48,6 +48,9 @@
 (declare-function my/node-type-fields "init-nodes" (type))
 (declare-function my/node-type-choices "init-nodes" (type))
 (declare-function my/node-type-template "init-nodes" (type))
+(declare-function my/node-type-template-body "init-nodes" (type &optional template))
+(declare-function my/node-type-templates "init-nodes" (type))
+(declare-function my/node-type-formulas "init-nodes" (type))
 (declare-function my/node-type-parent "init-nodes" (type))
 (declare-function my/node-set-type "init-nodes" (type &optional replace))
 (declare-function my/node-call-at-id "init-nodes" (id fn))
@@ -212,10 +215,11 @@ from ripgrep), each limited to LIMIT entries (default 20)."
 (defalias 'my/api--slug #'my/note-slug
   "Return a file-name slug for a title; see `my/note-slug'.")
 
-(defun my/api-create (title &optional type fields body tags)
+(defun my/api-create (title &optional type fields body tags template)
   "Create a note titled TITLE in the capture directory.
 TYPE is a type name or tag; FIELDS an alist of (NAME . VALUE); BODY the
-Org text (default: the type's template); TAGS extra tags.  Return an
+Org text (default: the type's template, or its \"Template: NAME\"
+template when TEMPLATE names one); TAGS extra tags.  Return an
 alist with the new node's id and file.  The file is written by
 `my/note-create', the same function interactive capture uses."
   (when (string-empty-p (string-trim title))
@@ -225,6 +229,9 @@ alist with the new node's id and file.  The file is written by
                         (or (my/node-types--find type my/node-types)
                             (user-error "Unknown type: %s (see `orgseq types')"
                                         type))))
+         (template (and template (not (string-empty-p template)) template))
+         (_ (when (and template (not type-def))
+              (user-error "A template needs a type (--type)")))
          (all-tags (delete-dups
                     (append (and type-def (list (my/node-type-tag type-def)))
                             tags)))
@@ -237,7 +244,8 @@ alist with the new node's id and file.  The file is written by
          (text (cond
                 ((and body (not (string-empty-p body))) body)
                 (type-def (replace-regexp-in-string
-                           "%\\?" "" (my/node-type-template type-def) t t))
+                           "%\\?" ""
+                           (my/node-type-template-body type-def template) t t))
                 (t "")))
          (note (my/note-create
                 :title title :tags all-tags :body text
@@ -328,6 +336,12 @@ PARAMS takes :view (a saved view), :type, :filter (a filter form), :group,
       (list (cons 'name (my/node-type-name type))
             (cons 'tag (my/node-type-tag type))
             (cons 'extends (or (my/node-type-parent type) ""))
+            (cons 'templates (vconcat (mapcar #'car (my/node-type-templates type))))
+            (cons 'formulas
+                  (vconcat (mapcar (lambda (spec)
+                                     (list (cons 'name (plist-get spec :name))
+                                           (cons 'expr (plist-get spec :expr))))
+                                   (my/node-type-formulas type))))
             (cons 'fields
                   (vconcat
                    (mapcar
@@ -467,8 +481,8 @@ The result lists the files that would be (or were) written and deleted."
   "Usage: orgseq COMMAND [ARGS]
 
 Notes
-  add TITLE [--type T] [--field NAME=VALUE]... [--tag TAG]... [--body TEXT]
-                         create a note (--body - reads standard input)
+  add TITLE [--type T [--template NAME]] [--field NAME=VALUE]... [--tag TAG]...
+      [--body TEXT]      create a note (--body - reads standard input)
   daily TEXT             append a timestamped line to today's Daily note
   search QUERY [--limit N]
                          find nodes by title and lines by text
@@ -600,6 +614,7 @@ SPEC is an alist of (\"--name\" . KIND), KIND one of `flag', `value' or
                 (my/cli--options
                  args '(("--json" . flag) ("--preview" . flag) ("--yes" . flag)
                         ("--type" . value) ("--body" . value)
+                        ("--template" . value)
                         ("--limit" . value) ("--view" . value)
                         ("--filter" . value) ("--group" . value)
                         ("--columns" . value) ("--sort" . value)
@@ -626,7 +641,8 @@ SPEC is an alist of (\"--name\" . KIND), KIND one of `flag', `value' or
                      (cons (match-string 1 pair) (match-string 2 pair)))
                    (cdr (assoc "--field" options)))
            (if (equal body "-") (my/cli--read-stdin) body)
-           (cdr (assoc "--tag" options)))
+           (cdr (assoc "--tag" options))
+           (cdr (assoc "--template" options)))
           (lambda (value)
             (my/cli--print (format "%s  %s" (alist-get 'id value)
                                    (alist-get 'file value)))))))
@@ -877,7 +893,7 @@ PROPERTIES is a list of (NAME TYPE DESCRIPTION)."
   (alist-get (intern name) arguments))
 
 (defconst my/mcp--filter-help
-  "Filter form, an s-expression: (type \"reading\"), (tag \"x\"), (todo \"NEXT\"), (field \"YEAR\" > 2020) with ops = != < > <= >= contains, (field \"STATUS\" \"read\"), (field \"TOPIC\" empty|set), (modified-within 7), (created-within 7), (links-to \"ID\"), (linked-from \"ID\"), (under \"ID\"), (title \"str\"), (text \"str\"), combined with (and ...), (or ...), (not ...)."
+  "Filter form, an s-expression: (type \"reading\"), (tag \"x\"), (todo \"NEXT\"), (field \"YEAR\" > 2020) with ops = != < > <= >= contains has, (field \"STATUS\" \"read\"), (field \"TOPIC\" empty|set), (modified-within 7), (created-within 7), (links-to \"ID\"), (linked-from \"ID\"), (under \"ID\"), (title \"str\"), (text \"str\"), combined with (and ...), (or ...), (not ...)."
   "Filter syntax summary included in tool descriptions.")
 
 (defun my/mcp-tools ()
@@ -900,14 +916,16 @@ PROPERTIES is a list of (NAME TYPE DESCRIPTION)."
             ("type" "string" "Type name or tag (see list_types)")
             ("fields" "object" "Field values, e.g. {\"STATUS\": \"queued\"}")
             ("body" "string" "Org text of the note")
-            ("tags" "array" "Extra tags"))
+            ("tags" "array" "Extra tags")
+            ("template" "string" "Named template of the type (see list_types)"))
           '("title"))
          (lambda (a)
            (my/api-create (my/mcp--arg a "title") (my/mcp--arg a "type")
                           (mapcar (lambda (f) (cons (symbol-name (car f))
                                                     (format "%s" (cdr f))))
                                   (my/mcp--arg a "fields"))
-                          (my/mcp--arg a "body") (my/mcp--arg a "tags"))))
+                          (my/mcp--arg a "body") (my/mcp--arg a "tags")
+                          (my/mcp--arg a "template"))))
    (list "append_daily"
          "Append a timestamped line to today's Daily note (quick capture)."
          (my/mcp--schema '(("text" "string" "Text to record")) '("text"))
@@ -943,7 +961,7 @@ PROPERTIES is a list of (NAME TYPE DESCRIPTION)."
    (list "query_nodes"
          (concat "Run a saved view or an ad-hoc structured query and return the nodes, optionally grouped.  "
                  my/mcp--filter-help
-                 "  Columns may be field names, multi-hop paths like TOPIC.AREA, reverse relations like <-reading, or @title @todo @tags @modified @created @in @out.")
+                 "  Columns may be field names, formula names, multi-hop paths like TOPIC.AREA, reverse relations like <-reading or <-task.HOURS, rollups like count(<-reading) sum(<-task.HOURS) latest(<-meeting.@modified), or @title @todo @tags @modified @created @in @out.")
          (my/mcp--schema
           '(("view" "string" "Name of a saved view to run")
             ("type" "string" "Type tag; also matches types extending it")
