@@ -16,7 +16,7 @@ It applies to the entire repository unless a deeper `AGENTS.md` overrides it.
   - `core/` is the distribution core: platform repair, package governance, doctor, updates, and the command line (`orgseq-cli.el`).
   - `kernel/` is the note kernel. It has no UI and must load in a batch Emacs without any `modules/` file, evil, or a theme. Files there are named `orgseq-*.el` and provide the feature of the same name.
   - `modules/` holds feature modules grouped by area: `ui/`, `editor/`, `notes/`, `tools/`, `lang/`. Module files keep the `init-*.el` name and feature.
-- `user.example/` is copied once into `user/` under the Emacs directory by the deploy scripts. `user/modules.el` (sets `my/init-disabled-modules`) loads before the modules, `user/config.el` after them, and `user/custom.el` is the Customize file. Never write into a deployed `user/` from org-seq code other than through Customize.
+- `user.example/` is copied once into `user/` under the Emacs directory by the deploy scripts. `user/modules.el` (sets `my/init-disabled-modules` and `my/init-enabled-optional-modules`) loads before the modules, `user/config.el` after them, and `user/custom.el` is the Customize file. Never write into a deployed `user/` from org-seq code other than through Customize.
 - `packages/` holds bundled subprojects that should remain publishable on their own. See `packages/AGENTS.md`.
 - `notehq/` is end-user scaffolding copied into the user's note library. See `notehq/AGENTS.md`.
 - `bin/orgseq` (and `bin/orgseq.cmd`) is the command line and MCP launcher. It runs a batch Emacs that loads `init.el` and then `core/orgseq-cli.el`; that file is not an init module and must not be added to `my/init-modules-default`.
@@ -67,7 +67,7 @@ intentionally absent from `my/init-modules-default`.
 
 The module load order in `init.el` is intentional:
 
-`init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-gtd-dashboard -> init-focus -> init-pkm -> init-nodes -> init-views -> init-sync -> init-daily -> init-terminal -> init-ai -> init-ai-cli -> init-dashboard -> init-dired -> init-mouse -> init-frame -> init-workspace -> init-update -> init-tty -> init-evil`
+`init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-capture -> init-roam -> init-gtd -> init-gtd-dashboard -> init-focus -> init-pkm -> init-nodes -> init-views -> init-sync -> init-daily -> init-terminal -> init-ai -> init-ai-cli -> init-dashboard -> init-dired -> init-mouse -> init-frame -> init-workspace -> init-update -> init-tty -> init-evil`
 
 Module dependencies are machine-checked: `my/init-module-requires` in `init.el`
 declares each module's dependencies, mirroring the module's `;; Requires:`
@@ -100,7 +100,8 @@ Startup failure visibility:
 - Use `my/vc-package-ensure` for registered Git packages; do not add split Emacs-29/30 bootstrap branches or batch-time network installation.
 - Record copied or closely adapted upstream fragments in `THIRD_PARTY.md` before committing them.
 - A note is a node: any file or heading with an Org ID. The kernel index (`kernel/orgseq-index.el`) is the one index of nodes: built-in SQLite, a plain-text scan of the Org files, FTS5 trigram search, refreshed incrementally from file time and size. Everything that reads nodes (views, node tables, dashboard blocks, the command line, MCP, AI overview) gets records from `my/index-records`, `my/index-node`, `my/index-links` or `my/index-search`. Do not read the org-roam database from org-seq code, and do not add a second index or a package that keeps its own copy of note data.
-- org-roam is optional infrastructure, not the data model. It is still used for interactive capture, node find/insert, the backlinks buffer and the Daily commands; new code must not add dependencies on it, and those remaining uses are to be replaced by kernel-backed commands (see `doc/DESIGN.md`).
+- org-roam is optional and off by default: `init-roam` is listed in `my/init-optional-modules` and loads only when the user adds it to `my/init-enabled-optional-modules` in `user/modules.el`. Capture, Daily, node find, link insertion, backlinks and id-link following work without it (`modules/notes/init-capture.el`, `modules/notes/init-nodes.el`, `kernel/orgseq-note.el`). No module of the default set may require `init-roam`, call org-roam, or read its database; keys for org-roam-only features go through `my/roam-required` in `init-evil.el`.
+- New note files are written only by `my/note-create` in `kernel/orgseq-note.el` (interactive capture, `my/api-create`, region extraction). Capture templates use the org-roam-capture format subset documented there.
 - The node layer (`modules/notes/init-nodes.el`) adds types, fields, table views, and dashboard queries on top of the kernel index.
 - Node types are defined only in `.orgseq/types.org` under NoteHQ (`my/types-file`, defined in `kernel/orgseq-paths.el`). A type is an Org tag, a list of fields, and a capture template. Do not hard-code types in Elisp.
 - Org text is the only authority. Types are tags, fields are ordinary Org properties, relations are `[[id:]]` links. The index is disposable: `M-x my/index-rebuild` or `orgseq reindex` recreates it from the Org files.
@@ -109,7 +110,7 @@ Startup failure visibility:
 - Library sync (`modules/notes/init-sync.el`) uses rclone bisync so one engine covers WebDAV, OneDrive and Google Drive. Credentials stay in rclone's config; never store them in the repo, `custom.el`, or the library. The org-roam database is a local index and is excluded from sync.
 - The command line and the MCP tools (`core/orgseq-cli.el`) call the same `my/api-*` functions and the same write path as the interactive commands. They read the same kernel index as the interactive session (`.cache/index-<hash>.db`, one file per library path) and do not load org-roam. Standard output of `orgseq mcp` carries protocol messages only.
 - Keep dashboards in `00_Roam/dashboards/` query-only. Write new dashboard tables as `orgseq-query` dynamic blocks; the `supertag-query` renderer exists only so dashboards written before Supertag was removed (2026-10-22) keep working.
-- Preserve org-roam capture, Daily, PARA, and GTD.
+- Preserve capture, Daily, PARA, and GTD.
 
 ## Validation
 

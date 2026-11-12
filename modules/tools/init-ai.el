@@ -13,8 +13,8 @@
 (require 'seq)
 (require 'subr-x)
 
-;; gptel and org-roam are configured below through `use-package' and are not
-;; loaded when this module is compiled.  Declaring their variables and the
+;; gptel is configured below through `use-package' and is not
+;; loaded when this module is compiled.  Declaring its variables and the
 ;; accessors used here keeps compilation quiet without forcing an eager load.
 (defvar gptel-backend)
 (defvar gptel-directives)
@@ -388,7 +388,7 @@ org-mode markup.")
     :callback #'my/ai--display-result))
 
 (defun my/ai-suggest-tags ()
-  "Suggest org-roam filetags for the current note."
+  "Suggest filetags for the current note."
   (interactive)
   (gptel-request (my/ai--get-text)
     :system (my/ai--build-system-prompt
@@ -466,7 +466,7 @@ Returns a plist with :total-nodes, :recent-nodes,
 
 (defun my/ai-overview ()
   "Generate or update a knowledge base overview using AI.
-Collects org-roam statistics and asks the LLM to summarize themes,
+Collects node index statistics and asks the LLM to summarize themes,
 identify gaps, and suggest connections. Result opens in an org buffer."
   (interactive)
   (let* ((stats (my/ai--roam-stats))

@@ -26,6 +26,7 @@
 (require 'org)
 (require 'org-id)
 (require 'orgseq-index)
+(require 'orgseq-note)
 
 (defvar my/note-home)
 (defvar my/roam-dir)
@@ -39,7 +40,6 @@
 (defvar my/view--ctx)
 (defvar my/--init-errors)
 
-(declare-function my/org-roam-dailies--file-for-date "init-roam" (time))
 (declare-function my/node-types-reload "init-nodes" ())
 (declare-function my/node-type-by-tag "init-nodes" (tag))
 (declare-function my/node-types--find "init-nodes" (ref types))
@@ -209,18 +209,15 @@ from ripgrep), each limited to LIMIT entries (default 20)."
              (cons 'linked_from (funcall titles (gethash id (car links))))
              (cons 'content (my/api--node-text record)))))))
 
-(defun my/api--slug (title)
-  "Return a file-name slug for TITLE."
-  (let ((slug (string-trim
-               (replace-regexp-in-string "[^[:alnum:]]+" "_" (downcase title))
-               "_+" "_+")))
-    (if (string-empty-p slug) "note" (truncate-string-to-width slug 60))))
+(defalias 'my/api--slug #'my/note-slug
+  "Return a file-name slug for a title; see `my/note-slug'.")
 
 (defun my/api-create (title &optional type fields body tags)
   "Create a note titled TITLE in the capture directory.
 TYPE is a type name or tag; FIELDS an alist of (NAME . VALUE); BODY the
 Org text (default: the type's template); TAGS extra tags.  Return an
-alist with the new node's id and file."
+alist with the new node's id and file.  The file is written by
+`my/note-create', the same function interactive capture uses."
   (when (string-empty-p (string-trim title))
     (user-error "A note needs a title"))
   (my/api-refresh)
@@ -228,16 +225,6 @@ alist with the new node's id and file."
                         (or (my/node-types--find type my/node-types)
                             (user-error "Unknown type: %s (see `orgseq types')"
                                         type))))
-         (id (let ((new (org-id-new)))
-               ;; Timestamp ids have one-second resolution; scripts and
-               ;; MCP clients can create several notes within a second.
-               (while (my/index-node new)
-                 (setq new (format "%s-%04x" (org-id-new) (random 65536))))
-               new))
-         (dir (expand-file-name "capture/" my/roam-dir))
-         (stamp (format-time-string "%Y%m%dT%H%M%S"))
-         (file (expand-file-name (format "%s-%s.org" stamp (my/api--slug title))
-                                 dir))
          (all-tags (delete-dups
                     (append (and type-def (list (my/node-type-tag type-def)))
                             tags)))
@@ -251,43 +238,25 @@ alist with the new node's id and file."
                 ((and body (not (string-empty-p body))) body)
                 (type-def (replace-regexp-in-string
                            "%\\?" "" (my/node-type-template type-def) t t))
-                (t ""))))
-    (let ((n 1))
-      (while (file-exists-p file)
-        (setq file (expand-file-name
-                    (format "%s-%s-%d.org" stamp (my/api--slug title) (cl-incf n))
-                    dir))))
-    (make-directory dir t)
-    (with-temp-file file
-      (insert ":PROPERTIES:\n" (format ":ID:       %s\n" id))
-      (dolist (name names)
-        (insert (format ":%s: %s\n" name
-                        (or (cdr (cl-assoc name fields
-                                           :test (lambda (a b)
-                                                   (string-equal-ignore-case
-                                                    a (format "%s" b)))))
-                            ""))))
-      (insert ":END:\n" (format "#+title: %s\n" title))
-      (when all-tags
-        (insert (format "#+filetags: :%s:\n" (string-join all-tags ":"))))
-      (insert "\n" text)
-      (unless (bolp) (insert "\n")))
-    (my/index-update-file file)
-    (list (cons 'id id) (cons 'title title) (cons 'file (my/api--relative file)))))
+                (t "")))
+         (note (my/note-create
+                :title title :tags all-tags :body text
+                :props (mapcar
+                        (lambda (name)
+                          (cons name
+                                (or (cdr (cl-assoc name fields
+                                                   :test (lambda (a b)
+                                                           (string-equal-ignore-case
+                                                            a (format "%s" b)))))
+                                    "")))
+                        names))))
+    (list (cons 'id (plist-get note :id))
+          (cons 'title title)
+          (cons 'file (my/api--relative (plist-get note :file))))))
 
 (defun my/api-append-daily (text)
   "Append TEXT as a timestamped heading to today's Daily note."
-  (let ((file (my/org-roam-dailies--file-for-date (current-time))))
-    (make-directory (file-name-directory file) t)
-    (with-temp-buffer
-      (if (file-exists-p file)
-          (insert-file-contents file)
-        (insert (format-time-string "#+title: %Y-%m-%d\n#+filetags: :daily:\n")))
-      (goto-char (point-max))
-      (unless (bolp) (insert "\n"))
-      (insert (format-time-string "* %H:%M ") (string-trim text) "\n")
-      (write-region (point-min) (point-max) file nil 'silent))
-    (list (cons 'file (my/api--relative file)))))
+  (list (cons 'file (my/api--relative (plist-get (my/daily-append text) :file)))))
 
 (defun my/api-append (id text)
   "Append Org TEXT to the end of node ID."

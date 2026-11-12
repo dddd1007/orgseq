@@ -194,9 +194,8 @@ if [ "$UPDATE_MODE" = "1" ]; then
 else
   echo "=== Next Steps ==="
   echo "  1. Deploy config:  cd org-seq && bash deploy.sh   (or deploy.ps1 on Windows)"
-  echo "  2. Start Emacs and run:  M-x org-roam-db-sync"
-  echo "  3. Run:  M-x org-roam-db-sync"
-  echo "  4. Use Codex inside $NOTE_HOME/ — it now has AGENTS.md guidance"
+  echo "  2. Start Emacs and run:  M-x my/index-rebuild"
+  echo "  3. Use Codex inside $NOTE_HOME/ — it now has AGENTS.md guidance"
   echo ""
   echo "  Refresh scaffolding later:  $0 --update"
 fi

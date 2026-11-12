@@ -40,7 +40,7 @@ and the highest-frequency actions are single top-level keys
      :description "Daily workspace")
     (:key "j" :command evil-avy-goto-char-timer
      :description "Jump to char")
-    (:key "c" :command org-roam-capture
+    (:key "c" :command my/note-capture
      :description "New note")
     (:key "td" :command my/org-dashboard
      :description "GTD Dashboard")
@@ -48,8 +48,16 @@ and the highest-frequency actions are single top-level keys
      :description "Today's tasks")
     (:key "tf" :command org-focus-start
      :description "Focus: start slice")
-    (:key "nn" :command org-roam-node-find
-     :description "Find note (roam)")
+    (:key "nn" :command my/node-find
+     :description "Find note")
+    (:key "nc" :command my/note-capture
+     :description "New note (notes group)")
+    (:key "ni" :command my/node-insert-link
+     :description "Insert link")
+    (:key "nb" :command my/node-backlinks
+     :description "Backlinks")
+    (:key "ndt" :command my/daily-open-today
+     :description "Open today's Daily note")
     (:key "nda" :command my/daily-new-node
      :description "Append Daily node")
     (:key "##" :command my/node-action
@@ -70,7 +78,7 @@ and the highest-frequency actions are single top-level keys
      :description "Type view")
     (:key "#r" :command my/node-review
      :description "Review unsorted notes")
-    (:key "#s" :command org-roam-node-find
+    (:key "#s" :command my/node-find
      :description "Find node")
     (:key "#j" :command org-open-at-point
      :description "Open Org link")

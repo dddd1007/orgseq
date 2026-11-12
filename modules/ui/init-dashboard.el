@@ -1,7 +1,7 @@
 ;;; init-dashboard.el --- Startup dashboard -*- lexical-binding: t; -*-
 
 ;; Requires: init-daily (Daily records and workspace commands)
-;; Requires: init-roam (org-roam-node-find)
+;; Requires: init-capture (Deft setup for the Find button)
 
 (require 'cl-lib)
 (declare-function my/daily-date-records "init-daily" (&optional time count))

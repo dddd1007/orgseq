@@ -8,14 +8,12 @@
                    (file-name-directory load-file-name)))
 
 (defvar my/roam-dir)
-(defvar org-roam-dailies-directory)
 (defvar org-id-locations-file)
 (defvar my/daily--clock)
 
 (ert-deftest my/daily-date-records-use-fourteen-calendar-days ()
   (let* ((root (make-temp-file "org-seq-daily-dates-" t))
          (my/roam-dir (file-name-as-directory root))
-         (org-roam-dailies-directory "daily/")
          (now (encode-time 0 30 12 10 3 2026))
          (records (my/daily-date-records now 14)))
     (unwind-protect
@@ -34,7 +32,6 @@
 (ert-deftest my/daily-date-records-classify-existing-files-read-only ()
   (let* ((root (make-temp-file "org-seq-daily-existing-" t))
          (my/roam-dir (file-name-as-directory root))
-         (org-roam-dailies-directory "daily/")
          (now (encode-time 0 0 12 14 7 2026))
          (today (expand-file-name "daily/2026-07-14.org" root)))
     (unwind-protect
@@ -48,8 +45,7 @@
 
 (ert-deftest my/daily-buffer-p-stays-inside-configured-directory ()
   (let* ((root (make-temp-file "org-seq-daily-buffer-" t))
-         (my/roam-dir (file-name-as-directory root))
-         (org-roam-dailies-directory "daily/"))
+         (my/roam-dir (file-name-as-directory root)))
     (unwind-protect
         (with-temp-buffer
           (setq buffer-file-name
@@ -62,7 +58,6 @@
 (ert-deftest my/daily-prepare-node-creates-id-and-reuses-blank-tail ()
   (let* ((root (make-temp-file "org-seq-daily-node-" t))
          (my/roam-dir (file-name-as-directory root))
-         (org-roam-dailies-directory "daily/")
          (org-id-locations-file (expand-file-name ".org-id-locations" root))
          (file (expand-file-name "daily/2026-07-14.org" root)))
     (unwind-protect
@@ -85,7 +80,6 @@
 (ert-deftest my/daily-prepare-node-appends-after-content ()
   (let* ((root (make-temp-file "org-seq-daily-content-" t))
          (my/roam-dir (file-name-as-directory root))
-         (org-roam-dailies-directory "daily/")
          (org-id-locations-file (expand-file-name ".org-id-locations" root))
          (file (expand-file-name "daily/2026-07-14.org" root)))
     (unwind-protect
@@ -111,7 +105,6 @@
 (ert-deftest my/daily-sidebar-render-is-read-only-and-actionable ()
   (let* ((root (make-temp-file "org-seq-daily-sidebar-" t))
          (my/roam-dir (file-name-as-directory root))
-         (org-roam-dailies-directory "daily/")
          (my/daily--clock (lambda () (encode-time 0 0 12 14 7 2026))))
     (unwind-protect
         (with-current-buffer (get-buffer-create my/daily-sidebar-buffer-name)
@@ -127,8 +120,7 @@
 
 (ert-deftest my/daily-sidebar-open-is-idempotent ()
   (let* ((root (make-temp-file "org-seq-daily-window-" t))
-         (my/roam-dir (file-name-as-directory root))
-         (org-roam-dailies-directory "daily/"))
+         (my/roam-dir (file-name-as-directory root)))
     (unwind-protect
         (save-window-excursion
           (let ((first (my/daily-sidebar-open))
@@ -154,7 +146,6 @@
 (ert-deftest my/daily-workspace-existing-history-is-browse-only ()
   (let* ((root (make-temp-file "org-seq-daily-history-" t))
          (my/roam-dir (file-name-as-directory root))
-         (org-roam-dailies-directory "daily/")
          (org-id-locations-file (expand-file-name ".org-id-locations" root))
          (time (encode-time 0 0 12 13 7 2026))
          (file (expand-file-name "daily/2026-07-13.org" root)))
@@ -163,7 +154,7 @@
           (make-directory (file-name-directory file) t)
           (write-region "#+title: 2026-07-13\n\n* 09:00 Existing\n"
                         nil file nil 'silent)
-          (cl-letf (((symbol-function 'my/org-roam-dailies-open-date)
+          (cl-letf (((symbol-function 'my/daily-open-date)
                      #'my/test-daily-open-date)
                     ((symbol-function 'my/daily-sidebar-open) #'ignore))
             (my/daily-workspace-open-date time))
@@ -175,12 +166,11 @@
 (ert-deftest my/daily-workspace-missing-date-creates-first-node ()
   (let* ((root (make-temp-file "org-seq-daily-create-" t))
          (my/roam-dir (file-name-as-directory root))
-         (org-roam-dailies-directory "daily/")
          (org-id-locations-file (expand-file-name ".org-id-locations" root))
          (time (encode-time 0 0 12 12 7 2026))
          (file (expand-file-name "daily/2026-07-12.org" root)))
     (unwind-protect
-        (cl-letf (((symbol-function 'my/org-roam-dailies-open-date)
+        (cl-letf (((symbol-function 'my/daily-open-date)
                    #'my/test-daily-open-date)
                   ((symbol-function 'my/daily-sidebar-open) #'ignore))
           (my/daily-workspace-open-date time)

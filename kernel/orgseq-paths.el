@@ -91,9 +91,9 @@ per note library.  Distinct from API keys, which stay in `auth-source'."
   :group 'org-seq)
 
 (defcustom my/roam-dir (expand-file-name "00_Roam/" my/note-home)
-  "Atomic-notes layer (org-roam-directory equivalent).
-Used by `org-roam-directory', `org-mem-watch-dirs',
-the node type registry, and the AI context files
+  "Atomic-notes layer: captured notes, Daily notes and dashboards.
+Also `org-roam-directory' when the optional init-roam module is enabled,
+and the home of the AI context files
 \(purpose.org, schema.org, overview.org).
 
 The \"00_\" numeric prefix exists so that the NoteHQ directory
@@ -126,6 +126,12 @@ the sidebar displays them alphabetically."
   :type 'directory
   :group 'org-seq)
 
+(defun my/daily-dir ()
+  "Return the directory of Daily notes, daily/ under `my/roam-dir'.
+A function rather than a constant so it follows `my/roam-dir' when that
+is rebound (validation and tests use temporary libraries)."
+  (file-name-as-directory (expand-file-name "daily/" my/roam-dir)))
+
 (defcustom my/dashboards-dir (expand-file-name "dashboards/" my/roam-dir)
   "Directory for query-only dashboard org files."
   :type 'directory
@@ -148,7 +154,7 @@ Kept in .orgseq/ next to the type registry so it syncs with the library."
 
 (defcustom my/capture-templates-file
   (expand-file-name "capture-templates.el" my/orgseq-dir)
-  "User-defined org-roam capture templates file."
+  "User capture templates file (org-roam-capture template format)."
   :type 'file
   :group 'org-seq)
 

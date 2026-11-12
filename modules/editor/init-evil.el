@@ -46,6 +46,21 @@
         (dashboard-open)
       (message "dashboard-open unavailable; try M-x dashboard-refresh-buffer"))))
 
+;; ---- Keys for the optional org-roam module ----
+;; org-roam is off by default (see `my/init-optional-modules' in init.el).
+;; Keys for features only it provides stay bound and say how to enable it.
+
+(defun my/roam-required (command)
+  "Return a command that runs COMMAND when the init-roam module is loaded.
+Otherwise the command explains how to enable the module."
+  (lambda ()
+    (interactive)
+    (if (and (featurep 'init-roam) (fboundp command))
+        (call-interactively command)
+      (user-error "%s needs org-roam: add init-roam to \
+my/init-enabled-optional-modules in user/modules.el and restart Emacs"
+                  command))))
+
 ;; Set before either evil or evil-collection loads to suppress the
 ;; evil-collection runtime warning.
 (defvar evil-want-keybinding)
@@ -70,7 +85,8 @@
 (use-package evil-collection
   :after evil
   :config (evil-collection-init
-           '(bookmark dired ibuffer info magit org org-roam)))
+           (append '(bookmark dired ibuffer info magit org)
+                   (and (featurep 'init-roam) '(org-roam)))))
 
 ;; ---- evil-surround: manage delimiters/pairs (vim-surround) ----
 ;; ys/cs/ds add/change/delete surroundings; visual S surrounds a selection.
@@ -165,7 +181,7 @@ with SPC as the prefix and M-SPC as the global prefix."
     ;; ── Top-level direct actions ──
     "SPC" '(execute-extended-command :wk "M-x")
     "d"   '(my/daily-workspace-open :wk "Daily workspace")
-    "c"   '(org-roam-capture :wk "New note")
+    "c"   '(my/note-capture :wk "New note")
     "m"   '(casual-editkit-main-tmenu :wk "Menu (Casual)")
     "/"   '(consult-ripgrep :wk "Search project")
     "TAB" '(evil-switch-to-windows-last-buffer :wk "Last buffer")
@@ -296,23 +312,26 @@ with SPC as the prefix and M-SPC as the global prefix."
     "lo"  '(my/workspace-toggle-outline :wk "Toggle outline")
     "ld"  '(my/switch-to-dashboard :wk "Dashboard")
 
-    ;; ── SPC n — Notes / org-roam ──
+    ;; ── SPC n — Notes ──
     "n"   '(:ignore t :wk "notes")
-    "nn"  '(org-roam-node-find :wk "Find note")
-    "nc"  '(org-roam-capture :wk "New note")
+    "nn"  '(my/node-find :wk "Find note")
+    "nc"  '(my/note-capture :wk "New note")
     "ns"  '(deft :wk "Search all notes")
-    "n/"  '(my/org-roam-rg-search :wk "Search note text")
-    "ni"  '(org-roam-node-insert :wk "Insert link")
-    "nb"  '(org-roam-buffer-toggle :wk "Backlinks")
-    "ng"  '(org-roam-ui-mode :wk "Graph view")
+    "n/"  '(my/note-search-text :wk "Search note text")
+    "ni"  '(my/node-insert-link :wk "Insert link")
+    "nb"  '(my/node-backlinks :wk "Backlinks")
+    "ng"  `(,(my/roam-required 'org-roam-ui-mode) :wk "Graph view (org-roam)")
     "no"  '(my/node-action :wk "Node actions")
-    "na"  '(org-roam-alias-add :wk "Add alias")
-    "nr"  '(org-roam-ref-add :wk "Add ref")
+    "na"  '(my/node-add-alias :wk "Add alias")
+    "nr"  `(,(my/roam-required 'org-roam-ref-add) :wk "Add ref (org-roam)")
     "nL"  '(org-cliplink :wk "Paste link (cliplink)")
     "nI"  '(org-download-clipboard :wk "Paste image")
-    "nl"  '(consult-org-roam-forward-links :wk "Forward links")
-    "nB"  '(consult-org-roam-backlinks :wk "Backlinks (consult)")
-    "n?"  '(consult-org-roam-search :wk "Search (consult)")
+    "nl"  `(,(my/roam-required 'consult-org-roam-forward-links)
+            :wk "Forward links (org-roam)")
+    "nB"  `(,(my/roam-required 'consult-org-roam-backlinks)
+            :wk "Backlinks (consult-org-roam)")
+    "n?"  `(,(my/roam-required 'consult-org-roam-search)
+            :wk "Search (consult-org-roam)")
 
     ;; SPC n v — Views / dashboards (read-only query windows)
     "nv"  '(:ignore t :wk "views")
@@ -337,7 +356,7 @@ with SPC as the prefix and M-SPC as the global prefix."
     "nSt" '(my/storage-status :wk "Storage status")
     "nSR" '(my/storage-restore :wk "Restore a snapshot")
 
-    ;; ── SPC # — Node types and fields (init-nodes, on org-roam) ──
+    ;; ── SPC # — Node types and fields (init-nodes) ──
     ;; "#" is Tana's supertag sigil; mirrors the org local-leader `, #`.
     "#"   '(:ignore t :wk "types & fields")
     "##"  '(my/node-action :wk "Node actions")
@@ -350,7 +369,7 @@ with SPC as the prefix and M-SPC as the global prefix."
     "#v"  '(my/node-view :wk "Type view")
     "#V"  '(my/view-open :wk "Open saved view")
     "#r"  '(my/node-review :wk "Review unsorted notes")
-    "#s"  '(org-roam-node-find :wk "Find node")
+    "#s"  '(my/node-find :wk "Find node")
     "#j"  '(org-open-at-point :wk "Open Org link")
     "#T"  '(my/node-types-edit :wk "Edit types")
     ;; Free-form capture templates and read-only dashboards.
@@ -362,14 +381,14 @@ with SPC as the prefix and M-SPC as the global prefix."
     "nd"  '(:ignore t :wk "dailies")
     "ndd" '(my/daily-workspace-open :wk "Daily workspace")
     "nda" '(my/daily-new-node :wk "Append node")
-    "ndt" '(my/org-roam-dailies-open-today :wk "Open today")
-    "ndy" '(org-roam-dailies-goto-yesterday :wk "Yesterday")
-    "ndT" '(org-roam-dailies-goto-tomorrow :wk "Tomorrow")
-    "ndf" '(org-roam-dailies-find-date :wk "Find date")
-    "ndc" '(org-roam-dailies-capture-today :wk "Capture today")
-    "ndC" '(org-roam-dailies-capture-date :wk "Capture date")
-    "ndp" '(org-roam-dailies-goto-previous-note :wk "Previous note")
-    "ndn" '(org-roam-dailies-goto-next-note :wk "Next note")
+    "ndt" '(my/daily-open-today :wk "Open today")
+    "ndy" '(my/daily-goto-yesterday :wk "Yesterday")
+    "ndT" '(my/daily-goto-tomorrow :wk "Tomorrow")
+    "ndf" '(my/daily-find-date :wk "Find date")
+    "ndc" '(my/daily-capture-today :wk "Capture today")
+    "ndC" '(my/daily-capture-date :wk "Capture date")
+    "ndp" '(my/daily-goto-previous-note :wk "Previous note")
+    "ndn" '(my/daily-goto-next-note :wk "Next note")
 
     ;; SPC n t — Transclusion
     "nt"  '(:ignore t :wk "transclusion")
@@ -412,7 +431,7 @@ with SPC as the prefix and M-SPC as the global prefix."
     "s"   '(:ignore t :wk "search")
     "ss"  '(consult-line :wk "Buffer")
     "sp"  '(consult-ripgrep :wk "Project")
-    "sn"  '(my/org-roam-rg-search :wk "Notes text")
+    "sn"  '(my/note-search-text :wk "Notes text")
     "si"  '(consult-imenu :wk "Imenu")
     "so"  '(consult-outline :wk "Outline")
     "sb"  '(consult-bookmark :wk "Bookmark")
