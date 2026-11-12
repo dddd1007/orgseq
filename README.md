@@ -774,7 +774,7 @@ The script requires `git` and Python 3 on `PATH`. It clones or updates `gaboolic
 
 ### Bundled subproject: `packages/org-focus-timer/`
 
-`init-focus.el` loads a Vitamin-R-style focus timer that currently lives inside this repository at `packages/org-focus-timer/`. The deploy scripts copy the whole `packages/` tree to `~/.emacs.d/packages/` alongside `lisp/`, and `init-focus.el` resolves the load path relative to `user-emacs-directory`, so no extra configuration is needed — clone the repo, run `deploy.sh` / `deploy.ps1`, and the focus timer is available as `SPC t f` / `SPC t F` / `SPC t X`.
+`init-focus.el` loads a Vitamin-R-style focus timer that currently lives inside this repository at `packages/org-focus-timer/`. The deploy scripts copy the whole `packages/` tree to `~/.emacs.d/packages/` alongside `core/`, `kernel/`, and `modules/`, and `init-focus.el` resolves the load path relative to `user-emacs-directory`, so no extra configuration is needed — clone the repo, run `deploy.sh` / `deploy.ps1`, and the focus timer is available as `SPC t f` / `SPC t F` / `SPC t X`.
 
 The package has no external dependencies beyond stock Emacs Lisp features and no org-seq-specific code inside it, which keeps it portable. When it matures, it will graduate into its own repository and `init-focus.el` will switch to referencing it via `:vc`. Until then, the source lives next to the config that calls it so iteration is fast — edit the file, `M-x eval-buffer`, and changes take effect immediately.
 
@@ -782,10 +782,10 @@ See `packages/org-focus-timer/README.md` for the package-level documentation.
 
 ## Notes Directory
 
-Notes live under `my/note-home`, which defaults to `~/NoteHQ/` and can be overridden with `ORG_SEQ_NOTE_HOME`. The directory is organized as a Roam + PARA hybrid:
+Notes live under `my/note-home`, which defaults to `~/.emacs.d/notes/` and can be overridden with `ORG_SEQ_NOTE_HOME`. The directory is organized as a Roam + PARA hybrid:
 
 ```
-~/NoteHQ/
+~/.emacs.d/notes/
 ├── 00_Roam/             ← Atomic notes (org-roam-directory) — flat, plus daily/, capture/, dashboards/
 │   ├── daily/           ← Daily journal entries
 │   ├── capture/         ← Captured notes (timestamp-prefixed)
@@ -799,7 +799,7 @@ Notes live under `my/note-home`, which defaults to `~/NoteHQ/` and can be overri
 
 The numeric prefixes (10-step gaps) exist so the sidebar sorts the layers in workflow priority order (Roam first, Archives last) instead of alphabetical-by-name order.
 
-Classification is by **node type** (an Org tag defined in `.orgseq/types.org`), not directory — `00_Roam/` itself is flat. GTD agenda scans `00_Roam/` + `10_Outputs/` + `20_Practice/` (skips `30_Library/` and `40_Archives/`). `~/NoteHQ/00_Roam/` is the org-roam directory; org-mem indexes `00_Roam/`, `10_Outputs/`, and `20_Practice/` and writes the org-roam database.
+Classification is by **node type** (an Org tag defined in `.orgseq/types.org`), not directory — `00_Roam/` itself is flat. GTD agenda scans `00_Roam/` + `10_Outputs/` + `20_Practice/` (skips `30_Library/` and `40_Archives/`). `~/.emacs.d/notes/00_Roam/` is the org-roam directory; org-mem indexes `00_Roam/`, `10_Outputs/`, and `20_Practice/` and writes the org-roam database.
 
 The graph is **Org-only** (no md-roam). First-time index of existing notes: `M-x org-roam-db-sync`.
 

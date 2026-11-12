@@ -37,7 +37,7 @@ SPC n d a  → 追加或复用一个带 ID 的时间节点
 SPC n d c  → 在今日 daily note 中 capture（需要模板时）
 ```
 
-这些文件放在 `~/NoteHQ/00_Roam/daily/` 下，以日期命名。Daily 笔记是这套系统里最"多功能"的一类文件，它同时承担两个看起来不相关但实际上高度互补的职责。
+这些文件放在 `~/.emacs.d/notes/00_Roam/daily/` 下，以日期命名。Daily 笔记是这套系统里最"多功能"的一类文件，它同时承担两个看起来不相关但实际上高度互补的职责。
 Daily 文件只是一天的容器；每次快速记录位于一个带 `:ID:` 的一级时间标题下。
 先写内容，不必在捕捉瞬间决定结构。需要整理时，把光标放回该标题，
 使用 `, # a` 添加标签，再用 `, # e` 编辑普通 Org property。保存 Daily
@@ -161,7 +161,7 @@ Zettelkasten 的核心动作不是"建立分类体系"，而是**识别哪些想
 识别出来之后，从 daily 里把它"提升"成独立节点的完整动作是这样的：
 
 1. 按 `SPC n c` 打开 capture 模板选择菜单，大多数情况选 `d`（default）就够了——你不需要一开始就为每类笔记设计专门的模板。
-2. 新节点会落到 `~/NoteHQ/00_Roam/capture/` 下，文件名是时间戳前缀加 slug（比如 `20260410T143022-atomic-notes-as-conversation.org`）。这个命名方案保证了两点：节点之间不会因为重名冲突，以及将来你可以用文件名时间戳回溯"某一周我写了哪些新东西"。
+2. 新节点会落到 `~/.emacs.d/notes/00_Roam/capture/` 下，文件名是时间戳前缀加 slug（比如 `20260410T143022-atomic-notes-as-conversation.org`）。这个命名方案保证了两点：节点之间不会因为重名冲突，以及将来你可以用文件名时间戳回溯"某一周我写了哪些新东西"。
 3. 屏幕下方会弹出一个窗口让你编辑新节点的正文——写几句话阐明这个想法就够了。不要在第一版就追求完美，原子笔记的价值来自数量积累而非单条完美。
 4. 写完后回到原来的 daily 位置（可以 `C-x b` 切回去，或用 `SPC b b`），按 `SPC n i` 插入一个 `[[id:...]]` 链接指向新节点。这样以后你在 daily 里看到这条"已经被提升"的想法时，可以一键跳过去查看它演化成了什么样子。
 5. 需要时按 `SPC # t` 加 `Concept` / `Reading` 等类型，再用 `SPC # f` 填写该类型的字段。没有合适的类型就跳过，不要求先设计类型体系。
@@ -179,9 +179,9 @@ Zettelkasten 的核心动作不是"建立分类体系"，而是**识别哪些想
 
 ```
 SPC n c → d   = 默认笔记（无 tag 的纯笔记，覆盖 80% 场景）
-          t … = 类型模板，由 ~/NoteHQ/.orgseq/types.org 生成
+          t … = 类型模板，由 ~/.emacs.d/notes/.orgseq/types.org 生成
                 （起始文件中有 t r = Reading、t c = Concept、t p = Person）
-          其他 = 自由模板，来自 ~/NoteHQ/.orgseq/capture-templates.el
+          其他 = 自由模板，来自 ~/.emacs.d/notes/.orgseq/capture-templates.el
 ```
 
 需要更多模板时：
@@ -236,7 +236,7 @@ SPC # T  → 编辑 types.org
 
 ### 类型、字段与 capture
 
-类型定义在 `~/NoteHQ/.orgseq/types.org`，每个一级标题是一个类型：`TYPE_TAG` 是它的标签，`TYPE_FIELDS` 列出字段（`NAME:node` 表示链接到另一个节点），`NAME_ALL` 给出可选值，标题正文是 capture 模板。给笔记加类型只是加上这个标签，字段就是普通 Org properties，所有数据都在 Org 文本里。
+类型定义在 `~/.emacs.d/notes/.orgseq/types.org`，每个一级标题是一个类型：`TYPE_TAG` 是它的标签，`TYPE_FIELDS` 列出字段（`NAME:node` 表示链接到另一个节点），`NAME_ALL` 给出可选值，标题正文是 capture 模板。给笔记加类型只是加上这个标签，字段就是普通 Org properties，所有数据都在 Org 文本里。
 
 现有 Daily、PARA、GTD 和 org-roam capture 保留。增加类型和字段的时机是反复遇到真实的分类和查询需求，而不是先设计完整的类型体系。已有标签与某个类型的 `TYPE_TAG` 相同时，带这个标签的旧笔记直接属于该类型。
 
@@ -286,7 +286,7 @@ SPC n v i  → Dashboard index
 SPC # D  → 创建新 dashboard
 ```
 
-新 dashboard 保存在 `~/NoteHQ/00_Roam/dashboards/` 下。查询写成 `orgseq-query` 动态块：
+新 dashboard 保存在 `~/.emacs.d/notes/00_Roam/dashboards/` 下。查询写成 `orgseq-query` 动态块：
 
 ```org
 #+BEGIN: orgseq-query :type "reading" :where (("STATUS" "reading")) :columns ("AUTHORS" "YEAR")
@@ -325,7 +325,7 @@ NoteHQ 分为两大区域：**00_Roam/（原子层）** 和 **PARA 层（产出/
 ### 目录结构
 
 ```
-~/NoteHQ/
+~/.emacs.d/notes/
 ├── 00_Roam/                   ← 原子层 (org-roam 索引范围)
 │   ├── daily/              ← 每日笔记
 │   ├── dashboards/         ← 查询入口文件
@@ -448,7 +448,7 @@ Casual 会弹出一个 Transient 面板，列出当前模式下所有可用操�
 
 Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。正文、Org ID、标签、properties 与链接是唯一的权威；类型就是标签，字段就是 properties。org-roam 数据库是索引，可以随时用 `M-x org-roam-db-sync` 从 Org 重建，备份 Org 文件和 `.orgseq/` 即可。见[节点模型](NOTES_ARCHITECTURE.md#四节点模型与权威边界)。
 
-若仍用 Obsidian 等工具指向 `~/NoteHQ/`：适合浏览目录中的 Org/Markdown；**主编辑与图谱闭环建议在 Emacs** 中完成，避免 Markdown 笔记不被 org-roam 索引。
+若仍用 Obsidian 等工具指向 `~/.emacs.d/notes/`：适合浏览目录中的 Org/Markdown；**主编辑与图谱闭环建议在 Emacs** 中完成，避免 Markdown 笔记不被 org-roam 索引。
 
 ---
 
@@ -551,7 +551,7 @@ Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。正
 | 中止当前片段 | `SPC t X` | 取消运行中的片段（不记录结果） |
 | 专注 Dashboard | `SPC t F` | 打开近 14 天专注历史可视化 |
 
-当计时结束时 Emacs 会响铃并弹出单键提示："这段感觉如何？(u) 不集中 (n) 正常 (f) 心流"。结果会同时追加到原 buffer 的内联标记和 `~/NoteHQ/.orgseq/focus-log.org` 日志文件。Modeline 在片段运行期间显示剩余时间。
+当计时结束时 Emacs 会响铃并弹出单键提示："这段感觉如何？(u) 不集中 (n) 正常 (f) 心流"。结果会同时追加到原 buffer 的内联标记和 `~/.emacs.d/notes/.orgseq/focus-log.org` 日志文件。Modeline 在片段运行期间显示剩余时间。
 
 Dashboard 按天展示彩色时间线（█ flow / ▓ normal / ░ unfocused），以及 14 天聚合统计（各状态的片段数、分钟数、占比）。日志是纯 org 格式，可以用 `org-ql` 或任何文本工具二次分析。
 

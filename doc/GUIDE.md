@@ -49,14 +49,14 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 
 整个系统围绕三条简单原则：
 
-1. **笔记用 `.org` 格式存在 `~/NoteHQ/00_Roam/` 下**——不是数据库，不是云端，而是人眼可读的纯文本文件。二十年后你的 Emacs 没了，这些 `.org` 文件依然能被任何文本编辑器打开。
+1. **笔记用 `.org` 格式存在 `~/.emacs.d/notes/00_Roam/` 下**——不是数据库，不是云端，而是人眼可读的纯文本文件。二十年后你的 Emacs 没了，这些 `.org` 文件依然能被任何文本编辑器打开。
 2. **任务就写在笔记里**，用 `TODO` / `NEXT` / `DONE` 等状态词标记。不存在"任务系统"和"笔记系统"的分离——一件待办总有它的上下文，而最好的上下文就是写下它时的那段话。
 3. **键盘和鼠标是平级的一等输入**。键盘侧的核心入口是空格键 `SPC`：按下 SPC 等半秒钟会弹出 which-key 菜单告诉你下一步可以按什么。鼠标侧则由 `init-mouse.el` 保证同等能力：右键在笔记/agenda/Daily 侧栏/GTD 仪表盘上弹出针对当前对象的操作菜单，TODO 关键字、复选框、时间戳可以直接点击，菜单栏的 NoteHQ 菜单收纳了核心工作流，文件可以拖进笔记、拖出 dired。日常闭环用哪种输入都能独立完成。
 
 ### 1.4 你的笔记库结构
 
 ```
-~/NoteHQ/                          ← 笔记总目录
+~/.emacs.d/notes/                  ← 笔记总目录
 ├── 00_Roam/                       ← 原子笔记层（org-roam 管理）
 │   ├── daily/                     ← 每日笔记（思维流 + 任务录入）
 │   ├── capture/                   ← 所有捕获的笔记（扁平，时间戳前缀）
@@ -110,34 +110,34 @@ Windows 下载 `.ttf` 文件后右键"安装"即可；macOS 会通过 Font Book 
 
 ### 2.2 部署配置
 
-```powershell
+```bash
 # 1. 克隆仓库
 git clone <repo-url> ~/CodeProject/org-seq
 cd ~/CodeProject/org-seq
 
 # 2. 运行部署脚本（默认会备份已有配置）
-.\deploy.ps1
+./deploy.sh
 
-# 3. 初始化笔记库目录结构
-.\scripts\bootstrap-notes.ps1
+# Windows 用户：
+# .\deploy.ps1
 
-# Linux/macOS 用户：
-# ./deploy.sh
+# 可选：补种笔记库骨架文件（Emacs 首次启动也会自动创建笔记库）
 # ./scripts/bootstrap-notes.sh
+# .\scripts\bootstrap-notes.ps1
 ```
 
-部署脚本做的事情不算神秘：检查前置条件是否齐全、把已有的 Emacs 配置备份一份（带时间戳，便于回滚）、然后把仓库里的 `early-init.el` / `init.el` / `core/` / `kernel/` / `modules/` 拷贝到 `~/.emacs.d/` 去。如果你明确不想备份，Windows 使用 `.\deploy.ps1 -NoBackup`，Linux/macOS 使用 `./deploy.sh --no-backup`。Bootstrap 脚本则负责建出 NoteHQ 的完整骨架——Roam 原子笔记层加上 PARA 四层，并同步放入 `AGENTS.md` 这份 NoteHQ/Codex 工作约定。这两个脚本都是幂等的，可以安全地重复运行。
+部署脚本做的事情不算神秘：检查前置条件是否齐全、把已有的 Emacs 配置备份一份（带时间戳，便于回滚）、然后把仓库里的 `early-init.el` / `init.el` / `core/` / `kernel/` / `modules/` 拷贝到 `~/.emacs.d/` 去。如果你明确不想备份，Linux/macOS 使用 `./deploy.sh --no-backup`，Windows 使用 `.\deploy.ps1 -NoBackup`。可选的 Bootstrap 脚本会再建出 NoteHQ 的完整骨架——Roam 原子笔记层加上 PARA 四层，并放入 `AGENTS.md` 这份 NoteHQ/Codex 工作约定；这两个脚本都是幂等的，可以安全地重复运行。
 
-NoteHQ 默认在 `~/NoteHQ/`。如果你想让 Windows、WSL 和 Linux 指向同一个同步目录，请在启动 Emacs 前设置 `ORG_SEQ_NOTE_HOME`：
+笔记库默认在 `~/.emacs.d/notes/`，由 Emacs 首次启动时自动创建，无需选择目录，也不会在启动时提问。`ORG_SEQ_NOTE_HOME` 仍可覆盖这个位置：
 
 ```bash
-export ORG_SEQ_NOTE_HOME="$HOME/NoteHQ"
+export ORG_SEQ_NOTE_HOME="$HOME/notes"
 # WSL 使用 Windows 侧目录的例子：
-export ORG_SEQ_NOTE_HOME="/mnt/c/Users/exrld/NoteHQ"
+export ORG_SEQ_NOTE_HOME="/mnt/c/Users/exrld/notes"
 ```
 
 ```powershell
-$env:ORG_SEQ_NOTE_HOME = "$HOME\NoteHQ"
+$env:ORG_SEQ_NOTE_HOME = "$HOME\notes"
 ```
 
 ### 2.3 首次启动
@@ -177,7 +177,7 @@ machine openrouter.ai login apikey password sk-or-你的KEY
 
 **第三步（可选）：自定义模型和后端**
 
-编辑 `~/NoteHQ/.orgseq/ai-config.org`，你可以：
+编辑 `~/.emacs.d/notes/.orgseq/ai-config.org`，你可以：
 - 修改 `DEFAULT_MODEL` 切换默认模型
 - 在模型列表中添加/删除模型
 - 添加新的后端（如本地 Ollama）
@@ -597,13 +597,13 @@ SPC n c        → 新建笔记（弹出模板选择）
 | `t c` | Concept | 概念笔记（Definition / Related），带 STAGE、SOURCE 字段 |
 | `t p` | Person | 人物笔记（Context），带 ROLE、AFFILIATION 字段 |
 
-`t` 组下的模板由 `~/NoteHQ/.orgseq/types.org` 自动生成，上表是起始文件中的三个示例类型（见 8.8）。每条笔记自动获得一个唯一 ID，存储在 `~/NoteHQ/00_Roam/capture/` 下。
+`t` 组下的模板由 `~/.emacs.d/notes/.orgseq/types.org` 自动生成，上表是起始文件中的三个示例类型（见 8.8）。每条笔记自动获得一个唯一 ID，存储在 `~/.emacs.d/notes/00_Roam/capture/` 下。
 
 **添加更多模板**：需要固定字段和表格视图的笔记（如咨询记录、学生信息）在 `types.org` 中定义类型；只需要正文骨架的笔记用自由模板：
 
 ```
 SPC # T      → 打开 types.org，保存后立即生效
-SPC # c      → 打开自由模板文件（~/NoteHQ/.orgseq/capture-templates.el）
+SPC # c      → 打开自由模板文件（~/.emacs.d/notes/.orgseq/capture-templates.el）
 SPC # C      → 重载全部模板
 ```
 
@@ -617,7 +617,7 @@ SPC n /        → 在笔记内容中全文搜索（ripgrep 驱动）
 SPC n ?        → consult 增强搜索（支持实时预览）
 ```
 
-`SPC n s` 会打开 Deft，对整个 `~/NoteHQ/` 目录做增量搜索；输入 `emacs config` 可以快速缩小到标题或正文里相关的 Org/Markdown 笔记。
+`SPC n s` 会打开 Deft，对整个 `~/.emacs.d/notes/` 目录做增量搜索；输入 `emacs config` 可以快速缩小到标题或正文里相关的 Org/Markdown 笔记。
 
 ### 8.4 建立链接
 
@@ -684,7 +684,7 @@ Daily capture 有三种模板：
 
 org-roam 中每个带 Org ID 的文件或标题都是一个节点。org-seq 在此之上提供类型和字段（`modules/notes/init-nodes.el`），做法参照 Tana 的 supertag 和 Fibery 的数据库，但所有数据都写在 Org 文本里，不另建数据库。2026-10-22 之前使用的 Supertag 包已移除。
 
-**类型**定义在 `~/NoteHQ/.orgseq/types.org`，每个一级标题是一个类型：
+**类型**定义在 `~/.emacs.d/notes/.orgseq/types.org`，每个一级标题是一个类型：
 
 ```org
 * Reading
@@ -979,8 +979,8 @@ SPC a +        → 添加上下文文件（让 AI 参考更多内容）
 
 任何和 AI 频繁打交道的人都体会过这种疲劳：每次开新对话都要重新交代一遍自己是谁、研究什么、笔记体系如何组织。org-seq 用一个简单的机制解决了这个问题——它会自动把两个文件的内容注入到每次 AI 对话的系统提示中，让 AI **始终知道**你在做什么。
 
-- `~/NoteHQ/00_Roam/purpose.org` 描述你的知识库目标和研究方向。例如"我是研究认知科学的博士生，当前关注元认知与学习迁移"。
-- `~/NoteHQ/00_Roam/schema.org` 描述你的笔记类型约定和 tag 体系。例如"reading tag 记录文献，field 有 authors / year / topic"。
+- `~/.emacs.d/notes/00_Roam/purpose.org` 描述你的知识库目标和研究方向。例如"我是研究认知科学的博士生，当前关注元认知与学习迁移"。
+- `~/.emacs.d/notes/00_Roam/schema.org` 描述你的笔记类型约定和 tag 体系。例如"reading tag 记录文献，field 有 authors / year / topic"。
 
 首次使用时按 `SPC a i` 会在 Roam 目录下创建这两个文件的骨架，你填入自己的内容即可。以后每次 `SPC a s` / `SPC a k` / `SPC a a` 的调用都会自动带上这段背景，不需要你重复输入。编辑完保存，下次调用自动生效——没有重启步骤，没有缓存刷新。
 
@@ -1000,7 +1000,7 @@ SPC a +        → 添加上下文文件（让 AI 参考更多内容）
 
 ### 10.6 修改 AI 配置
 
-AI 的后端和模型配置存储在 `~/NoteHQ/.orgseq/ai-config.org` 中（纯文本 org 文件）：
+AI 的后端和模型配置存储在 `~/.emacs.d/notes/.orgseq/ai-config.org` 中（纯文本 org 文件）：
 
 ```org
 * Settings
@@ -1111,7 +1111,7 @@ SPC l l        → 启动完整工作区
 - **treemacs**（左）：稳定的项目/目录树侧边栏。用于浏览 NoteHQ 层级、展开折叠目录、定位当前文件。它负责“树”，而不是完整文件管理。
 - **主编辑区**（中）：你的笔记/代码
 - **Outline**（右）：当前文件的大纲/标题列表，点击可跳转
-- **CLI 雷神窗**：按 `SPC '` 从底部唤出终端，`SPC a x` / `SPC a O` / `SPC a K` 分别唤出 Codex、OpenCode、kimi-cli，工作目录固定为 `my/note-home`（默认 `~/NoteHQ/`，可由 `ORG_SEQ_NOTE_HOME` 覆盖）
+- **CLI 雷神窗**：按 `SPC '` 从底部唤出终端，`SPC a x` / `SPC a O` / `SPC a K` 分别唤出 Codex、OpenCode、kimi-cli，工作目录固定为 `my/note-home`（默认 `~/.emacs.d/notes/`，可由 `ORG_SEQ_NOTE_HOME` 覆盖）
 
 这个布局会按当前屏幕宽度自动计算比例：小屏优先保住主编辑区，大屏扩大侧栏和 outline 但不会无限铺开。
 
@@ -1220,7 +1220,7 @@ How did that feel?  (u) unfocused   (n) normal focus   (f) flow state :
    ```
    [2026-04-10 Fri 14:17] focus started -- 13m planned (ends 14:30) -> ended 14:30 (flow state)
    ```
-2. 在 `~/NoteHQ/.orgseq/focus-log.org` 日志文件里追加一条结构化记录，带完整的时间戳、计划时长、实际时长、结果、上下文文件。
+2. 在 `~/.emacs.d/notes/.orgseq/focus-log.org` 日志文件里追加一条结构化记录，带完整的时间戳、计划时长、实际时长、结果、上下文文件。
 3. 清掉 modeline 的倒计时指示。
 
 ### 13.4 可视化：Focus Dashboard
@@ -1233,7 +1233,7 @@ SPC t F        → 打开 Focus Dashboard
 
 ```
 FOCUS DASHBOARD
-  log: ~/NoteHQ/.orgseq/focus-log.org
+  log: ~/.emacs.d/notes/.orgseq/focus-log.org
   range: last 14 days
 
 Daily timeline
@@ -1271,7 +1271,7 @@ q              → 退出
 | `org-focus-min-duration` | 10 | 片段最短时长（分钟），系统不会把结束时间设得比这个更近 |
 | `org-focus-max-duration` | 30 | 片段最长时长（分钟），系统不会把结束时间设得比这个更远 |
 | `org-focus-round-to` | 15 | 对齐的整点粒度（15 = 每刻钟，5 = 每 5 分钟） |
-| `org-focus-log-file` | `~/NoteHQ/.orgseq/focus-log.org` | 日志文件位置 |
+| `org-focus-log-file` | `~/.emacs.d/notes/.orgseq/focus-log.org` | 日志文件位置 |
 | `org-focus-ring-bell-on-end` | t | 片段结束时是否响铃 |
 | `org-focus-dashboard-days` | 14 | Dashboard 显示多少天的历史 |
 
@@ -1291,7 +1291,7 @@ q              → 退出
 
 在那之前，把源代码放在 org-seq 内部带来一个实用的好处：**迭代闭环更短**。你想改 `org-focus-timer.el` 的某段逻辑？直接编辑 `packages/org-focus-timer/org-focus-timer.el`，保存，`M-x eval-buffer`——下一次 `SPC t f` 就用上了新代码，不需要重新 deploy，不需要切换仓库。对于一个尚在打磨的功能，这种零摩擦的改动环境比"干净的包边界"更重要。
 
-包和集成层之间有一条明确的分工：**所有 org-seq 特有的默认值**（日志文件指向 `~/NoteHQ/.orgseq/`、默认用 10/30/15 的 Vitamin-R 参数、键位绑定到 `SPC t f`）都住在 `modules/notes/init-focus.el` 里；**包本身**（`packages/org-focus-timer/`）只提供纯粹的函数和 defcustom，不知道 org-seq 的存在。这意味着等到它毕业的那天，你直接 `git mv packages/org-focus-timer/ ../org-focus-timer/` 就能把它剥离出来而不需要改任何一行代码。
+包和集成层之间有一条明确的分工：**所有 org-seq 特有的默认值**（日志文件指向 `~/.emacs.d/notes/.orgseq/`、默认用 10/30/15 的 Vitamin-R 参数、键位绑定到 `SPC t f`）都住在 `modules/notes/init-focus.el` 里；**包本身**（`packages/org-focus-timer/`）只提供纯粹的函数和 defcustom，不知道 org-seq 的存在。这意味着等到它毕业的那天，你直接 `git mv packages/org-focus-timer/ ../org-focus-timer/` 就能把它剥离出来而不需要改任何一行代码。
 
 如果你把 org-seq clone 到另一台机器并发现 `packages/` 没跟着复制过去，`M-x customize-group RET org-seq` 里有一个 `my/focus-timer-path` 可以指向你实际保存 `org-focus-timer.el` 的位置。
 
@@ -1474,10 +1474,10 @@ M-x customize-group RET org-seq RET
 
 | 变量 | 含义 | 默认值 |
 |------|------|--------|
-| `my/note-home` | 笔记总目录 | `ORG_SEQ_NOTE_HOME`，未设置时为 `~/NoteHQ/` |
-| `my/roam-dir` | 原子笔记层（org-roam + AI context 指向此处） | `~/NoteHQ/00_Roam/` |
-| `my/orgseq-dir` | 个性化配置目录（.orgseq/） | `~/NoteHQ/.orgseq/` |
-| `my/types-file` | 节点类型定义文件 | `~/NoteHQ/.orgseq/types.org` |
+| `my/note-home` | 笔记总目录 | `ORG_SEQ_NOTE_HOME`，未设置时为 `~/.emacs.d/notes/` |
+| `my/roam-dir` | 原子笔记层（org-roam + AI context 指向此处） | `~/.emacs.d/notes/00_Roam/` |
+| `my/orgseq-dir` | 个性化配置目录（.orgseq/） | `~/.emacs.d/notes/.orgseq/` |
+| `my/types-file` | 节点类型定义文件 | `~/.emacs.d/notes/.orgseq/types.org` |
 | `my/node-review-days` | `SPC # r` 列出最近多少天的笔记 | `14` |
 | `my/agenda-cache-ttl` | Agenda 文件缓存过期秒数 | `300` |
 | `my/gtd-context-tags` | GTD 上下文标签列表 | `("@work" "@home" "@computer" "@errands" "@phone")` |
@@ -1490,7 +1490,7 @@ M-x customize-group RET org-seq RET
 | `my/ui-startup-variant` | 启动时加载浅色还是深色 | `light` |
 | `my/markdown-body-width-*` | Markdown 居中阅读模式的宽度范围 | 84–120 |
 
-修改后按 `C-x C-s` 保存到 `custom.el`，下次启动自动生效。也可以直接在 custom.el 里写：
+修改后按 `C-x C-s` 保存到 `user/custom.el`，下次启动自动生效。也可以直接在 `user/custom.el` 里写：
 
 ```elisp
 (custom-set-variables
@@ -1511,9 +1511,9 @@ M-x customize-group RET org-seq RET
 
 | 修改内容 | 热重载方式 |
 |---------|-----------|
-| 节点类型（`~/NoteHQ/.orgseq/types.org`） | 保存文件即重载；也可 `M-x my/node-types-reload` |
-| capture 模板（`~/NoteHQ/.orgseq/capture-templates.el`） | `SPC # C`（`my/reload-capture-templates`） |
-| AI 后端（`~/NoteHQ/.orgseq/ai-config.org`） | 保存文件后下次 `M-x gptel` 会重新解析 |
+| 节点类型（`~/.emacs.d/notes/.orgseq/types.org`） | 保存文件即重载；也可 `M-x my/node-types-reload` |
+| capture 模板（`~/.emacs.d/notes/.orgseq/capture-templates.el`） | `SPC # C`（`my/reload-capture-templates`） |
+| AI 后端（`~/.emacs.d/notes/.orgseq/ai-config.org`） | 保存文件后下次 `M-x gptel` 会重新解析 |
 | 单个 `init-*.el` 模块 | `M-x eval-buffer` |
 | 所有 `init-*.el` 模块 | 重启 Emacs 最稳妥（或 `M-x restart-emacs`） |
 
@@ -1885,7 +1885,7 @@ M-x customize-group RET org-seq RET
 | org-node 缓存过旧 | `M-x org-mem-reset` | 强制全量重扫 |
 | org-roam-ui 图谱不完整 | 检查 `org-mem-roamy-do-overwrite-real-db` | 应为 `t` |
 | 表格视图或 dashboard 缺少刚改的字段 | 确认文件已保存 | 保存后在视图中按 `g` 或刷新动态块；仍不对时 `M-x org-roam-db-sync` 重建索引 |
-| `SPC # t` 提示没有类型 | 检查 `~/NoteHQ/.orgseq/types.org` | `SPC # T` 打开文件，至少定义一个一级标题并保存 |
+| `SPC # t` 提示没有类型 | 检查 `~/.emacs.d/notes/.orgseq/types.org` | `SPC # T` 打开文件，至少定义一个一级标题并保存 |
 | AI 命令报错 "No API key" | 检查 `~/.authinfo` | 确认有 `machine openrouter.ai login apikey password sk-or-XXX` |
 | Transient 版本太旧 | 检查 `package-install-upgrade-built-in` | 确认为 `t` |
 | 图标显示为方块 | `M-x nerd-icons-install-fonts` | Windows 需右键安装 .ttf |

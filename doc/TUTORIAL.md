@@ -30,7 +30,7 @@
 
 **节点层**：Tana 的每个节点对应 org-roam 里的一个文件节点。org-roam 给每个节点生成全局唯一的 UUID（存在 `:ID:` 属性里），跨文件链接就靠这个 ID。一个文件可以有多个节点——文件头部是"文件节点"，每个带 ID 的 heading 是"段落节点"。
 
-**类型层**：Tana 的 supertag 和 Fibery 的数据库对应 org-seq 的节点类型。类型定义在 `~/NoteHQ/.orgseq/types.org`：一个类型就是一个 Org 标签、一组字段和一个 capture 模板。给节点加类型就是加上这个标签，字段就是普通 Org properties，节点之间的关系是 `[[id:]]` 链接。所有数据都在 Org 文本里，没有第二个数据库。
+**类型层**：Tana 的 supertag 和 Fibery 的数据库对应 org-seq 的节点类型。类型定义在 `~/.emacs.d/notes/.orgseq/types.org`：一个类型就是一个 Org 标签、一组字段和一个 capture 模板。给节点加类型就是加上这个标签，字段就是普通 Org properties，节点之间的关系是 `[[id:]]` 链接。所有数据都在 Org 文本里，没有第二个数据库。
 
 **查询层**：org-ql 查询 Org 文件内容，主要服务 GTD；`orgseq-query` 动态块和 `SPC # v` 表格视图查询 org-roam 数据库，按类型、字段值和修改时间筛选节点。数据库只反映已保存的文件。org-seq 的 dashboard 打开入口会刷新块，块本身不持续自动刷新。
 
@@ -51,7 +51,7 @@ org-mem 是关键。org-roam 扫描 3000 个节点需要近三分钟，org-mem �
 目录用数字前缀排序，让侧栏按工作流优先级显示，而不是按字母顺序。
 
 ```
-~/NoteHQ/
+~/.emacs.d/notes/
 ├── 00_Roam/               ← 原子笔记（Zettelkasten 节点）
 │   ├── capture/           ← 新捕获的笔记落点
 │   ├── daily/             ← 每日笔记（YYYY-MM-DD.org）
@@ -68,16 +68,16 @@ org-mem 是关键。org-roam 扫描 3000 个节点需要近三分钟，org-mem �
     └── focus-log.org      ← 专注计时历史
 ```
 
-默认根目录是 `~/NoteHQ/`。如果 Windows、WSL 或 Linux 要共用一个同步目录，请在启动 Emacs 前设置 `ORG_SEQ_NOTE_HOME`：
+默认根目录是 `~/.emacs.d/notes/`，由 Emacs 首次启动时自动创建。`ORG_SEQ_NOTE_HOME` 仍可覆盖这个位置：
 
 ```bash
-export ORG_SEQ_NOTE_HOME="$HOME/NoteHQ"
+export ORG_SEQ_NOTE_HOME="$HOME/notes"
 # WSL 使用 Windows 侧目录的例子：
-export ORG_SEQ_NOTE_HOME="/mnt/c/Users/exrld/NoteHQ"
+export ORG_SEQ_NOTE_HOME="/mnt/c/Users/exrld/notes"
 ```
 
 ```powershell
-$env:ORG_SEQ_NOTE_HOME = "$HOME\NoteHQ"
+$env:ORG_SEQ_NOTE_HOME = "$HOME\notes"
 ```
 
 GTD Agenda 扫描 `00_Roam/`、`10_Outputs/`、`20_Practice/` 三个目录，不扫描 `30_Library/` 和 `40_Archives/`。这个设计有意为之：参考素材和归档内容不应进入任务视图，制造噪音。
@@ -151,7 +151,7 @@ ORG_SEQ_CLIENT=tty ~/.emacs.d/ec file.org
 | `SPC '` | 从底部唤出 NoteHQ 的终端（Windows 使用 pwsh） |
 | `SPC l =` | 重新平衡各栏比例 |
 
-treemacs 侧栏的根目录是 `my/note-home`（默认 `~/NoteHQ/`，可由 `ORG_SEQ_NOTE_HOME` 覆盖）。在 treemacs 内，`TAB` 展开/折叠目录节点。
+treemacs 侧栏的根目录是 `my/note-home`（默认 `~/.emacs.d/notes/`，可由 `ORG_SEQ_NOTE_HOME` 覆盖）。在 treemacs 内，`TAB` 展开/折叠目录节点。
 
 如果用 dirvish 浏览文件（`SPC o f` 打开），按 `a` 键弹出快速访问菜单，预设了 NoteHQ 各目录的跳转入口：`n` → NoteHQ 根、`r` → 00_Roam、`c` → capture、`d` → daily、`o` → Outputs、`p` → Practice。偏好 yazi 的时候，`SPC o y` 会从底部唤出 yazi，`SPC o Y` 会在当前窗口打开 yazi。
 
@@ -189,7 +189,7 @@ org-seq 现在把 `pyim` 和 `sis` 组合在一起使用：`pyim` 负责真正�
 
 选模板后进入编辑界面，写完用 `C-c C-c` 保存，`C-c C-k` 放弃。
 
-如果你的日常有固定的捕获需求——比如文献阅读、实验记录、学生个案——并且需要按字段查看和筛选，在 `types.org` 里为它定义一个类型（`SPC # T`，保存即生效，见第 4 节）。只需要固定正文骨架时，在 `~/NoteHQ/.orgseq/capture-templates.el` 里定义 `my/user-capture-templates`，格式与 `org-roam-capture-templates` 相同；`SPC # c` 打开这个文件，改完后 `SPC # C` 重载，无需重启 Emacs。
+如果你的日常有固定的捕获需求——比如文献阅读、实验记录、学生个案——并且需要按字段查看和筛选，在 `types.org` 里为它定义一个类型（`SPC # T`，保存即生效，见第 4 节）。只需要固定正文骨架时，在 `~/.emacs.d/notes/.orgseq/capture-templates.el` 里定义 `my/user-capture-templates`，格式与 `org-roam-capture-templates` 相同；`SPC # c` 打开这个文件，改完后 `SPC # C` 重载，无需重启 Emacs。
 
 ### 每日笔记：工作流的入口
 
@@ -274,7 +274,7 @@ org-roam 中每个带 Org ID 的文件或标题都是节点。类型和字段是
 
 ### 定义类型：`types.org`
 
-`SPC # T` 打开 `~/NoteHQ/.orgseq/types.org`。每个一级标题定义一个类型：
+`SPC # T` 打开 `~/.emacs.d/notes/.orgseq/types.org`。每个一级标题定义一个类型：
 
 ```org
 * Reading
@@ -449,7 +449,7 @@ API key 写入 `~/.authinfo`（明文）或 `~/.authinfo.gpg`（GPG 加密）：
 machine openrouter.ai login apikey password sk-or-YOUR-KEY
 ```
 
-模型和后端在 `~/NoteHQ/.orgseq/ai-config.org` 里配置。默认后端是 OpenRouter，默认模型是 `deepseek/deepseek-chat-v3-0324`。文件里可以列出多个后端（OpenRouter、Ollama 等）和每个后端支持的模型列表。
+模型和后端在 `~/.emacs.d/notes/.orgseq/ai-config.org` 里配置。默认后端是 OpenRouter，默认模型是 `deepseek/deepseek-chat-v3-0324`。文件里可以列出多个后端（OpenRouter、Ollama 等）和每个后端支持的模型列表。
 
 `SPC a i` 初始化 `purpose.org` 和 `schema.org` 两个 AI 上下文文件（已存在则跳过）。
 
@@ -524,7 +524,7 @@ machine openrouter.ai login apikey password sk-or-YOUR-KEY
 
 ### Deft 的用法
 
-`SPC n s` 打开 Deft 界面，直接开始输入，结果实时过滤。Deft 覆盖 `~/NoteHQ/` 的所有 `.org`、`.md`、`.txt` 文件（排除 `dashboards/` 和隐藏目录）。它读取文件内容而不是路径，适合靠关键词找笔记。
+`SPC n s` 打开 Deft 界面，直接开始输入，结果实时过滤。Deft 覆盖 `~/.emacs.d/notes/` 的所有 `.org`、`.md`、`.txt` 文件（排除 `dashboards/` 和隐藏目录）。它读取文件内容而不是路径，适合靠关键词找笔记。
 
 Deft 的摘要显示过滤掉了 org 关键字行（`#+KEYWORD:`）、`:PROPERTIES:` 块、`:END:` 标记——你看到的摘要是笔记的实际内容。
 
