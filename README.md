@@ -138,6 +138,17 @@ Emacs directory. Everything else moves copies in or out of it:
   automatically on a day when the library changed, and before every import
   and every full comparison with the remote; the newest
   `my/storage-snapshot-keep` (default 10) are kept.
+- **Restore** (`my/storage-restore`, suggested binding `SPC n S R`;
+  `orgseq snapshots` and `orgseq restore NAME --yes`) returns the whole
+  library to the state of one snapshot: its files overwrite the library,
+  library files the snapshot lacks are deleted, and empty folders are
+  removed. `org-roam.db`, `.git/`, bytecode, lock and backup files are left
+  alone. A snapshot of the current library is taken first (and the restore
+  stops if that fails), so a restore can be undone by restoring that
+  snapshot. Restored files get the current modification time, so the remote
+  copy does not overwrite them at the next sync; with a remote configured
+  the next sync carries the restored state, deletions included, to it, so
+  run `my/sync-preview` first.
 - **Sync** shares the library between devices, as described below.
 
 `SPC n S t` (`my/storage-status`) shows the location, size, sync state and

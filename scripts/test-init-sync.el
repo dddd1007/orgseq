@@ -206,4 +206,175 @@ Binds `root', `my/note-home' with its layer paths, `my/snapshot-dir',
         (should (= 1 (length conflicts)))
         (should (equal "remote edit" (my/test-sync--read (car conflicts))))))))
 
+;; -- Restore --
+
+(defun my/test-sync--tree (dir)
+  "Return an alist of (relative-name . contents) for the library files in DIR."
+  (sort (mapcar (lambda (file)
+                  (cons (file-relative-name file dir) (my/test-sync--read file)))
+                (my/storage--files dir))
+        (lambda (a b) (string< (car a) (car b)))))
+
+(defun my/test-sync--seed-library ()
+  "Create a small library and return its snapshot."
+  (my/test-sync--write (expand-file-name "00_Roam/a.org" my/note-home) "a one")
+  (my/test-sync--write (expand-file-name "00_Roam/b.org" my/note-home) "b one")
+  (my/test-sync--write (expand-file-name "10_Outputs/deep/c.org" my/note-home) "c one")
+  (my/test-sync--write (expand-file-name "00_Roam/org-roam.db" my/note-home) "index")
+  (my/test-sync--write (expand-file-name ".git/HEAD" my/note-home) "ref")
+  (my/storage-snapshot))
+
+(ert-deftest my/storage-restore-brings-back-the-snapshot-state ()
+  (my/test-sync--with-dirs
+    (let* ((snapshot (my/test-sync--seed-library))
+           (expected (my/test-sync--tree snapshot))
+           (result nil))
+      (delete-file (expand-file-name "00_Roam/a.org" my/note-home))
+      (my/test-sync--write (expand-file-name "00_Roam/b.org" my/note-home) "b edited")
+      (my/test-sync--write (expand-file-name "00_Roam/new.org" my/note-home) "new")
+      (my/test-sync--write (expand-file-name "20_Practice/x/y.org" my/note-home) "y")
+      (delete-file (expand-file-name "10_Outputs/deep/c.org" my/note-home))
+      (my/test-sync--write (expand-file-name "00_Roam/org-roam.db" my/note-home) "newer index")
+      (my/test-sync--write (expand-file-name ".git/HEAD" my/note-home) "newer ref")
+      (setq result (my/storage-restore (file-name-nondirectory
+                                        (directory-file-name snapshot))))
+      (should (equal expected (my/test-sync--tree my/note-home)))
+      (should (= 2 (plist-get result :deleted)))
+      (should (= 3 (plist-get result :restored)))
+      ;; Directories left empty by the deletions are gone; others stay.
+      (should-not (file-exists-p (expand-file-name "20_Practice" my/note-home)))
+      (should (file-directory-p (expand-file-name "10_Outputs/deep" my/note-home)))
+      ;; Files outside the snapshot scope are untouched.
+      (should (equal "newer index"
+                     (my/test-sync--read (expand-file-name "00_Roam/org-roam.db"
+                                                           my/note-home))))
+      (should (equal "newer ref"
+                     (my/test-sync--read (expand-file-name ".git/HEAD" my/note-home)))))))
+
+(ert-deftest my/storage-restore-accepts-a-snapshot-path ()
+  (my/test-sync--with-dirs
+    (let ((snapshot (my/test-sync--seed-library)))
+      (delete-file (expand-file-name "00_Roam/a.org" my/note-home))
+      (my/storage-restore snapshot)
+      (should (equal "a one" (my/test-sync--read
+                              (expand-file-name "00_Roam/a.org" my/note-home)))))))
+
+(ert-deftest my/storage-restore-gives-restored-files-fresh-mtimes ()
+  (my/test-sync--with-dirs
+    (let ((snapshot (my/test-sync--seed-library))
+          (start (current-time)))
+      (dolist (file (my/storage--files snapshot))
+        (set-file-times file (time-subtract nil (* 30 86400))))
+      (my/storage-restore snapshot)
+      (dolist (file (my/storage--files my/note-home))
+        (should-not (time-less-p (file-attribute-modification-time
+                                  (file-attributes file))
+                                 (time-subtract start 5)))))))
+
+(ert-deftest my/storage-restore-can-be-undone ()
+  (my/test-sync--with-dirs
+    (let* ((snapshot (my/test-sync--seed-library))
+           (name (file-name-nondirectory (directory-file-name snapshot))))
+      (delete-file (expand-file-name "00_Roam/a.org" my/note-home))
+      (my/test-sync--write (expand-file-name "00_Roam/b.org" my/note-home) "b edited")
+      (my/test-sync--write (expand-file-name "00_Roam/new.org" my/note-home) "new")
+      (let ((before (my/test-sync--tree my/note-home))
+            (result (my/storage-restore name)))
+        (let ((undo (plist-get result :undo-snapshot)))
+          (should undo)
+          (should-not (equal name (file-name-nondirectory undo)))
+          (should (member undo (mapcar #'directory-file-name (my/storage-snapshots))))
+          (should (equal before (my/test-sync--tree undo)))
+          (should-not (equal before (my/test-sync--tree my/note-home)))
+          ;; Restoring the undo snapshot returns the earlier state.
+          (my/storage-restore undo)
+          (should (equal before (my/test-sync--tree my/note-home))))))))
+
+(ert-deftest my/storage-restore-refuses-unknown-snapshots ()
+  (my/test-sync--with-dirs
+    (my/test-sync--seed-library)
+    (let ((before (my/test-sync--tree my/note-home))
+          (outside (expand-file-name "other/" root)))
+      (my/test-sync--write (expand-file-name "00_Roam/z.org" outside) "z")
+      (dolist (bad (list "20000101-000000" "" "../library" outside
+                         my/note-home my/snapshot-dir nil))
+        (should-error (my/storage-restore bad) :type 'user-error))
+      (should (equal before (my/test-sync--tree my/note-home)))
+      (should (= 1 (length (my/storage-snapshots)))))))
+
+(ert-deftest my/storage-restore-refuses-overlapping-snapshot-dir ()
+  (my/test-sync--with-dirs
+    (let ((snapshot (my/test-sync--seed-library)))
+      (let ((my/snapshot-dir (expand-file-name "inside/" my/note-home)))
+        (should-error (my/storage-restore snapshot) :type 'user-error)))))
+
+(ert-deftest my/storage-restore-survives-a-small-keep-limit ()
+  "The snapshot being restored and the undo snapshot outlive pruning."
+  (my/test-sync--with-dirs
+    (let* ((my/storage-snapshot-keep 1)
+           (snapshot (my/test-sync--seed-library))
+           (name (file-name-nondirectory (directory-file-name snapshot))))
+      (delete-file (expand-file-name "00_Roam/a.org" my/note-home))
+      (let* ((result (my/storage-restore name))
+             (undo (plist-get result :undo-snapshot)))
+        (should (equal "a one" (my/test-sync--read
+                                (expand-file-name "00_Roam/a.org" my/note-home))))
+        (should (file-directory-p undo))
+        (should (file-directory-p snapshot))
+        (should-not (file-exists-p (expand-file-name "00_Roam/a.org" undo)))
+        ;; The next ordinary snapshot prunes back to the limit.
+        (my/storage-snapshot)
+        (should (= 1 (length (my/storage-snapshots))))))))
+
+(ert-deftest my/storage-restore-aborts-when-the-undo-snapshot-fails ()
+  (my/test-sync--with-dirs
+    (let ((snapshot (my/test-sync--seed-library)))
+      (delete-file (expand-file-name "00_Roam/a.org" my/note-home))
+      (let ((before (my/test-sync--tree my/note-home)))
+        (cl-letf (((symbol-function 'my/storage-snapshot) (lambda () nil)))
+          (should-error (my/storage-restore snapshot) :type 'user-error))
+        (should (equal before (my/test-sync--tree my/note-home)))))))
+
+(ert-deftest my/storage-restore-reverts-and-reports-buffers ()
+  (my/test-sync--with-dirs
+    (let* ((snapshot (my/test-sync--seed-library))
+           (a (expand-file-name "00_Roam/a.org" my/note-home))
+           (extra (expand-file-name "00_Roam/extra.org" my/note-home))
+           (messages nil))
+      (my/test-sync--write extra "extra")
+      (my/test-sync--write a "a edited")
+      (let ((buffer-a (find-file-noselect a))
+            (buffer-extra (find-file-noselect extra)))
+        (unwind-protect
+            (progn
+              (with-current-buffer buffer-a
+                (goto-char (point-max)) (insert " unsaved"))
+              (cl-letf (((symbol-function 'message)
+                         (lambda (fmt &rest args)
+                           (push (apply #'format fmt args) messages))))
+                (my/storage-restore snapshot))
+              ;; Unsaved edits are saved before the restore, then reverted.
+              (with-current-buffer buffer-a
+                (should-not (buffer-modified-p))
+                (should (equal "a one" (buffer-string))))
+              (should (buffer-live-p buffer-extra))
+              (should (cl-some (lambda (m) (string-match-p "extra.org was deleted" m))
+                               messages)))
+          (kill-buffer buffer-a)
+          (kill-buffer buffer-extra))))))
+
+(ert-deftest my/storage-restore-mentions-the-remote ()
+  (my/test-sync--with-dirs
+    (let ((snapshot (my/test-sync--seed-library))
+          (messages nil))
+      (cl-letf (((symbol-function 'message)
+                 (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
+        (my/storage-restore snapshot)
+        (should (cl-some (lambda (m) (string-match-p "my/sync-preview" m)) messages))
+        (setq messages nil)
+        (let ((my/sync-remote nil))
+          (my/storage-restore snapshot))
+        (should-not (cl-some (lambda (m) (string-match-p "my/sync-preview" m))
+                             messages))))))
+
 ;;; test-init-sync.el ends here

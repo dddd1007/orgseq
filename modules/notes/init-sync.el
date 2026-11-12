@@ -19,7 +19,8 @@
 ;;             is asked at startup.
 ;;   Snapshot  Dated copies of the library in `my/snapshot-dir', outside
 ;;             the Emacs directory: one a day when the library changed,
-;;             and before imports and full comparisons.
+;;             and before imports and full comparisons.  `my/storage-restore'
+;;             goes back to the full state of one of them.
 ;;
 ;; ┌─────────────────────────────────────────────────────────────────┐
 ;; │ Section 1  Device-local state                                    │
@@ -37,6 +38,7 @@
 (defvar my/roam-dir)
 (defvar my/orgseq-dir)
 (defvar my/library-dir)
+(defvar my/sync-remote)
 
 (require 'cl-lib)
 (require 'subr-x)
@@ -151,10 +153,20 @@ compares both sides in full, whatever this is set to."
            (directory-files my/snapshot-dir t my/storage--snapshot-name-regexp))
           (lambda (a b) (string> a b)))))
 
-(defun my/storage--prune-snapshots ()
-  "Remove snapshots beyond `my/storage-snapshot-keep'."
-  (dolist (old (nthcdr (max 1 my/storage-snapshot-keep) (my/storage-snapshots)))
-    (delete-directory old t)))
+(defun my/storage--prune-snapshots (&optional protect)
+  "Remove snapshots beyond `my/storage-snapshot-keep'.
+PROTECT is a list of snapshot directories that are kept regardless."
+  (let ((protect (mapcar #'my/storage--dir (delq nil protect))))
+    (dolist (old (nthcdr (max 1 my/storage-snapshot-keep) (my/storage-snapshots)))
+      (unless (member (my/storage--dir old) protect)
+        (delete-directory old t)))))
+
+(defun my/storage--check-overlap ()
+  "Signal a user error when the snapshot directory and the library overlap."
+  (let ((home (my/storage--dir my/note-home))
+        (root (my/storage--dir my/snapshot-dir)))
+    (when (or (file-in-directory-p root home) (file-in-directory-p home root))
+      (user-error "Snapshot directory %s overlaps the library" root))))
 
 (defun my/storage-snapshot ()
   "Copy the library into a new dated folder under `my/snapshot-dir'.
@@ -162,8 +174,7 @@ Return the folder, or nil when the library holds no files yet."
   (interactive)
   (let ((home (my/storage--dir my/note-home))
         (root (my/storage--dir my/snapshot-dir)))
-    (when (or (file-in-directory-p root home) (file-in-directory-p home root))
-      (user-error "Snapshot directory %s overlaps the library" root))
+    (my/storage--check-overlap)
     (if (null (my/storage--files home))
         (progn
           (when (called-interactively-p 'interactive)
@@ -210,8 +221,9 @@ the library has changed since it was taken."
 
 (defun my/storage-browse-snapshots ()
   "Open the snapshot directory.
-A snapshot is a plain copy of the library; `my/storage-import' copies
-missing files back from one."
+A snapshot is a plain copy of the library; `my/storage-restore' returns
+the library to one and `my/storage-import' copies missing files back
+from one."
   (interactive)
   (if (file-directory-p my/snapshot-dir)
       (dired my/snapshot-dir)
@@ -290,6 +302,195 @@ Return that folder.  The library itself is not changed."
                count (abbreviate-file-name target)))
     (file-name-as-directory target)))
 
+;; -- Restore --
+
+(defun my/storage--snapshot-label (snapshot)
+  "Return a one-line description of SNAPSHOT: name, date and file count."
+  (let ((name (file-name-nondirectory (directory-file-name snapshot))))
+    (format "%s  %s  %d files"
+            name
+            (if (string-match "\\`\\([0-9]\\{4\\}\\)\\([0-9]\\{2\\}\\)\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)\\([0-9]\\{2\\}\\)\\([0-9]\\{2\\}\\)" name)
+                (format "%s-%s-%s %s:%s:%s"
+                        (match-string 1 name) (match-string 2 name)
+                        (match-string 3 name) (match-string 4 name)
+                        (match-string 5 name) (match-string 6 name))
+              "")
+            (length (my/storage--files snapshot)))))
+
+(defun my/storage--resolve-snapshot (snapshot)
+  "Return the entry of `my/storage-snapshots' that SNAPSHOT names.
+SNAPSHOT is a snapshot directory or its bare name such as
+\"20261112-191216\".  Anything else is refused."
+  (let* ((text (and (stringp snapshot) (directory-file-name snapshot)))
+         (bare (and text (not (file-name-directory text))))
+         (found (and text
+                     (cl-find-if
+                      (lambda (entry)
+                        (if bare
+                            (equal (file-name-nondirectory entry) text)
+                          (file-equal-p entry text)))
+                      (my/storage-snapshots)))))
+    (or found (user-error "%s is not one of the snapshots in %s"
+                          snapshot (abbreviate-file-name my/snapshot-dir)))))
+
+(defun my/storage-restore-plan (snapshot)
+  "Return a plist describing what restoring SNAPSHOT would do.
+:snapshot is the snapshot directory, :copy the relative names of the
+files that are written, :delete those removed from the library because
+the snapshot does not have them.  Nothing is changed."
+  (let* ((snap (my/storage--dir (my/storage--resolve-snapshot snapshot)))
+         (home (my/storage--dir my/note-home))
+         (wanted (make-hash-table :test 'equal))
+         copy delete)
+    (dolist (file (my/storage--files snap))
+      (let ((rel (file-relative-name file snap)))
+        (puthash rel t wanted)
+        (push rel copy)))
+    (dolist (file (my/storage--files home))
+      (let ((rel (file-relative-name file home)))
+        (unless (gethash rel wanted)
+          (push rel delete))))
+    (list :snapshot snap :copy (nreverse copy) :delete (nreverse delete))))
+
+(defun my/storage--read-restore-target ()
+  "Ask for a snapshot and confirm the restore; return the snapshot."
+  (let* ((snapshots (or (my/storage-snapshots)
+                        (user-error "There are no snapshots in %s"
+                                    (abbreviate-file-name my/snapshot-dir))))
+         (labels (mapcar (lambda (dir) (cons (my/storage--snapshot-label dir) dir))
+                         snapshots))
+         (choice (completing-read
+                  "Restore the library to snapshot: "
+                  (lambda (string predicate action)
+                    (if (eq action 'metadata)
+                        '(metadata (display-sort-function . identity)
+                                   (cycle-sort-function . identity))
+                      (complete-with-action action (mapcar #'car labels)
+                                            string predicate)))
+                  nil t))
+         (snapshot (or (cdr (assoc choice labels))
+                       (user-error "No snapshot chosen")))
+         (plan (my/storage-restore-plan snapshot)))
+    (unless (yes-or-no-p
+             (format "Restore the library to snapshot %s?  %d files will be overwritten or recreated and %d library files the snapshot does not have will be deleted.  A snapshot of the current library is taken first so this can be undone.  Continue? "
+                     (file-name-nondirectory (directory-file-name snapshot))
+                     (length (plist-get plan :copy))
+                     (length (plist-get plan :delete))))
+      (user-error "Restore cancelled"))
+    snapshot))
+
+(defun my/storage--remove-empty-parents (file home)
+  "Remove the directories above FILE that are empty, stopping at HOME."
+  (let ((dir (file-name-directory file)))
+    (while (and dir
+                (not (file-equal-p dir home))
+                (file-in-directory-p dir home)
+                (file-directory-p dir)
+                (null (directory-files dir nil directory-files-no-dot-files-regexp)))
+      (delete-directory dir)
+      (setq dir (file-name-directory (directory-file-name dir))))))
+
+(defun my/storage--restore-buffers (home)
+  "Return an alist of (BUFFER . FILE) for buffers visiting files under HOME."
+  (delq nil
+        (mapcar (lambda (buffer)
+                  (let ((file (buffer-local-value 'buffer-file-name buffer)))
+                    (and file (file-in-directory-p file home)
+                         (cons buffer file))))
+                (buffer-list))))
+
+(defun my/storage--refresh-buffers (visiting)
+  "Revert or report the buffers in VISITING after a restore.
+Unmodified buffers whose file changed are reverted; buffers whose file
+was deleted are left alone and named in a message."
+  (dolist (entry visiting)
+    (let ((buffer (car entry)) (file (cdr entry)))
+      (when (buffer-live-p buffer)
+        (with-current-buffer buffer
+          (cond
+           ((not (file-exists-p file))
+            (message "org-seq: %s was deleted by the restore; its buffer is kept"
+                     (abbreviate-file-name file)))
+           ((buffer-modified-p)
+            (message "org-seq: buffer %s has unsaved changes and was not reverted"
+                     (buffer-name)))
+           ((not (verify-visited-file-modtime buffer))
+            (revert-buffer t t t))))))))
+
+(defun my/storage-restore (snapshot)
+  "Make the library equal to SNAPSHOT, a folder of `my/storage-snapshots'.
+Interactively, choose the snapshot (newest first) and confirm.  From
+Lisp, SNAPSHOT is the snapshot directory or its name such as
+\"20261112-191216\"; anything else is refused.
+
+The library is first copied into a new snapshot, and the restore stops
+before changing anything when that fails.  Then every file of SNAPSHOT is
+copied over the library, library files that SNAPSHOT lacks are deleted,
+and directories left empty are removed.  Only files that snapshots cover
+are touched: `org-roam.db', bytecode, lock and backup files, symbolic
+links and `.git' are neither read nor changed.  Return a plist with
+:restored, :deleted, :snapshot and :undo-snapshot."
+  (interactive (list (my/storage--read-restore-target)))
+  (my/storage--check-overlap)
+  (let* ((source (my/storage--dir (my/storage--resolve-snapshot snapshot)))
+         (home (my/storage--dir my/note-home))
+         (restored 0) (deleted 0) undo visiting)
+    (when (file-equal-p source home)
+      (user-error "The snapshot is the library itself"))
+    (my/sync--save-note-buffers)
+    (let ((plan (my/storage-restore-plan source))
+          (before (my/storage--files home)))
+      ;; The undo snapshot comes first.  Pruning is switched off for it so
+      ;; the snapshot being restored survives until it has been read.
+      (setq undo (let ((my/storage-snapshot-keep most-positive-fixnum))
+                   (my/storage-snapshot)))
+      (when before
+        (unless (and undo
+                     (= (length (my/storage--files undo)) (length before)))
+          (user-error "Could not snapshot the current library; nothing was changed")))
+      (setq visiting (my/storage--restore-buffers home))
+      (condition-case err
+          (progn
+            ;; Delete only regular files that the snapshot enumeration
+            ;; also reports, and only inside the library.
+            (dolist (rel (plist-get plan :delete))
+              (let ((file (expand-file-name rel home)))
+                (when (and (file-in-directory-p file home)
+                           (file-regular-p file)
+                           (not (file-symlink-p file)))
+                  (delete-file file)
+                  (cl-incf deleted)
+                  (my/storage--remove-empty-parents file home))))
+            ;; Written with the current time, not the snapshot's: sync
+            ;; resolves a conflict by letting the newer file win, so a
+            ;; restored file that kept its old time would be overwritten
+            ;; by the remote copy at the next sync.
+            (dolist (rel (plist-get plan :copy))
+              (let ((from (expand-file-name rel source))
+                    (to (expand-file-name rel home)))
+                (unless (file-in-directory-p to home)
+                  (error "Refusing to write outside the library: %s" to))
+                (make-directory (file-name-directory to) t)
+                (copy-file from to t nil)
+                (cl-incf restored))))
+        (error
+         (my/storage--refresh-buffers visiting)
+         (error "Restore stopped (%s); the library before it is in %s"
+                (error-message-string err) (or undo "no snapshot (it was empty)")))))
+    (my/storage--refresh-buffers visiting)
+    (my/storage--prune-snapshots (list source undo))
+    (my/sync--refresh-index)
+    (when (fboundp 'my/index-sync)
+      (my/index-sync 'check))
+    (message "org-seq: restored %d files and deleted %d from the library; the state before is in %s%s"
+             restored deleted (if undo (abbreviate-file-name undo) "no snapshot (it was empty)")
+             (if my/sync-remote
+                 ".  The next sync will carry this state, deletions included, to the remote; run M-x my/sync-preview first to see what it would change"
+               ""))
+    (list :restored restored :deleted deleted
+          :snapshot (directory-file-name source)
+          :undo-snapshot (and undo (directory-file-name undo)))))
+
 ;; -- Status --
 
 (defun my/storage-info ()
@@ -333,7 +534,8 @@ Read-only: creates no file or directory."
                      (abbreviate-file-name (plist-get info :legacy)))
            "")
          "\nCommands   my/storage-import   my/storage-export   my/storage-snapshot\n"
-         "           my/sync-setup       my/sync-now         my/storage-browse-snapshots\n"))
+         "           my/storage-restore  my/sync-setup       my/sync-now\n"
+         "           my/storage-browse-snapshots\n"))
       (special-mode)
       (goto-char (point-min))
       (display-buffer (current-buffer)))

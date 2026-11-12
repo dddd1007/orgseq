@@ -335,6 +335,7 @@ with SPC as the prefix and M-SPC as the global prefix."
     "nSb" '(my/storage-snapshot :wk "Snapshot now")
     "nSB" '(my/storage-browse-snapshots :wk "Browse snapshots")
     "nSt" '(my/storage-status :wk "Storage status")
+    "nSR" '(my/storage-restore :wk "Restore a snapshot")
 
     ;; ── SPC # — Node types and fields (init-nodes, on org-roam) ──
     ;; "#" is Tana's supertag sigil; mirrors the org local-leader `, #`.

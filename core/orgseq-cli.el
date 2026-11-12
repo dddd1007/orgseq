@@ -69,6 +69,10 @@
 (declare-function my/storage-export "init-sync" (dir))
 (declare-function my/storage-snapshot "init-sync" ())
 (declare-function my/storage-info "init-sync" ())
+(declare-function my/storage-snapshots "init-sync" ())
+(declare-function my/storage--files "init-sync" (dir))
+(declare-function my/storage-restore "init-sync" (snapshot))
+(declare-function my/storage-restore-plan "init-sync" (snapshot))
 (declare-function my/doctor-run "init-doctor" ())
 (declare-function my/package-update-all "init-update" ())
 
@@ -432,6 +436,42 @@ PARAMS takes :view (a saved view), :type, :filter (a filter form), :group,
                (and (not (string-empty-p text)) text)))
         "unversioned")))
 
+(defun my/api-snapshots ()
+  "List the snapshots, newest first, with their file counts and sizes."
+  (vconcat
+   (mapcar (lambda (dir)
+             (let ((files (my/storage--files dir)))
+               (list (cons 'name (file-name-nondirectory (directory-file-name dir)))
+                     (cons 'folder (file-name-as-directory dir))
+                     (cons 'files (length files))
+                     (cons 'bytes
+                           (apply #'+ (mapcar
+                                       (lambda (file)
+                                         (or (file-attribute-size
+                                              (file-attributes file))
+                                             0))
+                                       files))))))
+           (my/storage-snapshots))))
+
+(defun my/api-restore (name confirmed)
+  "Return the library to snapshot NAME when CONFIRMED, else only describe it.
+The result lists the files that would be (or were) written and deleted."
+  (let ((inhibit-message t))
+    (if (not confirmed)
+        (let ((plan (my/storage-restore-plan name)))
+          (list (cons 'restored nil)
+                (cons 'snapshot (directory-file-name (plist-get plan :snapshot)))
+                (cons 'would_write (length (plist-get plan :copy)))
+                (cons 'would_delete (length (plist-get plan :delete)))
+                (cons 'delete (vconcat (plist-get plan :delete)))))
+      (let ((result (my/storage-restore name)))
+        (my/api-refresh)
+        (list (cons 'restored t)
+              (cons 'files (plist-get result :restored))
+              (cons 'deleted (plist-get result :deleted))
+              (cons 'snapshot (plist-get result :snapshot))
+              (cons 'undo_snapshot (or (plist-get result :undo-snapshot) "")))))))
+
 (defun my/api-info ()
   "Return where the library lives, how it syncs and how it is protected."
   (let ((storage (my/storage-info)))
@@ -479,6 +519,10 @@ Maintenance
   import DIR             copy notes in from a folder (never overwrites)
   export DIR             copy the library into a new dated folder in DIR
   snapshot               take a local snapshot of the library now
+  snapshots              list the snapshots, newest first
+  restore NAME --yes     return the library to snapshot NAME (a snapshot of
+                         the current library is taken first; without --yes
+                         only shows what would happen)
   sync [--preview]       sync the library with the configured remote
   doctor                 self-check; exits 1 when a required check fails
   update                 upgrade installed packages (snapshot first)
@@ -585,7 +629,7 @@ SPEC is an alist of (\"--name\" . KIND), KIND one of `flag', `value' or
   "Run COMMAND with ARGS; return the process exit code."
   (pcase-let* ((`(,options . ,rest)
                 (my/cli--options
-                 args '(("--json" . flag) ("--preview" . flag)
+                 args '(("--json" . flag) ("--preview" . flag) ("--yes" . flag)
                         ("--type" . value) ("--body" . value)
                         ("--limit" . value) ("--view" . value)
                         ("--filter" . value) ("--group" . value)
@@ -724,6 +768,44 @@ SPEC is an alist of (\"--name\" . KIND), KIND one of `flag', `value' or
                    (if (string-empty-p (alist-get 'folder value))
                        "The library is empty; nothing to snapshot"
                      (format "Snapshot in %s" (alist-get 'folder value)))))))
+      ("snapshots"
+       (funcall emit (my/api-snapshots)
+                (lambda (value)
+                  (if (zerop (length value))
+                      (my/cli--print "No snapshots yet")
+                    (seq-doseq (snapshot value)
+                      (my/cli--print
+                       (format "%s  %d files  %s" (alist-get 'name snapshot)
+                               (alist-get 'files snapshot)
+                               (file-size-human-readable
+                                (alist-get 'bytes snapshot)))))))))
+      ("restore"
+       (unless (= (length rest) 1)
+         (user-error "Usage: orgseq restore NAME --yes (see `orgseq snapshots')"))
+       (let* ((yes (cdr (assoc "--yes" options)))
+              (value (my/api-restore (car rest) yes)))
+         (funcall emit value
+                  (lambda (v)
+                    (if (eq (alist-get 'restored v) t)
+                        (progn
+                          (my/cli--print
+                           (format "Restored %d files from %s, deleted %d"
+                                   (alist-get 'files v) (alist-get 'snapshot v)
+                                   (alist-get 'deleted v)))
+                          (my/cli--print
+                           (format "Undo with: orgseq restore %s --yes"
+                                   (if (string-empty-p (alist-get 'undo_snapshot v))
+                                       "(none; the library was empty)"
+                                     (file-name-nondirectory
+                                      (alist-get 'undo_snapshot v))))))
+                      (my/cli--print
+                       (format "Would restore %d files from %s and delete %d library files not in it"
+                               (alist-get 'would_write v) (alist-get 'snapshot v)
+                               (alist-get 'would_delete v)))
+                      (seq-doseq (rel (alist-get 'delete v))
+                        (my/cli--print (format "  delete %s" rel)))
+                      (my/cli--print "Nothing changed; add --yes to restore"))))
+         (if yes 0 1)))
       ("sync"
        (let ((value (my/api-sync (cdr (assoc "--preview" options)))))
          (funcall emit value
