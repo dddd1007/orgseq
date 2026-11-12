@@ -1,9 +1,11 @@
 ;;; init-org.el --- Org-mode base configuration -*- lexical-binding: t; -*-
 
 ;; Requires: init-packages (Git package bootstrap and source metadata)
+;; Requires: init-ui (status badge, tag pill, and breadcrumb faces)
 (declare-function my/vc-package-ensure "init-packages" (package))
 
 (defvar org-indent-indentation-per-level)
+(declare-function org-set-emph-re "org" (var val))
 (defvar org-agenda-prefix-format)
 (defvar org-agenda-window-setup)
 (defvar org-refile-targets)
@@ -24,6 +26,9 @@
 (defvar org-modern-progress)
 (defvar org-modern-timestamp)
 (defvar org-modern-checkbox)
+(defvar org-modern-fold-stars)
+(defvar org-modern-todo-faces)
+(defvar org-modern-tag-faces)
 (defvar pangu-spacing-real-insert-separator)
 (declare-function evil-org-set-key-theme "evil-org")
 (declare-function evil-org-agenda-set-keys "evil-org-agenda")
@@ -48,20 +53,62 @@
     (when (and value (string-match-p "[^[:space:]]" value))
       value)))
 
+(defconst my/note-home-legacy "~/NoteHQ/"
+  "Library location used before notes moved under the Emacs directory.
+Only read by the one-time import in init-sync; never written.")
+
 (defun my/note-home--resolve-default ()
-  "Return the default NoteHQ root for `my/note-home'."
-  (let* ((raw (or (my/note-home--environment-value) "~/NoteHQ/"))
+  "Return the default library root for `my/note-home'.
+The library lives in notes/ under `user-emacs-directory', so org-seq owns
+its storage and no folder has to be chosen.  ORG_SEQ_NOTE_HOME overrides
+the location; validation runs use it to isolate writes."
+  (let* ((raw (or (my/note-home--environment-value)
+                  (expand-file-name "notes/" user-emacs-directory)))
          (dir (file-name-as-directory
                (expand-file-name (substitute-in-file-name raw)))))
     (if (file-directory-p dir) (file-truename dir) dir)))
 
 (defcustom my/note-home (my/note-home--resolve-default)
   "Root directory for all PKM content (Roam atomic layer + PARA layers).
-Defaults to ORG_SEQ_NOTE_HOME when that environment variable is set,
-otherwise `~/NoteHQ/'.
+Defaults to notes/ under `user-emacs-directory'; devices share it through
+init-sync (WebDAV, OneDrive, Google Drive).  ORG_SEQ_NOTE_HOME overrides
+the default when set.
 
 Changing this requires restarting Emacs for derived paths
 \(`my/roam-dir', `my/orgseq-dir') to take effect."
+  :type 'directory
+  :group 'org-seq)
+
+(defun my/snapshot-dir--resolve-default ()
+  "Return the default directory for library snapshots.
+Snapshots sit outside `user-emacs-directory' so that removing or
+replacing the Emacs directory cannot take the library and its local
+copies together.  ORG_SEQ_SNAPSHOT_DIR overrides the location.  When
+ORG_SEQ_NOTE_HOME redirects the library (validation runs), snapshots
+follow it into a sibling directory instead of the real data directory."
+  (let ((override (getenv "ORG_SEQ_SNAPSHOT_DIR"))
+        (note-home (my/note-home--environment-value)))
+    (file-name-as-directory
+     (expand-file-name
+      (cond
+       ((and override (string-match-p "[^[:space:]]" override))
+        (substitute-in-file-name override))
+       (note-home
+        (concat (directory-file-name
+                 (expand-file-name (substitute-in-file-name note-home)))
+                ".snapshots"))
+       ((eq system-type 'windows-nt)
+        (expand-file-name "org-seq/snapshots"
+                          (or (getenv "LOCALAPPDATA") "~/AppData/Local")))
+       ((eq system-type 'darwin)
+        "~/Library/Application Support/org-seq/snapshots")
+       (t
+        (expand-file-name "org-seq/snapshots"
+                          (or (getenv "XDG_DATA_HOME") "~/.local/share"))))))))
+
+(defcustom my/snapshot-dir (my/snapshot-dir--resolve-default)
+  "Directory holding dated local copies of the library; see init-sync.
+Kept outside `user-emacs-directory' and outside the library."
   :type 'directory
   :group 'org-seq)
 
@@ -76,7 +123,7 @@ per note library.  Distinct from API keys, which stay in `auth-source'."
 (defcustom my/roam-dir (expand-file-name "00_Roam/" my/note-home)
   "Atomic-notes layer (org-roam-directory equivalent).
 Used by `org-roam-directory', `org-mem-watch-dirs',
-`org-supertag-sync-directories', and the AI context files
+the node type registry, and the AI context files
 \(purpose.org, schema.org, overview.org).
 
 The \"00_\" numeric prefix exists so that the NoteHQ directory
@@ -114,8 +161,18 @@ the sidebar displays them alphabetically."
   :type 'directory
   :group 'org-seq)
 
-(defcustom my/schema-file (expand-file-name "supertag-schema.el" my/roam-dir)
-  "User-editable org-supertag schema file."
+(defcustom my/types-file
+  (expand-file-name "types.org" my/orgseq-dir)
+  "Node type registry (Tana supertags / Fibery databases), see init-nodes.
+Kept in .orgseq/ so TODO headings inside type templates never reach
+the GTD agenda, which scans the PARA layers."
+  :type 'file
+  :group 'org-seq)
+
+(defcustom my/views-file
+  (expand-file-name "views.org" my/orgseq-dir)
+  "Saved views (query + layout), one heading per view; see init-views.
+Kept in .orgseq/ next to the type registry so it syncs with the library."
   :type 'file
   :group 'org-seq)
 
@@ -138,6 +195,11 @@ the sidebar displays them alphabetically."
   ;; Visual line wrapping keeps prose buffers readable without hard-wrapping.
   ;; Without this, CJK paragraphs get hard-clipped at the window edge.
   (add-hook 'org-mode-hook #'visual-line-mode)
+  ;; Wrapping only at spaces leaves a ragged right edge in Chinese text:
+  ;; a run of CJK characters after a Latin word counts as one unbreakable
+  ;; word.  Category-based wrapping breaks between CJK characters and
+  ;; keeps closing punctuation off the start of a line (kinsoku).
+  (setq word-wrap-by-category t)
 
   (setq org-startup-folded 'content)
   (setq org-hide-leading-stars t)
@@ -150,6 +212,17 @@ the sidebar displays them alphabetically."
         org-fold-catch-invisible-edits 'show-and-error
         org-pretty-entities t
         org-hide-emphasis-markers t)
+
+  ;; Emphasis next to CJK text.  Org starts and ends *bold*, /italic/ and
+  ;; =code= only at whitespace or ASCII punctuation, so markup written
+  ;; directly against Chinese characters or CJK punctuation stayed
+  ;; literal.  Allow any non-ASCII character on either side.
+  (setcar org-emphasis-regexp-components
+          "-[:space:]('\"{[:nonascii:]")
+  (setcar (cdr org-emphasis-regexp-components)
+          "-[:space:].,:!?;'\")}\\[[:nonascii:]")
+  (org-set-emph-re 'org-emphasis-regexp-components
+                   org-emphasis-regexp-components)
 
   ;; Highlight LaTeX fragments with native fontification.
   ;; NOTE: `script' renders sub/superscripts as raised/lowered glyphs,
@@ -213,24 +286,56 @@ the sidebar displays them alphabetically."
 ;; Section 3: Visual enhancement
 ;; ═══════════════════════════════════════════════════════════════════════════
 
+;; Badge and pill faces (`my/org-status-*', `my/org-tag*') are design
+;; tokens defined in init-ui next to the palette.
+(defvar my/gtd-context-tags)
+
+(defconst my/org-status-faces
+  '(("PROJECT"     . my/org-status-project)
+    ("TODO"        . my/org-status-todo)
+    ("NEXT"        . my/org-status-next)
+    ("IN-PROGRESS" . my/org-status-in-progress)
+    ("WAITING"     . my/org-status-waiting)
+    ("SOMEDAY"     . my/org-status-someday)
+    ("DONE"        . my/org-status-done)
+    ("CANCELLED"   . my/org-status-cancelled))
+  "Workflow badge face for each org-seq TODO keyword.
+Open states use distinct hues; DONE is green and CANCELLED is struck
+through, so state is readable from the badge text as well as its color.")
+
+(defun my/org-tag-faces ()
+  "Return `org-modern-tag-faces': context tags blue-gray, others violet."
+  (append (mapcar (lambda (tag) (cons tag 'my/org-tag-context))
+                  (and (boundp 'my/gtd-context-tags) my/gtd-context-tags))
+          '((t . my/org-tag))))
+
 (use-package org-modern
   :hook ((org-mode . org-modern-mode)
          (org-agenda-finalize . org-modern-agenda))
   :config
-  (setq org-modern-star '("◉" "○" "◈" "◇" "⁕")
+  ;; Fold chevrons instead of decorative bullets: the glyph shows whether
+  ;; a heading is collapsed (Tana/Fibery outline affordance).
+  (setq org-modern-star 'fold
+        org-modern-fold-stars '(("▸" . "▾") ("▸" . "▾") ("▸" . "▾")
+                                ("▸" . "▾") ("▸" . "▾"))
         org-modern-table nil             ; valign handles table alignment
         org-modern-block-fringe 2        ; subtle fringe marker for src blocks
-        org-modern-keyword t             ; prettify #+KEYWORD lines
+        ;; Hide "#+title:" and "#+filetags:" so the title reads as a page
+        ;; title with its tag pills underneath (Tana node header); other
+        ;; keywords keep their name without the "#+" prefix.
+        org-modern-keyword '(("title" . "") ("filetags" . "") (t . t))
         org-modern-tag t                 ; badge-style inline tags
-        org-modern-label-border 1        ; thin border for tag/priority badges
+        org-modern-label-border 0.15     ; pill padding, relative to line height
         org-modern-priority t            ; styled priority cookies
         org-modern-todo t                ; styled TODO keywords
+        org-modern-todo-faces my/org-status-faces
+        org-modern-tag-faces (my/org-tag-faces)
         org-modern-block-name t          ; prettify #+BEGIN_/#+END_ labels
         org-modern-list '((?- . "•")     ; dash → bullet
                           (?+ . "◦")     ; plus → open bullet
                           (?* . "‣"))    ; asterisk → triangle
         org-modern-horizontal-rule t     ; styled -----  separators
-        org-modern-progress '("○" "◔" "◑" "◕" "●") ; progress cookies [2/5]
+        org-modern-progress 10           ; [2/5] cookies drawn as a 10-col bar
         org-modern-timestamp t)          ; prettify <2025-04-13 Sun> stamps
 
   ;; Doom fix: default ☑ renders too large on many fonts — use a consistent glyph
@@ -243,6 +348,10 @@ the sidebar displays them alphabetically."
             (lambda ()
               (when (bound-and-true-p org-indent-mode)
                 (setq-local org-modern-hide-stars nil)))))
+
+;; Context tags are defined in init-gtd, which loads after this module.
+(with-eval-after-load 'init-gtd
+  (setq org-modern-tag-faces (my/org-tag-faces)))
 
 ;; org-modern-indent: better block/heading indentation under org-indent-mode
 ;; Enhances how src blocks, drawers, and other multi-line elements render
@@ -267,12 +376,38 @@ the sidebar displays them alphabetically."
 ;; (VS Code Sticky Scroll).  Only hooks into org-mode, so the Daily
 ;; sidebar (my/daily-sidebar-mode) and other non-org buffers are unaffected.
 ;; `:if' keeps this a no-op on a checkout without org-sticky-header installed.
+;;
+;; Rendered as a quiet breadcrumb (Fibery-style): one small muted line that
+;; starts at the text column, instead of a copy of the heading at full
+;; heading size.  The package renders the whole line in one function
+;; (`org-sticky-header--fetch-stickyline'; older releases used
+;; `org-sticky-header--fetch-stringified-heading'); the filter only
+;; restyles its result and passes anything unexpected through unchanged.
+(defvar org-sticky-header-heading-star)
+
+(defun my/org-sticky-header-breadcrumb (header)
+  "Restyle org-sticky-header output HEADER as a muted breadcrumb."
+  (if (and (stringp header) (not (string-empty-p (string-trim header))))
+      (concat (propertize " " 'display '(space :align-to 0))
+              (propertize (string-trim (substring-no-properties header))
+                          'face 'my/ui-breadcrumb))
+    header))
+
 (use-package org-sticky-header
   :if (locate-library "org-sticky-header")
   :hook (org-mode . org-sticky-header-mode)
   :custom
   (org-sticky-header-full-path 'full)
-  (org-sticky-header-outline-path-separator " > "))
+  (org-sticky-header-heading-star "")
+  (org-sticky-header-prefix nil)
+  (org-sticky-header-show-keyword nil)
+  (org-sticky-header-show-priority nil)
+  (org-sticky-header-outline-path-separator "  /  ")
+  :config
+  (dolist (fn '(org-sticky-header--fetch-stickyline
+                org-sticky-header--fetch-stringified-heading))
+    (when (fboundp fn)
+      (advice-add fn :filter-return #'my/org-sticky-header-breadcrumb))))
 
 ;; org-fragtog: auto-toggle LaTeX fragment preview at cursor
 ;; Requires a LaTeX distribution (MiKTeX or TeX Live) with dvisvgm on PATH.
@@ -382,13 +517,16 @@ the sidebar displays them alphabetically."
    "q"  '(my/gtd-set-state :wk "State picker")
    "h"  '(my/gtd-toggle-hide-done :wk "Hide/show done")
 
-   ;; , # — SuperTag (quick access from org buffers, mirrors SPC n p)
-   "#"  '(:ignore t :wk "supertag")
-   "##" '(my/supertag-quick-action :wk "Quick action")
-   "#a" '(org-supertag-tag-add-tag :wk "Add tag")
-   "#e" '(org-supertag-node-edit-field :wk "Edit field")
-   "#x" '(org-supertag-tag-remove :wk "Remove tag")
-   "#j" '(org-supertag-node-follow-ref :wk "Jump linked")
+   ;; , # -- node types and fields (init-nodes); mirrors SPC #.
+   "#"  '(:ignore t :wk "types & fields")
+   "##" '(my/node-action :wk "Node actions")
+   "#t" '(my/node-set-type :wk "Add type")
+   "#x" '(my/node-remove-type :wk "Remove type")
+   "#f" '(my/node-set-field :wk "Set field")
+   "#e" '(org-set-property :wk "Edit Org property")
+   "#p" '(my/node-promote :wk "Promote to node")
+   "#v" '(my/node-view :wk "Type view")
+   "#j" '(org-open-at-point :wk "Open link")
 
    ;; , k — Clock
    "k"  '(:ignore t :wk "clock")

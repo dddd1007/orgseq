@@ -107,7 +107,7 @@
     "Tip: SPC l l opens the full three-column workspace layout."
     "Tip: C-o in Dired/Agenda/Info opens a Casual menu with all actions."
     "Tip: SPC t t lets you switch themes on the fly."
-    "Tip: SPC n p a adds a supertag to the current heading."
+    "Tip: SPC # t gives the current note a type; SPC # f fills one of its fields."
     "Tip: SPC w m maximizes the current window. SPC w = rebalances all."
     "Tip: SPC s s searches the current buffer with consult-line."
     "Tip: SPC f r opens recent files — your most-used shortcut."

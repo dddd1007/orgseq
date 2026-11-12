@@ -11,7 +11,7 @@
 1. [核心概念 — 从 Tana 到 org-seq 的思维转换](#1-核心概念)
 2. [日常启动与工作区](#2-日常启动与工作区)
 3. [笔记的创建与链接 — Zettelkasten 工作流](#3-笔记的创建与链接)
-4. [结构化知识 — Supertag 系统](#4-结构化知识--supertag-系统)
+4. [结构化知识 — 节点类型与字段](#4-结构化知识--节点类型与字段)
 5. [任务管理 — GTD 系统](#5-任务管理--gtd-系统)
 6. [AI 协作](#6-ai-协作)
 7. [搜索与导航](#7-搜索与导航)
@@ -26,20 +26,20 @@
 
 ### 从 Tana 的世界观出发
 
-Tana 的核心假设是"万物皆节点"——每一条记录都是一个可标记、可链接、可查询的实体。org-seq 保留这个假设，但用 Emacs 生态里更成熟的工具实现它。
+可以把记录理解为逐步形成的节点，但不要求“万物一开始就是节点”。先写正文，需要引用时才保留 Org ID；Daily、org-roam、PARA 与 GTD 继续分工，不为类比某个产品而重排笔记。
 
 **节点层**：Tana 的每个节点对应 org-roam 里的一个文件节点。org-roam 给每个节点生成全局唯一的 UUID（存在 `:ID:` 属性里），跨文件链接就靠这个 ID。一个文件可以有多个节点——文件头部是"文件节点"，每个带 ID 的 heading 是"段落节点"。
 
-**Supertag 层**：Tana 的 Supertag（带字段的结构化标签）对应 org-supertag。你在 `supertag-schema.el` 里定义 tag 和它的字段类型，然后把 tag 挂到任意 heading 上，那个 heading 就获得了结构化元数据。字段类型包括 `:string`（文本）、`:number`（数字）、`:date`（日期）、`:options`（枚举）、`:node`（指向另一个节点的关联）。`:node` 类型就是 Notion 关系数据库的等价物。
+**类型层**：Tana 的 supertag 和 Fibery 的数据库对应 org-seq 的节点类型。类型定义在 `~/NoteHQ/.orgseq/types.org`：一个类型就是一个 Org 标签、一组字段和一个 capture 模板。给节点加类型就是加上这个标签，字段就是普通 Org properties，节点之间的关系是 `[[id:]]` 链接。所有数据都在 Org 文本里，没有第二个数据库。
 
-**查询层**：Tana 的 Live Search 对应 org-ql 查询和 supertag dashboard。你可以用 SQL 式语法查询任意跨文件条件，结果呈现在 dashboard 文件的动态块里，打开时自动刷新。
+**查询层**：org-ql 查询 Org 文件内容，主要服务 GTD；`orgseq-query` 动态块和 `SPC # v` 表格视图查询 org-roam 数据库，按类型、字段值和修改时间筛选节点。数据库只反映已保存的文件。org-seq 的 dashboard 打开入口会刷新块，块本身不持续自动刷新。
 
 **AI 层**：Tana 的 AI Command Node 对应 gptel 命令。区别在于 org-seq 把你的 `purpose.org`（知识库目标）和 `schema.org`（笔记结构规则）注入每一次 AI 请求的 system prompt，让模型真正"理解"你的知识库语境。
 
 ### 三层架构
 
 ```
-org-supertag  ←  数据层（结构化字段、tag 关系）
+init-nodes    ←  类型层（类型、字段、表格视图，读写 Org 标签和 properties）
 org-roam      ←  图谱层（节点 ID、双向链接、搜索）
 org-mem       ←  性能层（替代 org-roam 的慢速文件扫描）
 ```
@@ -57,8 +57,7 @@ org-mem 是关键。org-roam 扫描 3000 个节点需要近三分钟，org-mem �
 │   ├── daily/             ← 每日笔记（YYYY-MM-DD.org）
 │   ├── dashboards/        ← 动态查询仪表盘（只读查询视图）
 │   ├── purpose.org        ← 知识库目标（注入 AI system prompt）
-│   ├── schema.org         ← 笔记结构规则（注入 AI system prompt）
-│   └── supertag-schema.el ← Tag 定义文件
+│   └── schema.org         ← AI 上下文,描述标签和 properties 的含义
 ├── 10_Outputs/            ← PARA：有明确交付时刻的产出物
 ├── 20_Practice/           ← PARA：长期角色与责任
 ├── 30_Library/            ← PARA：参考素材
@@ -158,9 +157,11 @@ treemacs 侧栏的根目录是 `my/note-home`（默认 `~/NoteHQ/`，可由 `ORG
 
 ### 视觉效果
 
-heading 层级用可变宽度字体，字号从一级标题（1.4×）到六级标题（1.0×）渐变。正文用比例字体，代码块保持等宽字体（mixed-pitch 模式）。中英文混排时，pangu-spacing 自动在汉字与 Latin 字符间显示薄空格，不写入文件。
+heading 层级用可变宽度字体，字号从文档标题（1.6×）、一级标题（1.3×）、二级标题（1.15×）、三级标题（1.05×）到更深层级（1.0×）渐变；标题和正文同色，靠字号和字重区分层级。英文正文优先使用 Inter 字体。正文用比例字体，代码块保持等宽字体（mixed-pitch 模式）。中英文混排时，pangu-spacing 自动在汉字与 Latin 字符间显示薄空格，不写入文件。
 
-主题默认为 `modus-operandi-tinted`，WCAG AAA 对比度。切换主题用 `SPC u t`，从 modus、ef-themes、doom-themes 中交互选择。
+主题默认为 `modus-operandi`（浅色），叠加 org-seq 的配色：中性白色背景、单一的靛紫色强调色、1 像素分隔线，文字对比度满足 WCAG 2.2 AA。`SPC u d` 切换到深色的 `modus-vivendi`（同样叠加 org-seq 配色），再按一次切回。`SPC u t` 从 modus、ef-themes、doom-themes 中交互选择其他主题。
+
+Org 文件里，TODO 状态显示为带底色的状态徽章，标签显示为圆角标签，标题前是折叠箭头，`#+title:` 和 `#+filetags:` 关键字本身隐藏。正文放在居中的 72 列栏内，`SPC u c` 开关。
 
 ### 中文输入
 
@@ -181,21 +182,21 @@ org-seq 现在把 `pyim` 和 `sis` 组合在一起使用：`pyim` 负责真正�
 
 ### 捕获：从想法到笔记
 
-`SPC n c` 打开 capture 模板选择器。内置两个模板：
+`SPC n c` 打开 capture 模板选择器：
 
 - `d`（default）：纯文本，文件落到 `capture/` 目录，时间戳命名
-- `r`（reading）：带 TL;DR 和 Key points 骨架，自动加 `:reading:` filetag
+- `t` 组（Typed note）：由 `types.org` 生成的类型模板，例如起始文件中的 `t r`（Reading）、`t c`（Concept）、`t p`（Person）。新笔记自动带上该类型的 filetag 和空字段
 
 选模板后进入编辑界面，写完用 `C-c C-c` 保存，`C-c C-k` 放弃。
 
-如果你的日常有固定的捕获需求——比如文献阅读、实验记录、学生个案——在 `~/.orgseq/capture-templates.el` 里定义 `my/user-capture-templates`，格式与 `org-roam-capture-templates` 相同。`SPC # c` 快速打开这个文件编辑，改完后 `SPC # C` 重载，无需重启 Emacs。
+如果你的日常有固定的捕获需求——比如文献阅读、实验记录、学生个案——并且需要按字段查看和筛选，在 `types.org` 里为它定义一个类型（`SPC # T`，保存即生效，见第 4 节）。只需要固定正文骨架时，在 `~/NoteHQ/.orgseq/capture-templates.el` 里定义 `my/user-capture-templates`，格式与 `org-roam-capture-templates` 相同；`SPC # c` 打开这个文件，改完后 `SPC # C` 重载，无需重启 Emacs。
 
 ### 每日笔记：工作流的入口
 
 `SPC d` 打开今天的 Daily Workspace；启动 Emacs 时它已经是默认入口。
 `SPC n d a` 会在日期文件末尾新建或复用一个一级时间标题，并确保该标题有
-`:ID:`。日期文件只是容器，每个一级标题才是可链接、可添加 supertag 的
-org-roam 节点。先记录内容，稍后用 `, # a` 添加 supertag、`, # e` 填字段。
+`:ID:`。日期文件只是容器，每个一级标题才是可链接、可添加类型的
+org-roam 节点。先记录内容，稍后用 `, # t` 加类型、`, # f` 填字段、`, # e` 编辑普通 Org property。
 
 每日笔记支持三种 capture 子模板：`d`（默认条目，带时间）、`t`（任务，带 SCHEDULED）、`j`（日记，带时间戳）。用 `SPC n d c` 触发带模板的捕获写入当日文件。
 
@@ -251,100 +252,91 @@ org-mem 确保图谱始终与实际文件同步：它写入 org-roam 的 SQLite 
 
 `SPC n o`（或在 org buffer 内用 `, ,`）打开节点操作菜单——这是 Tana `/` 命令菜单的等价物。从任意 heading 触发，显示当前节点所有可用操作：
 
-- 添加/删除/编辑 supertag
-- 跳转到通过 `:node` 字段关联的节点
+- 加类型；节点已有类型时还可设置字段、移除类型
+- 打开该类型的表格视图
 - 插入链接到另一个节点
 - 切换反链面板
 - 复制当前节点的 `[[id:...][标题]]` 链接到剪贴板
-- 打开该 tag 的 dashboard
-- 创建新笔记
-- 把选中区域提取为新 Roam 节点（自动插入 source 链接）
+- 添加别名、编辑任意 Org property
+- 新建某个类型的笔记、打开 review 表格
+- 当前标题还不是节点时，把它变成节点
+- 把选中区域提取为新 Roam 节点（新节点带 Source 链接回原处）
 
 "Extract region to new note" 特别有用：当一条笔记写得太长，选中某个段落，从菜单提取，它变成独立笔记，原位置自动替换为指向新笔记的链接。
 
 ---
 
-## 4. 结构化知识 — Supertag 系统
+## 4. 结构化知识 — 节点类型与字段
 
-### 核心思路
+### 先写 Org，再整理
 
-org-supertag 让 heading 获得结构化元数据。`#reading` tag 给一条笔记加上 authors、year、topic、status 字段，变成类似数据库记录的东西。多条带同样 tag 的笔记可以作为一个集合查询，在 dashboard 或看板视图里展示。
+org-roam 中每个带 Org ID 的文件或标题都是节点。类型和字段是写完之后再加的结构，不是记录时必须填写的表单。Supertag 包已于 2026-10-22 移除，现在由 `lisp/init-nodes.el` 在 org-roam 上提供这一层。
 
-### 定义 Tag
+### 定义类型：`types.org`
 
-Tag 定义写在 `~/NoteHQ/00_Roam/supertag-schema.el`，用 `SPC # t` 打开编辑。
+`SPC # T` 打开 `~/NoteHQ/.orgseq/types.org`。每个一级标题定义一个类型：
 
-```elisp
-;; 实体 tag：相对稳定的概念对象
-(org-supertag-tag-create "topic"
-  :fields '((:name "status"  :type :options :options ("active" "paused" "shelved"))
-            (:name "started" :type :date)))
-
-;; 事件 tag：流式输入，通过 :node 字段关联到实体
-(org-supertag-tag-create "reading"
-  :fields '((:name "authors"   :type :string)
-            (:name "year"      :type :number)
-            (:name "topic"     :type :node :ref-tag "topic")
-            (:name "status"    :type :options :options ("queued" "reading" "read" "cited"))))
-
-;; 实验记录
-(org-supertag-tag-create "experiment"
-  :fields '((:name "hypothesis" :type :string)
-            (:name "method"     :type :string)
-            (:name "topic"      :type :node :ref-tag "topic")
-            (:name "status"     :type :options :options ("planned" "running" "done" "failed"))))
-
-;; 课程
-(org-supertag-tag-create "course"
-  :fields '((:name "semester"   :type :string)
-            (:name "students"   :type :number)
-            (:name "status"     :type :options :options ("active" "completed" "archived"))))
-
-;; 咨询个案（注意：建议加 GPG 加密，见下）
-(org-supertag-tag-create "client"
-  :fields '((:name "session"    :type :number)
-            (:name "presenting" :type :string)
-            (:name "status"     :type :options :options ("active" "closed" "referred"))))
+```org
+* Reading
+:PROPERTIES:
+:TYPE_TAG:    reading
+:TYPE_KEY:    r
+:TYPE_FIELDS: AUTHORS YEAR STATUS TOPIC:node
+:STATUS_ALL:  queued reading read cited
+:END:
+** Summary
+%?
+** Key points
+** My commentary
 ```
 
-关于 `#client` tag：咨询个案涉及个人隐私，建议把相关文件放在独立加密目录，配合 EasyPG（Emacs 内置 GPG 集成）对 `.org.gpg` 文件自动加解密。
+`TYPE_TAG` 是类型对应的标签，`TYPE_KEY` 是 capture 键（模板键为 `t r`），`TYPE_FIELDS` 列出字段，`TOPIC:node` 表示该字段保存指向另一个节点的链接，`STATUS_ALL` 给出 `STATUS` 的可选值。标题正文是 capture 模板，`%?` 是光标位置。保存文件后立即生效。文件第一次使用时自动创建，带 Reading、Concept、Person 三个示例。
 
-`topic` 的 `:node` 字段类型创建了 reading → topic 的关系：每条阅读笔记指向一个主题节点，就像 Notion 关系数据库里的外键。
+`types.org` 放在 `.orgseq/` 中，不在 GTD 扫描的目录里，所以模板里的 TODO 不会出现在 agenda。
 
-改完 schema 后，`SPC # T` 重载 tag 定义，无需重启。
+### 常用入口
 
-首次使用时需要建立初始索引：`SPC # R`（`M-x supertag-sync-full-initialize`）。
+| 键位 | 当前行为 |
+|---|---|
+| `SPC # #` / `, # #` | 节点操作菜单（`SPC n o` 相同） |
+| `SPC # t` / `, # t` | 加类型：写入标签，并添加该类型的空字段 |
+| `SPC # x` / `, # x` | 移除类型（字段值保留） |
+| `SPC # f` / `, # f` | 设置字段，从可选值或已用过的值中补全 |
+| `SPC # e` / `, # e` | 编辑任意 Org property |
+| `SPC # p` / `, # p` | 有选区时提取为新笔记；否则把当前标题变成节点 |
+| `SPC # n` | 新建某个类型的笔记 |
+| `SPC # v` / `, # v` | 某个类型的表格视图 |
+| `SPC # r` | Review：最近 14 天没有类型或没有链接的笔记 |
+| `SPC # s` | 查找节点 |
+| `SPC # j` / `, # j` | 打开光标处 Org 链接 |
+| `SPC # T` | 编辑 `types.org` |
+| `SPC # c` / `SPC # C` | 编辑自由 capture 模板 / 重载全部模板 |
+| `SPC # D` | 新建 dashboard |
 
-### 给笔记打 Tag
+### 表格视图与 review
 
-光标在某个 heading 上：
+`SPC # v` 选一个类型后，列出该类型全部节点，每列一个字段，最后一列是修改日期。表格中 `RET` 打开节点，`o` 在另一个窗口打开，`f` 就地修改字段，`+` 新建该类型的节点，`/` 过滤，`g` 刷新，点击列标题或按 `S` 排序。
 
-- `SPC # a`（或 `, # a`）：添加 supertag，从已定义的 tag 列表选择
-- `SPC # e`（或 `, # e`）：编辑当前节点的 tag 字段值
-- `SPC # x`（或 `, # x`）：移除 supertag
-- `SPC # l`：列出当前节点所有 tag 字段及值
+`SPC # r` 用同样的表格列出最近 14 天修改过、但没有类型或没有任何链接的笔记（不含 Daily 笔记），列出类型、入链数和出链数。周回顾时逐条处理：加类型、补链接，或者确认它就是一条碎片。
 
-上下文感知的快捷入口：`SPC # #`（或 `, # #`，或在节点操作菜单里选 "Supertag quick action"）——当前 heading 没有 tag 时直接触发添加，有 tag 时列出字段操作选项。这是最高频的操作路径。
+### 链接与 promote
 
-### 跟踪关联节点
+用 `[[id:...][主题]]` 连接笔记；`node` 类型的字段由 `SPC # f` 弹出节点选择器自动写成这种链接。
+`SPC # p` 有两种用法：选中一段文字时，把它提取为新笔记，原位置换成链接，新笔记的 Source 小节链接回原处；没有选区时，给当前标题加 ID，使它原位成为节点，然后可以接着加类型。它不会把笔记搬进 PARA 目录。
 
-`:node` 字段是关系数据库的灵魂。`SPC # j`（或 `, # j`）跳转到当前节点通过 `:node` 字段关联的另一个节点。
+### Dashboard 与权威边界
 
-例子：你在阅读一篇关于 N400 效应的论文，reading 节点的 topic 字段指向"语言认知"这个 topic 节点。按 `, # j` 直接跳到那个 topic 节点，在那里你能看到所有关联到"语言认知"的反链——包括其他阅读笔记、实验记录、课程材料。这就是 Notion 关系视图的 Emacs 实现。
+`SPC # D` 创建 dashboard，`SPC n v v` 选择并刷新，`SPC n v i/w` 打开索引/周回顾。
 
-### 看板视图
+```org
+#+BEGIN: orgseq-query :type "reading" :where (("STATUS" "reading")) :columns ("AUTHORS" "YEAR")
+#+END:
+```
 
-`SPC # k` 打开看板视图（`supertag-view-kanban`）。按 tag 的 `:options` 字段分列显示节点，适合管理有状态流转的内容：阅读状态（queued → reading → read → cited）、实验状态、项目状态。
+在块上 `C-c C-c` 或 `org-update-all-dblocks` 刷新。可用参数还有 `:recent-days`、`:sort`、`:order` 和 `:limit`。旧 dashboard 中的 `supertag-query` 块对 `(tag ...)`、`(property K V)`、`(recent-days N)`、`(and ...)` 仍能渲染，新建时用 `orgseq-query`。
 
-### Dashboard 查询
-
-Dashboard 是只读的查询视图文件，存在 `dashboards/` 目录。
-
-`SPC # d` 新建 dashboard，输入名称后在 `dashboards/` 创建带 `supertag-query` 动态块骨架的 org 文件。`SPC n v v` 从 dashboards 目录列出所有 dashboard，选择后打开并自动刷新所有动态块。
-
-常用 dashboard：
-- `SPC n v i`：打开 index dashboard
-- `SPC n v w`：打开周回顾 dashboard
+Org 文本是唯一权威：类型是标签，字段是 property。表格视图和 dashboard 读取 org-roam 数据库，只反映已保存的文件；数据库可以随时用 `M-x org-roam-db-sync` 从 Org 重建。备份 Org 文件和 `.orgseq/` 即可。
+完整说明见[架构文档第四节](NOTES_ARCHITECTURE.md#四节点模型与权威边界)。
 
 ---
 
@@ -395,9 +387,9 @@ PROJECT → TODO → NEXT → IN-PROGRESS → WAITING / SOMEDAY
 | Someday | SOMEDAY 状态 |
 | Logbook | 已完成 |
 
-Projects 区块显示所有活跃项目及健康状态：`*` 表示卡壳（无 NEXT 子任务），`~` 表示有活跃子任务但无 NEXT，空白表示健康。
+Projects 区块显示所有活跃项目及健康状态：`!` 表示停滞（没有未完成的子任务），`~` 表示有活跃子任务但没有 NEXT，`?` 表示还没有子任务，空白表示健康（有 NEXT）。有被标记的项目时，区块下方显示图例 `! stalled   ~ no next   ? empty`。
 
-Contexts 区块按 `@work`、`@home`、`@computer`、`@errands`、`@phone` 显示各上下文的 NEXT 任务数。
+各区块标题以小号大写显示（VIEWS、PROJECTS、CONTEXTS），计数右对齐。Contexts 区块按 `@work`、`@home`、`@computer`、`@errands`、`@phone` 显示各上下文的 NEXT 任务数。
 
 在 Dashboard buffer 内按 `RET` 或点击任意行，在右侧窗口打开对应视图。`g` 刷新，`q` 关闭。
 
@@ -467,7 +459,7 @@ machine openrouter.ai login apikey password sk-or-YOUR-KEY
 
 `purpose.org` 写什么：你的知识库目标、核心研究问题、覆盖的领域（计算认知神经科学、EEG/fMRI 方法、贝叶斯建模、心理咨询、教学……）。
 
-`schema.org` 写什么：你用哪些 tag、各 tag 的字段语义、命名规范、链接规则。
+`schema.org` 写什么：你用哪些标签、Org properties 的语义、命名规范和链接规则。它是给 AI 的说明文字；节点类型和字段的定义在 `.orgseq/types.org`，不在这里。
 
 有了这个上下文，AI 在建议 tag 时会优先推荐你已定义的 tag，在建议关联概念时会参考你的领域框架，在改写文字时会理解你的写作风格偏好。
 
@@ -659,34 +651,34 @@ emacsclient -s org-seq -c    ← 连接 daemon，今日 Daily Workspace 出现
 
 1. Emacs 已经停在 Today 的时间节点。直接写下今天的工作意图；需要第二条记录时按 `SPC n d a`。
 
-2. 捕捉完成后再整理：把光标放在该一级标题上，`, # a` 选择一个已有 supertag，再用 `, # e` 填写它的字段。不要为了结构打断第一步的书写。
+2. 捕捉完成后再整理：把光标放在一级标题上，`, # t` 加类型，再用 `, # f` 填字段。不要为了结构打断书写。
 
 3. 在左侧 Daily sidebar 按 `RET` 打开昨天，或按 `t` 回到 Today，把仍有价值的想法链接回来。
 
 4. 点击 "Tasks" 或 `SPC t d` 扫描 GTD Dashboard：
    - Inbox 有什么需要处理？
    - Today 有哪些计划任务？
-   - Projects 有没有 `*` 卡壳的？
+   - Projects 有没有 `!` 停滞的？
 
 5. 选一个 NEXT 任务，`, q` → `i`，标记为 IN-PROGRESS，`SPC t f` 开始专注计时。
 
 ### 文献阅读
 
-1. `SPC n c` → 选择 `r`（reading 模板），填写标题，文件落到 `capture/`
+1. `SPC n c` → `t r`（Reading 类型模板）。文件落到 `capture/`，自带 `:reading:` filetag 和空的 AUTHORS、YEAR、STATUS、TOPIC 字段
 
 2. 读论文，在文件里记录关键概念，用 `SPC n i` 插入到现有相关笔记的链接
 
-3. `, # a` 添加 `#reading` supertag，填写字段：
-   - authors：作者列表
-   - year：发表年份
-   - topic：选择或新建对应的 topic 节点
-   - status：`reading`
+3. `, # f` 填字段：
+   - `AUTHORS`：作者列表
+   - `YEAR`：发表年份
+   - `TOPIC`：从节点选择器中选一个主题笔记，写成 `[[id:...][主题]]` 链接
+   - `STATUS`：从 `queued reading read cited` 中选 `reading`
 
 4. `SPC a s` 让 AI 摘要这篇笔记
 
 5. `SPC a k` 让 AI 建议与现有笔记的关联，手动检查后用 `SPC n i` 添加有意义的链接
 
-6. 读完后 `, # e` 把 status 改为 `read`
+6. 读完后 `, # f` 把 `STATUS` 改为 `read`；`SPC # v` 选 Reading 可以看到全部文献及其状态
 
 ### 课程准备
 
@@ -698,7 +690,7 @@ emacsclient -s org-seq -c    ← 连接 daemon，今日 Daily Workspace 出现
    - `SPC n t a` 插入 transclusion 嵌入对应笔记的段落
    - 或 `SPC n i` 插入链接
 
-4. `, # a` 添加 `#course` supertag，填写学期和状态
+4. 需要时在 `types.org` 中定义 `course` 类型，给课程节点加上它；学期和状态作为字段。PARA 文件仍按现有边界组织，不为加标签擅自搬进 Roam。
 
 5. 写完后 `SPC a p`（选中段落）让 AI 润色表达，在 diff 视图里决定接受还是拒绝
 
@@ -708,17 +700,17 @@ emacsclient -s org-seq -c    ← 连接 daemon，今日 Daily Workspace 出现
 
 1. `SPC t r` 打开周回顾 Agenda 视图：-3d 到 +3d 的日程、进行中任务、卡壳项目
 
-2. `SPC n v w` 打开周回顾 dashboard，用 org-ql 查询总结本周的笔记活动
+2. `SPC n v w` 打开周回顾 dashboard 查看本周的笔记活动，`SPC # r` 打开 review 表格，给未分类、无链接的笔记加类型或补链接
 
 3. `SPC a o` 生成知识库概览，了解本周新增笔记在哪些领域聚集、哪些领域空白
 
 4. 处理 Inbox：
    - `SPC t i` 打开 Inbox 视图
    - 逐条审查带 `:fleeting:` 的笔记
-   - 值得保留的：`, # a` 加 supertag，`, r` refile 到合适位置
+   - 值得保留的：`, # t` 加类型，`, r` refile 到合适位置
    - 可以删除的：直接删掉
 
-5. 检查 Projects 健康状态：卡壳的（`*`）找出原因，分解出下一步 NEXT 任务
+5. 检查 Projects 健康状态：停滞的（`!`）和没有 NEXT 的（`~`）找出原因，分解出下一步 NEXT 任务
 
 ---
 
@@ -820,29 +812,30 @@ emacsclient -s org-seq -c    ← 连接 daemon，今日 Daily Workspace 出现
 | `SPC a i` | 初始化 AI 上下文文件 |
 | `SPC a C` | Claude Code CLI |
 
-### Supertag（`SPC #` / `, #`）
+### 类型与字段（`SPC #` / `, #`）
 
 | 键位 | 效果 |
 |------|------|
-| `SPC # #` / `, # #` | 上下文感知快捷菜单 |
-| `SPC # a` / `, # a` | 添加 supertag |
-| `SPC # e` / `, # e` | 编辑字段 |
-| `SPC # x` / `, # x` | 移除 supertag |
-| `SPC # j` / `, # j` | 跳转关联节点（:node 字段）|
-| `SPC # l` | 列出所有字段 |
-| `SPC # k` | 看板视图 |
-| `SPC # s` | 搜索 supertag 数据库 |
-| `SPC # R` | 重建 supertag 索引 |
+| `SPC # #` / `, # #` | 节点操作菜单 |
+| `SPC # t` / `, # t` | 加类型 |
+| `SPC # x` / `, # x` | 移除类型 |
+| `SPC # f` / `, # f` | 设置字段 |
+| `SPC # e` / `, # e` | 编辑任意 Org property |
+| `SPC # p` / `, # p` | 提取选区 / 把标题变成节点 |
+| `SPC # n` | 新建某个类型的笔记 |
+| `SPC # v` / `, # v` | 类型表格视图 |
+| `SPC # r` | Review 未整理笔记 |
+| `SPC # s` | 查找节点 |
+| `SPC # j` / `, # j` | 打开 Org 链接 |
 
-### Schema 与 Dashboard 管理（`SPC #` / `SPC n v`）
+### 类型、模板与 Dashboard 管理（`SPC #` / `SPC n v`）
 
 | 键位 | 效果 |
 |------|------|
-| `SPC # t` | 编辑 supertag-schema.el |
-| `SPC # T` | 重载 tag 定义 |
+| `SPC # T` | 编辑 types.org |
 | `SPC # c` | 编辑 capture-templates.el |
 | `SPC # C` | 重载 capture 模板 |
-| `SPC # d` | 新建 dashboard |
+| `SPC # D` | 新建 dashboard |
 | `SPC n v v` | 浏览并打开 dashboard |
 | `SPC n v w` | 周回顾 dashboard |
 | `SPC n v i` | index dashboard |

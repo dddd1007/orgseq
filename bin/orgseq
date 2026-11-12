@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# orgseq --- command line and MCP server for the org-seq configuration.
+#
+# Runs a batch Emacs with the deployed configuration and hands the
+# arguments to lisp/orgseq-cli.el.  Run `orgseq help' for the commands.
+#
+# Environment:
+#   ORG_SEQ_EMACS         Emacs executable (default: emacs)
+#   ORG_SEQ_EMACS_DIR     configuration directory (default: the directory
+#                         above this script, else ~/.emacs.d)
+#   ORG_SEQ_PACKAGE_DIR   package directory, when it is not elpa/ inside the
+#                         configuration directory (source checkouts)
+#   ORG_SEQ_NOTE_HOME     library root override, as for Emacs itself
+set -euo pipefail
+
+script="${BASH_SOURCE[0]}"
+while [ -L "$script" ]; do
+  target="$(readlink "$script")"
+  case "$target" in
+    /*) script="$target" ;;
+    *) script="$(dirname "$script")/$target" ;;
+  esac
+done
+here="$(cd "$(dirname "$script")" && pwd)"
+
+if [ -n "${ORG_SEQ_EMACS_DIR:-}" ]; then
+  dir="$ORG_SEQ_EMACS_DIR"
+elif [ -f "$here/../init.el" ]; then
+  dir="$(cd "$here/.." && pwd)"
+else
+  dir="$HOME/.emacs.d"
+fi
+
+if [ ! -f "$dir/lisp/orgseq-cli.el" ]; then
+  echo "orgseq: no org-seq configuration in $dir (set ORG_SEQ_EMACS_DIR)" >&2
+  exit 2
+fi
+
+args=(--batch --init-directory "$dir")
+if [ -n "${ORG_SEQ_PACKAGE_DIR:-}" ]; then
+  args+=(--eval "(setq package-user-dir (expand-file-name \"$ORG_SEQ_PACKAGE_DIR\"))")
+fi
+
+# Startup chatter goes to standard error; keep it out of the way unless
+# ORG_SEQ_DEBUG is set.  Standard output carries only command results.
+if [ -n "${ORG_SEQ_DEBUG:-}" ]; then
+  exec "${ORG_SEQ_EMACS:-emacs}" "${args[@]}" -l "$dir/init.el" \
+    -l "$dir/lisp/orgseq-cli.el" -f my/cli-main -- "$@"
+fi
+
+log="$(mktemp)"
+trap 'rm -f "$log"' EXIT
+set +e
+"${ORG_SEQ_EMACS:-emacs}" "${args[@]}" -l "$dir/init.el" \
+  -l "$dir/lisp/orgseq-cli.el" -f my/cli-main -- "$@" 2>"$log"
+code=$?
+set -e
+# Exit 1 is a negative answer (a failed check, a failed sync) that the
+# command already reported; anything else is an error worth explaining.
+if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then
+  grep -E '^orgseq: ' "$log" >&2 || tail -n 15 "$log" >&2
+fi
+exit "$code"

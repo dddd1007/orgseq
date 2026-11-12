@@ -33,9 +33,12 @@ for arg in "$@"; do
   esac
 done
 
-NOTE_HOME="$HOME/NoteHQ"
+# The library lives under the Emacs directory (lisp/init-org.el); the same
+# overrides apply here.
+NOTE_HOME="${ORG_SEQ_NOTE_HOME:-${ORG_SEQ_EMACS_DIR:-$HOME/.emacs.d}/notes}"
+NOTE_HOME="${NOTE_HOME%/}"
 
-echo "=== org-seq: Bootstrap NoteHQ Directory Structure ==="
+echo "=== org-seq: Bootstrap note library at $NOTE_HOME ==="
 if [ "$UPDATE_MODE" = "1" ]; then
   echo "    Mode: UPDATE — Codex scaffolding will be overwritten"
 fi
@@ -192,8 +195,8 @@ else
   echo "=== Next Steps ==="
   echo "  1. Deploy config:  cd org-seq && bash deploy.sh   (or deploy.ps1 on Windows)"
   echo "  2. Start Emacs and run:  M-x org-roam-db-sync"
-  echo "  3. Run:  M-x supertag-sync-full-initialize"
-  echo "  4. Use Codex inside ~/NoteHQ/ — it now has AGENTS.md guidance"
+  echo "  3. Run:  M-x org-roam-db-sync"
+  echo "  4. Use Codex inside $NOTE_HOME/ — it now has AGENTS.md guidance"
   echo ""
   echo "  Refresh scaffolding later:  $0 --update"
 fi

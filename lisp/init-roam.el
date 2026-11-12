@@ -47,6 +47,11 @@
 ;; `with-eval-after-load'.  A nested definition is invisible to the byte
 ;; compiler, which then cannot check the `advice-add' call sites below, and
 ;; the generated advice name is awkward to remove by hand.
+;; Native compilation runs in a fresh Emacs; this macro must be available
+;; while compiling the advice, not merely when Evil loads at runtime.
+(eval-when-compile (require 'evil nil t))
+(declare-function org-get-tags "org" (&optional pos local))
+(declare-function org-mem-roamy-db-mode "org-mem-roamy" (&optional arg))
 (declare-function evil-insert-state-p "evil-states" (&optional state))
 (declare-function org-roam-backlinks-section "org-roam-mode" (node))
 (declare-function org-roam-db-query "org-roam-db" (sql &rest args))
@@ -106,7 +111,7 @@ See URL `https://github.com/org-roam/org-roam/issues/2066'."
          ("C-c n j" . my/org-roam-dailies-open-today))
 
   :config
-  ;; Directory creation handled by my/ensure-notehq-structure (init-supertag)
+  ;; Directory creation handled by my/ensure-notehq-structure (init-nodes)
   (make-directory org-roam-directory t)
 
   ;; ---- Node display: show subdirectory type + backlink count ----
@@ -150,7 +155,8 @@ See URL `https://github.com/org-roam/org-roam/issues/2066'."
 
   ;; ---- Capture templates ----
   ;; Built-in default only.  User templates are appended from
-  ;; ~/.orgseq/capture-templates.el by init-supertag.el (SPC n m c to edit).
+  ;; .orgseq/capture-templates.el and generated from .orgseq/types.org by
+  ;; init-nodes.el (SPC # c / SPC # T to edit).
   (setq my/default-capture-templates
         '(("d" "Default" plain "%?"
            :target (file+head "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
@@ -272,6 +278,8 @@ up front so first startup does not spam avoidable warnings."
   ;; Write to org-roam's real DB so org-roam-ui and other extensions work
   (setq org-mem-roamy-do-overwrite-real-db t)
 
+  ;; Candidate caching and the Roam DB writer do not start the scanner.
+  (org-mem-updater-mode 1)
   (org-node-cache-mode 1)
   (org-node-roam-accelerator-mode 1)
   (org-mem-roamy-db-mode 1))

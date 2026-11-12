@@ -9,7 +9,14 @@
 (declare-function my/vc-package-install-command "init-packages" (package))
 (declare-function my/vc-package-install-error "init-packages" (package))
 
-(defvar modus-themes-org-blocks)
+(defvar modus-operandi-palette-overrides)
+(defvar modus-vivendi-palette-overrides)
+(defvar modus-themes-to-toggle)
+(defvar spacious-padding-subtle-frame-lines)
+(defvar visual-fill-column-width)
+(defvar visual-fill-column-center-text)
+(defvar visual-fill-column-fringes-outside-margins)
+(defvar tab-line-exclude-modes)
 (defvar modusregel-buffer-modified-str)
 (defvar modusregel-buffer-name-expr)
 (defvar modusregel-buffer-position-expr)
@@ -81,9 +88,13 @@
 ;; org buffers feel like a document editor rather than source code.
 ;; CJK variable-pitch candidates are probed the same way as the monospace
 ;; font — first available wins.
+;; Inter comes first: it is the UI/prose face of both Tana and Fibery, and
+;; its tall x-height keeps small labels (tags, badges, sidebar rows)
+;; readable at 0.8-0.9 relative height.  Segoe UI is the Windows fallback.
 (defvar my/latin-vp-font-candidates
-  '("Segoe UI" "Calibri" "Noto Sans" "Helvetica Neue" "SF Pro Text"
-    "Cantarell" "DejaVu Sans" "Ubuntu" "Liberation Sans")
+  '("Inter" "Inter Variable" "Segoe UI" "Calibri" "Noto Sans"
+    "Helvetica Neue" "SF Pro Text" "Cantarell" "DejaVu Sans" "Ubuntu"
+    "Liberation Sans")
   "Latin variable-pitch font candidates in preference order.")
 
 (defvar my/cjk-vp-font-candidates
@@ -184,60 +195,330 @@
 (global-set-key [mouse-8] #'my/mouse-go-back)
 (global-set-key [mouse-9] #'my/mouse-go-forward)
 
-;; ---- modus-themes: accessible, WCAG AAA ----
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Design system: tokens, palette, theme
+;; ═══════════════════════════════════════════════════════════════════════════
+;;
+;; Visual direction (after Tana and Fibery):
+;;   - Neutral white/near-black canvas; navigation surfaces (sidebars,
+;;     dashboards) sit on a slightly darker gray so content and chrome
+;;     separate without borders.
+;;   - One accent hue (indigo-violet) marks interaction: links, cursor,
+;;     selection, today, the active row.  Other hues carry meaning only
+;;     (task state, dates); headings use the body ink, not a rainbow.
+;;   - Task states are pastel workflow badges; tags are pills.
+;;   - Hairline structure: 1px dividers and a 1px mode-line rule instead of
+;;     painted bands.
+;;
+;; Human-factors constraints applied to every value below:
+;;   - Body and label text >= 4.5:1 contrast (WCAG 2.2 AA; body ink is
+;;     > 15:1), non-text UI marks (fold chevrons, line numbers) >= 3:1.
+;;   - Color is never the only cue: badges carry their keyword text, the
+;;     Daily sidebar pairs color with a filled/hollow dot, GTD project
+;;     health uses a glyph plus a legend.
+;;   - Prose is set to a fixed measure (see "Prose column" below) instead
+;;     of following the window width.
+;;
+;; The palette is applied as Modus palette overrides, so every package
+;; Modus supports inherits it, and `SPC u t' can still load any other
+;; theme.  org-seq's own faces carry light/dark specs and keep working
+;; under other themes.
+
+(defface my/ui-accent
+  '((((background dark)) :foreground "#a99bff")
+    (t :foreground "#5546d1"))
+  "Accent color for interactive emphasis: today, current item, links."
+  :group 'org-seq)
+
+(defface my/ui-surface
+  '((((background dark)) :background "#222227" :extend t)
+    (t :background "#f6f6f7" :extend t))
+  "Background of navigation surfaces such as sidebars and dashboards."
+  :group 'org-seq)
+
+(defface my/ui-section-title
+  '((t :inherit shadow :weight semibold :height 0.85))
+  "Small muted label above a group of rows (sidebar or dashboard)."
+  :group 'org-seq)
+
+(defface my/ui-hint
+  '((t :inherit shadow :height 0.85))
+  "Secondary text: key hints, counts, legends, dates."
+  :group 'org-seq)
+
+(defface my/ui-key
+  '((t :inherit my/ui-hint :weight semibold))
+  "Key name inside a hint line."
+  :group 'org-seq)
+
+(defface my/ui-line-active
+  '((((background dark)) :foreground "#4a4a54")
+    (t :foreground "#c9c9d1"))
+  "Color of the 1px rule above the selected window's mode line."
+  :group 'org-seq)
+
+(defface my/ui-line-inactive
+  '((((background dark)) :foreground "#303036")
+    (t :foreground "#e6e6eb"))
+  "Color of hairlines: window dividers and inactive mode-line rules."
+  :group 'org-seq)
+
+(defface my/ui-breadcrumb
+  '((t :inherit shadow :height 0.9 :weight regular))
+  "Outline breadcrumb shown in the Org header line."
+  :group 'org-seq)
+
+;; ---- Task-state badges (Fibery workflow style) ----
+;; Each state has its own hue so states are told apart at a glance, but the
+;; badge text stays readable on its own (all pairs >= 4.5:1).
+(defface my/org-status-project
+  '((((background dark)) :foreground "#c7bdff" :background "#2f2a55")
+    (t :foreground "#4c3cc0" :background "#ece9fd"))
+  "Badge for PROJECT headings."
+  :group 'org-seq)
+
+(defface my/org-status-todo
+  '((((background dark)) :foreground "#cfcfd6" :background "#2c2c33")
+    (t :foreground "#4b4b56" :background "#eeeef2"))
+  "Badge for TODO headings."
+  :group 'org-seq)
+
+(defface my/org-status-next
+  '((((background dark)) :foreground "#a9c6ff" :background "#1d3056")
+    (t :foreground "#1c4fb0" :background "#e2ecff"))
+  "Badge for NEXT headings."
+  :group 'org-seq)
+
+(defface my/org-status-in-progress
+  '((((background dark)) :foreground "#ffcf7a" :background "#3d2e10")
+    (t :foreground "#8a4b00" :background "#fff0d4"))
+  "Badge for IN-PROGRESS headings."
+  :group 'org-seq)
+
+(defface my/org-status-waiting
+  '((((background dark)) :foreground "#ffb08f" :background "#45261a")
+    (t :foreground "#a33a14" :background "#ffe6da"))
+  "Badge for WAITING headings."
+  :group 'org-seq)
+
+(defface my/org-status-someday
+  '((((background dark)) :foreground "#c2b8dc" :background "#2e2a3b")
+    (t :foreground "#66588a" :background "#f0edf7"))
+  "Badge for SOMEDAY headings."
+  :group 'org-seq)
+
+(defface my/org-status-done
+  '((((background dark)) :foreground "#9edcb1" :background "#1c3a27")
+    (t :foreground "#23703c" :background "#e2f3e7"))
+  "Badge for DONE headings."
+  :group 'org-seq)
+
+(defface my/org-status-cancelled
+  '((((background dark)) :foreground "#9a9aa5" :background "#2a2a30"
+     :strike-through t)
+    (t :foreground "#64646f" :background "#f0f0f3" :strike-through t))
+  "Badge for CANCELLED headings."
+  :group 'org-seq)
+
+;; ---- Tag pills (Tana tag style) ----
+(defface my/org-tag
+  '((((background dark)) :foreground "#c3baff" :background "#2c2850")
+    (t :foreground "#5546d1" :background "#efedfd"))
+  "Pill for ordinary Org tags."
+  :group 'org-seq)
+
+(defface my/org-tag-context
+  '((((background dark)) :foreground "#a8cdee" :background "#1f2f3d")
+    (t :foreground "#33618a" :background "#e8f0f7"))
+  "Pill for GTD context tags such as @work."
+  :group 'org-seq)
+
+;; ---- Modus palette overrides ----
+(defconst my/ui-palette-light
+  '(;; Canvas and ink
+    (bg-main "#ffffff") (bg-dim "#f6f6f7")
+    (bg-active "#e4e4ea") (bg-inactive "#efeff2")
+    (fg-main "#1d1d20") (fg-dim "#62626d")
+    (border "#e2e2e7")
+    ;; Interaction: one accent hue
+    (cursor "#5546d1")
+    (bg-hl-line "#eeebfd")
+    (bg-region "#dcd7fb") (fg-region unspecified)
+    (bg-completion "#e9e6fc")
+    (bg-hover "#e9e6fc") (bg-hover-secondary "#f1f1f4")
+    (bg-paren-match "#dcd7fb")
+    (keybind "#5546d1") (fg-prompt "#5546d1")
+    (fg-link "#5546d1") (underline-link "#c9c2f6")
+    (fg-link-visited "#7446b8") (underline-link-visited "#d9c8f0")
+    (fg-link-symbolic "#33618a") (underline-link-symbolic "#c5d6e6")
+    ;; Chrome: flat, hairline-separated
+    (fringe unspecified)
+    (bg-mode-line-active bg-main) (fg-mode-line-active fg-main)
+    (border-mode-line-active "#c9c9d1")
+    (bg-mode-line-inactive bg-main) (fg-mode-line-inactive fg-dim)
+    (border-mode-line-inactive "#e6e6eb")
+    (bg-tab-bar bg-dim) (bg-tab-current bg-main) (bg-tab-other bg-dim)
+    (fg-line-number-inactive "#8b8b96") (fg-line-number-active fg-main)
+    (bg-line-number-inactive unspecified) (bg-line-number-active unspecified)
+    ;; Headings share the body ink; size and weight carry the hierarchy
+    (fg-heading-0 fg-main) (fg-heading-1 fg-main) (fg-heading-2 fg-main)
+    (fg-heading-3 fg-main) (fg-heading-4 fg-main) (fg-heading-5 fg-main)
+    (fg-heading-6 fg-main) (fg-heading-7 fg-main) (fg-heading-8 fg-main)
+    ;; Prose
+    (prose-metadata fg-dim) (prose-metadata-value fg-dim)
+    (prose-table fg-main) (prose-tag "#5546d1")
+    ;; Finished work recedes; only the DONE badge itself stays green.
+    (prose-todo "#1c4fb0") (prose-done fg-dim)
+    (bg-prose-block-contents "#f7f7f9") (bg-prose-block-delimiter "#f7f7f9")
+    (fg-prose-block-delimiter "#8b8b96")
+    (fg-prose-code "#b0294f") (bg-prose-code "#f2f2f5")
+    (fg-prose-verbatim "#b0294f") (bg-prose-verbatim "#f2f2f5")
+    (fg-prose-macro "#5546d1")
+    ;; Dates: only deadlines and schedules get a hue
+    (date-common fg-dim) (date-event fg-dim)
+    (date-deadline "#b42318") (date-scheduled "#8a5a00")
+    (date-weekday fg-dim) (date-weekend fg-dim) (date-now fg-main))
+  "org-seq light palette, applied as `modus-operandi-palette-overrides'.")
+
+(defconst my/ui-palette-dark
+  '((bg-main "#1b1b1f") (bg-dim "#222227")
+    (bg-active "#3a3a42") (bg-inactive "#2a2a30")
+    (fg-main "#e6e6ea") (fg-dim "#a2a2ad")
+    (border "#34343b")
+    (cursor "#a99bff")
+    (bg-hl-line "#2a2840")
+    (bg-region "#3b3570") (fg-region unspecified)
+    (bg-completion "#2f2b52")
+    (bg-hover "#2f2b52") (bg-hover-secondary "#2a2a30")
+    (bg-paren-match "#3b3570")
+    (keybind "#a99bff") (fg-prompt "#a99bff")
+    (fg-link "#a99bff") (underline-link "#4a4380")
+    (fg-link-visited "#c9a6f2") (underline-link-visited "#584a7a")
+    (fg-link-symbolic "#a8cdee") (underline-link-symbolic "#3b5266")
+    (fringe unspecified)
+    (bg-mode-line-active bg-main) (fg-mode-line-active fg-main)
+    (border-mode-line-active "#4a4a54")
+    (bg-mode-line-inactive bg-main) (fg-mode-line-inactive fg-dim)
+    (border-mode-line-inactive "#303036")
+    (bg-tab-bar bg-dim) (bg-tab-current bg-main) (bg-tab-other bg-dim)
+    (fg-line-number-inactive "#77777f") (fg-line-number-active fg-main)
+    (bg-line-number-inactive unspecified) (bg-line-number-active unspecified)
+    (fg-heading-0 fg-main) (fg-heading-1 fg-main) (fg-heading-2 fg-main)
+    (fg-heading-3 fg-main) (fg-heading-4 fg-main) (fg-heading-5 fg-main)
+    (fg-heading-6 fg-main) (fg-heading-7 fg-main) (fg-heading-8 fg-main)
+    (prose-metadata fg-dim) (prose-metadata-value fg-dim)
+    (prose-table fg-main) (prose-tag "#a99bff")
+    (prose-todo "#a9c6ff") (prose-done fg-dim)
+    (bg-prose-block-contents "#222227") (bg-prose-block-delimiter "#222227")
+    (fg-prose-block-delimiter "#77777f")
+    (fg-prose-code "#ff8fab") (bg-prose-code "#27272c")
+    (fg-prose-verbatim "#ff8fab") (bg-prose-verbatim "#27272c")
+    (fg-prose-macro "#a99bff")
+    (date-common fg-dim) (date-event fg-dim)
+    (date-deadline "#ff8a80") (date-scheduled "#e8c06a")
+    (date-weekday fg-dim) (date-weekend fg-dim) (date-now fg-main))
+  "org-seq dark palette, applied as `modus-vivendi-palette-overrides'.")
+
+(defcustom my/ui-use-org-seq-palette t
+  "When non-nil, apply the org-seq palette to modus-operandi/vivendi.
+Set to nil to get the stock Modus colors back."
+  :type 'boolean
+  :group 'org-seq)
+
+(defcustom my/ui-theme-light 'modus-operandi
+  "Light theme loaded at startup and by `my/ui-toggle-dark'."
+  :type 'symbol
+  :group 'org-seq)
+
+(defcustom my/ui-theme-dark 'modus-vivendi
+  "Dark theme loaded by `my/ui-toggle-dark'."
+  :type 'symbol
+  :group 'org-seq)
+
+(defcustom my/ui-startup-variant 'light
+  "Which of `my/ui-theme-light' and `my/ui-theme-dark' loads at startup."
+  :type '(choice (const light) (const dark))
+  :group 'org-seq)
+
+(defun my/ui-load-theme (theme)
+  "Disable enabled themes, then load THEME.
+Packages that keep a private helper theme out of `custom-enabled-themes'
+\(spacious-padding) are not affected."
+  (mapc #'disable-theme custom-enabled-themes)
+  (load-theme theme t))
+
+(defun my/ui-dark-p ()
+  "Return non-nil when the selected frame uses a dark background."
+  (eq (frame-parameter nil 'background-mode) 'dark))
+
+(defun my/ui-toggle-dark ()
+  "Switch between `my/ui-theme-light' and `my/ui-theme-dark'."
+  (interactive)
+  (my/ui-load-theme (if (my/ui-dark-p) my/ui-theme-light my/ui-theme-dark)))
+
 (use-package modus-themes
   :demand t
   :config
+  (when my/ui-use-org-seq-palette
+    (setq modus-operandi-palette-overrides my/ui-palette-light
+          modus-vivendi-palette-overrides my/ui-palette-dark))
   (setq modus-themes-mixed-fonts t
         modus-themes-italic-constructs t
         ;; Since modus-themes 5.3, prompts and completion matches are bold
         ;; whenever bold constructs are enabled.
         modus-themes-bold-constructs t
-        modus-themes-org-blocks 'tinted-background
-        ;; Tana-like heading hierarchy: clean graduated sizes, no overline,
-        ;; variable-pitch on all levels for a document-editor feel.
+        modus-themes-to-toggle (list my/ui-theme-light my/ui-theme-dark)
+        ;; Document-editor hierarchy: a large title, then modest steps.
+        ;; Tana and Fibery keep section headings close to body size and
+        ;; rely on weight; very large H1s push content below the fold.
         ;; Level 0 = #+title: (org-document-title face).
-        modus-themes-headings '((0 . (variable-pitch bold 1.6))
-                                (1 . (variable-pitch bold 1.4))
-                                (2 . (variable-pitch semibold 1.25))
-                                (3 . (variable-pitch semibold 1.15))
-                                (4 . (variable-pitch semibold 1.08))
+        modus-themes-headings '((0 . (variable-pitch bold 1.5))
+                                (1 . (variable-pitch semibold 1.25))
+                                (2 . (variable-pitch semibold 1.12))
+                                (3 . (variable-pitch semibold 1.05))
                                 (t . (variable-pitch semibold 1.0))))
-  (load-theme 'modus-operandi-tinted t))
+  (my/ui-load-theme (if (eq my/ui-startup-variant 'dark)
+                        my/ui-theme-dark
+                      my/ui-theme-light)))
 
 ;; ---- spacious-padding: frame/window breathing room ----
 ;; By Protesilaos (modus-themes author): adds internal border and divider
 ;; width so content doesn't crowd the frame edges.  The divider widths
 ;; double as a wide mouse-drag target for resizing splits.
+;; `spacious-padding-subtle-frame-lines' replaces the painted mode-line
+;; band with a 1px rule; the active window's rule is darker so the
+;; keyboard focus stays identifiable.
 (use-package spacious-padding
   :demand t
   :config
   (setq spacious-padding-widths
-        '( :internal-border-width 24
+        '( :internal-border-width 12
            :header-line-width 4
-           :mode-line-width 6
+           :mode-line-width 4
            :tab-width 4
            :right-divider-width 8
            :bottom-divider-width 8
            :scroll-bar-width 0
-           :left-fringe-width 20
-           :right-fringe-width 20))
+           :left-fringe-width 8
+           :right-fringe-width 8)
+        spacious-padding-subtle-frame-lines
+        '( :mode-line-active my/ui-line-active
+           :mode-line-inactive my/ui-line-inactive))
   (spacious-padding-mode 1))
 
-;; Paint the full divider strip with the theme's `mode-line-inactive'
-;; background — the canonical subtle gray every theme tunes for
-;; structural delimiters.  Combined with a narrow 4px divider width,
-;; this reads as a delicate hairline that harmonizes with the theme
-;; rather than a prominent painted band.  Re-applies on theme switch
-;; so dividers track the active palette.
+;; ---- Window dividers: 1px hairline on an 8px drag target ----
+;; The divider strip stays as wide as `:right-divider-width' so it is easy
+;; to grab with the mouse (Fitts's law), but only its first pixel is drawn;
+;; the rest takes the canvas color.  Re-applied on every theme change,
+;; after spacious-padding has set its own divider faces.
 (defun my/ui-refresh-window-dividers (&rest _)
-  "Paint window dividers with a subtle theme-adaptive delimiter color."
-  (let ((line (face-attribute 'mode-line-inactive :background nil t)))
-    (when (and line (not (eq line 'unspecified)))
-      (dolist (face '(window-divider
-                      window-divider-first-pixel
-                      window-divider-last-pixel))
-        (set-face-attribute face nil :foreground line)))))
+  "Draw window dividers as a 1px theme-adaptive hairline."
+  (let ((line (face-foreground 'my/ui-line-inactive nil t))
+        (bg (face-background 'default nil t)))
+    (when (and (stringp line) (stringp bg))
+      (set-face-attribute 'window-divider nil :foreground bg)
+      (set-face-attribute 'window-divider-first-pixel nil :foreground line)
+      (set-face-attribute 'window-divider-last-pixel nil :foreground bg))))
 
 ;; Ensure window dividers are visible and painted with the theme color.
 ;; In daemon mode the initial load has no GUI frame, so re-apply for
@@ -252,7 +533,57 @@
     (add-hook 'after-make-frame-functions #'my/ui-refresh-window-dividers-for-frame)
   (my/ui-refresh-window-dividers))
 
-(add-hook 'enable-theme-functions #'my/ui-refresh-window-dividers)
+(add-hook 'enable-theme-functions #'my/ui-refresh-window-dividers 90)
+
+;; ---- Face adjustments that themes do not cover ----
+;; Each entry is (FEATURE FACE . ATTRIBUTES); ATTRIBUTES may contain the
+;; keyword value `:default-bg', replaced by the current canvas color.  They
+;; are re-applied after every theme load and after FEATURE loads, so they
+;; survive `SPC u t'.
+(defvar my/ui-face-adjustments
+  '(;; The header line carries only the Org breadcrumb; let it blend into
+    ;; the canvas instead of drawing an empty band at the top of a window.
+    (nil header-line :background :default-bg :underline nil :overline nil
+         :inherit nil)
+    ;; Fold chevrons, checkboxes, progress glyphs: visible but quiet.
+    (org-modern org-modern-symbol :inherit shadow)
+    (org-modern org-modern-label :height 0.8 :width normal :weight medium)
+    ;; Metadata recedes: property drawers and special keywords are for
+    ;; machines first.
+    (org org-drawer :height 0.85)
+    (org org-special-keyword :height 0.85)
+    (org org-property-value :height 0.85)
+    (org org-document-info-keyword :height 0.85)
+    ;; Startup dashboard: content first, decoration muted.
+    (dashboard dashboard-text-banner :inherit shadow :weight regular)
+    (dashboard dashboard-banner-logo-title :inherit shadow :weight regular)
+    (dashboard dashboard-heading :inherit my/ui-section-title
+               :foreground unspecified)
+    (dashboard dashboard-navigator :inherit my/ui-accent :weight medium))
+  "Face adjustments applied on top of the active theme.")
+
+(defun my/ui-apply-face-adjustments (&rest _)
+  "Apply `my/ui-face-adjustments' to the faces that exist now."
+  (let ((bg (face-background 'default nil t)))
+    (dolist (entry my/ui-face-adjustments)
+      (let ((face (nth 1 entry))
+            (attrs (copy-sequence (nthcdr 2 entry))))
+        (when (facep face)
+          (let ((tail attrs))
+            (while tail
+              (when (eq (cadr tail) :default-bg)
+                (setcar (cdr tail) (if (stringp bg) bg 'unspecified)))
+              (setq tail (cddr tail))))
+          (condition-case err
+              (apply #'set-face-attribute face nil attrs)
+            (error
+             (message "org-seq: face adjustment for %s failed: %s"
+                      face (error-message-string err)))))))))
+
+(add-hook 'enable-theme-functions #'my/ui-apply-face-adjustments 90)
+(dolist (feature (delete-dups (delq nil (mapcar #'car my/ui-face-adjustments))))
+  (with-eval-after-load feature (my/ui-apply-face-adjustments)))
+(my/ui-apply-face-adjustments)
 
 ;; ---- ef-themes: colorful & elegant light/dark themes (lazy, for switching) ----
 (use-package ef-themes
@@ -308,7 +639,9 @@ outside the nerd-icons functions render with the same font."
   :if (locate-library "modusregel")
   :demand t
   :init
-  (setq modusregel-leading-str " org-seq "
+  ;; No constant brand label: text that is identical in every window
+  ;; carries no information and competes with the buffer name.
+  (setq modusregel-leading-str "  "
         modusregel-spacer-str " "
         modusregel-buffer-modified-str '(:eval (when (buffer-modified-p) " *"))
         modusregel-buffer-read-only-str '(:eval (when buffer-read-only " RO")))
@@ -484,9 +817,10 @@ timer via `my/valign--flush-dirty-tables' to avoid jit-lock loops."
     (setq-local my/centered-face-remaps nil)))
 
 ;; ---- Breathing room: line spacing ----
-;; Daniel Mendler (org-modern author) recommends 0.1–0.4 for readability.
-;; 0.2 adds subtle vertical space without feeling wasteful.
-(setq-default line-spacing 0.2)
+;; Daniel Mendler (org-modern author) recommends 0.1-0.4 for readability.
+;; The fonts in use already carry generous built-in leading (JetBrains
+;; Mono 1.32, Noto Sans CJK about 1.45), so the low end is enough.
+(setq-default line-spacing 0.1)
 
 ;; ---- General UI settings ----
 (setq-default cursor-type 'bar)
@@ -592,6 +926,126 @@ hide members."
       tab-line-tabs-function #'my/ui-tab-line-filtered-tabs)
 
 (global-tab-line-mode 1)
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Layout: prose column and navigation surfaces
+;; ═══════════════════════════════════════════════════════════════════════════
+
+;; ---- Prose column: fixed reading measure for Org ----
+;; Reading speed and comprehension drop when lines get too long; the usual
+;; guidance is 50-75 Latin characters and roughly 30-40 Chinese characters
+;; per line.  Tana and Fibery both cap the content column regardless of
+;; window width.  Width is in columns of the default (monospace) font:
+;; 72 columns hold about 80 Latin characters of the proportional prose
+;; font and about 40 Chinese characters.  Windows narrower than the
+;; measure simply use their full width.
+(defcustom my/prose-column-width 72
+  "Width in columns of the centered text column in prose buffers."
+  :type 'integer
+  :group 'org-seq)
+
+(defcustom my/prose-column-auto-modes '(org-mode)
+  "Major modes that get `my/prose-column-mode' automatically.
+Markdown has its own adaptive layout in init-markdown."
+  :type '(repeat symbol)
+  :group 'org-seq)
+
+(defcustom my/prose-line-spacing 0.16
+  "Extra line spacing in prose buffers, as a fraction of line height.
+Code keeps the global `line-spacing'; running text needs more leading,
+especially with CJK glyphs, which fill the whole em box."
+  :type 'number
+  :group 'org-seq)
+
+(declare-function visual-fill-column-mode "visual-fill-column" (&optional arg))
+
+(use-package visual-fill-column
+  :commands (visual-fill-column-mode visual-fill-column-adjust))
+
+(define-minor-mode my/prose-column-mode
+  "Center the text of the current buffer in a fixed-width column."
+  :lighter nil
+  (if my/prose-column-mode
+      (progn
+        (setq-local visual-fill-column-width my/prose-column-width
+                    visual-fill-column-center-text t
+                    visual-fill-column-fringes-outside-margins nil)
+        (my/centered-apply-face-remaps)
+        (visual-fill-column-mode 1))
+    (visual-fill-column-mode -1)
+    (my/centered-remove-face-remaps))
+  (my/valign-refresh-window))
+
+(defun my/prose-buffer-setup ()
+  "Apply the prose column and leading to buffers in prose modes."
+  (setq-local line-spacing my/prose-line-spacing)
+  (when (and (apply #'derived-mode-p my/prose-column-auto-modes)
+             (locate-library "visual-fill-column"))
+    (my/prose-column-mode 1)))
+
+(add-hook 'org-mode-hook #'my/prose-buffer-setup)
+
+;; ---- Navigation surfaces ----
+;; Menu-like buffers (sidebars, dashboards) get a full-row highlight for the
+;; current item, taller rows (larger click targets), and no line numbers or
+;; tab-line: they are menus, not documents.  Side panels additionally get
+;; the gray surface background so they read as chrome next to the white
+;; page; org-seq's own menus use the proportional UI font.  The hooks are
+;; registered here so the owning modules need no UI code.
+(defcustom my/ui-surface-modes
+  '(my/daily-sidebar-mode my/gtd-dashboard-mode my/node-view-mode
+    treemacs-mode imenu-list-major-mode)
+  "Major modes rendered as menus (row highlight, no line numbers)."
+  :type '(repeat symbol)
+  :group 'org-seq)
+
+(defcustom my/ui-sidebar-modes
+  '(my/daily-sidebar-mode treemacs-mode imenu-list-major-mode)
+  "Subset of `my/ui-surface-modes' drawn on the sidebar background."
+  :type '(repeat symbol)
+  :group 'org-seq)
+
+(defcustom my/ui-proportional-surface-modes
+  '(my/daily-sidebar-mode my/gtd-dashboard-mode)
+  "Subset of `my/ui-surface-modes' rendered in the proportional UI font.
+Treemacs and imenu-list indent with spaces, so they stay monospace."
+  :type '(repeat symbol)
+  :group 'org-seq)
+
+(defcustom my/ui-surface-line-spacing 0.22
+  "Extra line spacing in navigation surfaces."
+  :type 'number
+  :group 'org-seq)
+
+(defvar-local my/ui--surface-remaps nil
+  "Face remap cookies installed by `my/ui-surface-setup'.")
+
+(defun my/ui-surface-setup ()
+  "Render the current buffer as a navigation surface."
+  (unless my/ui--surface-remaps
+    (setq my/ui--surface-remaps
+          (append
+           (when (memq major-mode my/ui-sidebar-modes)
+             (list (face-remap-add-relative 'default 'my/ui-surface)
+                   (face-remap-add-relative 'fringe 'my/ui-surface)))
+           (when (memq major-mode my/ui-proportional-surface-modes)
+             (list (face-remap-add-relative 'default 'variable-pitch))))))
+  (setq-local line-spacing my/ui-surface-line-spacing)
+  (display-line-numbers-mode 0)
+  (when (bound-and-true-p tab-line-mode)
+    (tab-line-mode -1))
+  (hl-line-mode 1))
+
+(dolist (mode my/ui-surface-modes)
+  (add-to-list 'tab-line-exclude-modes mode)
+  (add-hook (intern (format "%s-hook" mode)) #'my/ui-surface-setup))
+
+;; List-like buffers that are not surfaces still benefit from a row cursor.
+(add-hook 'org-agenda-mode-hook #'hl-line-mode)
+
+;; ---- Theme commands ----
+;; `SPC u d' toggles light/dark, `SPC u c' toggles the prose column; both
+;; are bound in init-evil.
 
 (provide 'init-ui)
 ;;; init-ui.el ends here

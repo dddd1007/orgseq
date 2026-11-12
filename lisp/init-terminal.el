@@ -5,7 +5,7 @@
 
 (require 'subr-x)
 
-(defvar explicit-shell-file-name)
+(require 'shell)
 (defvar ghostel-buffer-name-function)
 (defvar ghostel-kill-buffer-on-exit)
 (defvar ghostel-module-auto-install)

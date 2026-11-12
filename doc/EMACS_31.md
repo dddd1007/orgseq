@@ -33,10 +33,10 @@ The completion stack has explicit upstream Emacs 31 follow-up:
 
 The following packages need a more conservative boundary:
 
-- org-supertag 5.9.0 was the current upstream release during this audit, but
-  its published CI matrix did not yet include Emacs 31.  org-seq therefore
-  retains the existing version-and-hash-gated compatibility layer for the
-  installed 5.8.1 source instead of broadening an unverified patch.
+- The org-supertag 5.x package conclusion from this audit is historical.
+  Supertag and TextUI were removed from org-seq on 2026-10-22; node types and
+  fields are now provided by `lisp/init-nodes.el` on top of org-roam, so no
+  Supertag compatibility work remains.
 - org-fragtog had no explicit Org 9.8 compatibility release during this audit.
   Its preview calls still exist in Org 9.8, so the integration is retained and
   should be rechecked visually after future Org or org-fragtog updates.
@@ -54,5 +54,4 @@ LaTeX previews.
 - [Consult](https://github.com/minad/consult)
 - [Vertico](https://github.com/minad/vertico)
 - [org-modern](https://github.com/minad/org-modern)
-- [org-supertag changelog](https://github.com/yibie/org-supertag/blob/main/CHANGELOG.org)
 - [org-fragtog](https://github.com/io12/org-fragtog)

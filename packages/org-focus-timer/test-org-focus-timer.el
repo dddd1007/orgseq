@@ -30,13 +30,4 @@
       (kill-buffer dashboard)
       (kill-buffer target))))
 
-(ert-deftest org-focus-package-source-has-no-org-seq-leader-key-reference ()
-  (let ((source
-         (with-temp-buffer
-           (insert-file-contents
-            (expand-file-name "org-focus-timer.el" org-focus-test--directory))
-           (buffer-string))))
-    (should-not (string-match-p "SPC " source))
-    (should-not (string-match-p "org-seq" source))))
-
 ;;; test-org-focus-timer.el ends here

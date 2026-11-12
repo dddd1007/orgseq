@@ -16,7 +16,9 @@ Primary target: **Windows, Linux, and macOS**.
 - **git**: required for magit
 - **yazi**: optional external TUI file picker for `SPC o y` / `SPC o Y`
 - **Fonts** (optional but recommended):
-  - [Cascadia Code](https://github.com/microsoft/cascadia-code) (Latin)
+  - [Cascadia Code](https://github.com/microsoft/cascadia-code) (Latin monospace)
+  - [Inter](https://rsms.me/inter/) (Latin proportional text in Org, sidebars,
+    and dashboards; Segoe UI and other system sans fonts are the fallback)
   - [LXGW WenKai Mono](https://github.com/lxgw/LxgwWenKai) (CJK)
 
 ## Diagnostics
@@ -79,6 +81,12 @@ Primary target: **Windows, Linux, and macOS**.
    Options: `-NoBackup` / `--no-backup`, `-Force` / `--force`, `-SkipChecks` / `--skip-checks`, `-Target DIR` / `--target DIR`
    PowerShell also supports `-WhatIf` for a dry run.
 
+   A deployment replaces only `early-init.el`, `init.el`, `ec`, `lisp/`,
+   `packages/` and `bin/`. The note library (`notes/`), `custom.el` and the
+   installed packages are never written. `deploy.sh` backs up the files it
+   replaces plus `custom.el`; `--full-backup` copies the whole directory
+   instead. `deploy.ps1` still copies the whole directory.
+
    Both deployers refuse filesystem roots, the home directory, and the source
    tree or any of its ancestors as targets. A deployment is reported complete
    only after byte compilation succeeds; verification failures exit nonzero
@@ -88,17 +96,14 @@ Primary target: **Windows, Linux, and macOS**.
    Startup opens Today's capture-ready Daily Workspace with a read-only
    14-calendar-day sidebar. The Dashboard remains available at `SPC l d`.
 
-   NoteHQ defaults to `~/NoteHQ/`. To use a shared or synced directory, set `ORG_SEQ_NOTE_HOME` before launching Emacs:
-
-   ```bash
-   export ORG_SEQ_NOTE_HOME="$HOME/NoteHQ"
-   # WSL example for using a Windows-side directory:
-   export ORG_SEQ_NOTE_HOME="/mnt/c/Users/exrld/NoteHQ"
-   ```
-
-   ```powershell
-   $env:ORG_SEQ_NOTE_HOME = "$HOME\NoteHQ"
-   ```
+   The note library (still called NoteHQ in these docs) is created
+   automatically in `notes/` under the Emacs directory, for example
+   `~/.emacs.d/notes/`. No folder has to be chosen and nothing is asked at
+   startup. Notes kept elsewhere, an older `~/NoteHQ/` included, come in with
+   `SPC n S i` (`my/storage-import`), which copies and never modifies the
+   source. See [Storage and sync](#storage-and-sync) for snapshots and for
+   sharing the library between devices. `ORG_SEQ_NOTE_HOME` still overrides the location and is what the
+   validation scripts use to isolate writes.
 
 4. Post-install:
    ```
@@ -106,6 +111,149 @@ Primary target: **Windows, Linux, and macOS**.
    ```
    Windows may require right-clicking the downloaded `.ttf` files and selecting "Install".
    macOS may ask you to confirm the install in Font Book.
+
+
+### Storage and sync
+
+The library is a directory of plain Org files at one fixed place inside the
+Emacs directory. Everything else moves copies in or out of it:
+
+- **Import** (`SPC n S i`, `orgseq import DIR`) copies a folder in. A folder
+  laid out like a library is merged layer by layer; any other folder becomes
+  a subfolder of `30_Library/`. Existing files are never overwritten and the
+  source is never modified.
+- **Export** (`SPC n S e`, `orgseq export DIR`) copies the whole library into
+  a new dated folder.
+- **Snapshots** (`SPC n S b`, `orgseq snapshot`) are dated copies kept outside
+  the Emacs directory (`~/.local/share/org-seq/snapshots/` on Linux,
+  `%LOCALAPPDATA%\org-seq\snapshots` on Windows,
+  `~/Library/Application Support/org-seq/snapshots` on macOS). One is taken
+  automatically on a day when the library changed, and before every import
+  and every full comparison with the remote; the newest
+  `my/storage-snapshot-keep` (default 10) are kept.
+- **Sync** shares the library between devices, as described below.
+
+`SPC n S t` (`my/storage-status`) shows the location, size, sync state and
+snapshots; `M-x my/doctor` warns when the library exists in one place only.
+
+Devices share the library through a cloud remote; [rclone](https://rclone.org) is the
+sync engine, so WebDAV (Nextcloud, Jianguoyun, ...), OneDrive and Google Drive
+all work the same way.
+
+1. Install rclone (`pacman -S rclone`, `brew install rclone`,
+   `winget install Rclone.Rclone`).
+2. `SPC n S c` (`my/sync-setup`): pick the provider, sign in (OneDrive and
+   Google Drive open a browser; WebDAV asks for URL, user and password), and
+   name a folder on the remote. Credentials are stored by rclone, not by
+   org-seq.
+3. The first sync merges both sides and deletes nothing. After that the
+   library syncs shortly after startup and every `my/sync-auto-interval`
+   minutes (default 15), or on demand with `SPC n S s`.
+
+| Key | Action |
+|-----|--------|
+| `SPC n S s` | Sync now |
+| `SPC n S p` | Preview what a sync would change |
+| `SPC n S c` | Set up or change the remote |
+| `SPC n S l` | Show the sync log |
+| `SPC n S x` | List conflict copies |
+| `SPC n S i` | Import notes from a folder |
+| `SPC n S e` | Export the library to a folder |
+| `SPC n S b` / `SPC n S B` | Take a snapshot now / browse snapshots |
+| `SPC n S t` | Storage status |
+
+The sync unit is a whole file. When two devices changed the same file, the
+newer version wins and the other is kept next to it with a `.conflict` suffix
+for you to compare. The org-roam database is a local index: it is not synced
+and is refreshed after a sync brings changes in. Close a note on one device
+before editing it on another to avoid conflict copies.
+
+### Views
+
+A view is a query plus a layout over your nodes, as in Notion or Tana. It
+holds no data of its own: editing a cell or moving a card changes the note's
+Org file.
+
+- `SPC # v` opens the view of a type; `SPC n v o` opens a saved view;
+  `SPC n v n` creates one.
+- Three layouts, switched with `v`: **table** (a row per node, a column per
+  field), **list** (one compact line per node), **board** (a column per value
+  of the group field; `H` / `L` move the card and set that field, or the TODO
+  state when grouped by `@todo`).
+- In a view: `RET` open, `o` open in another window, `e` edit the field under
+  the cursor, `t` set TODO state, `+` new node (gets the view's type, the
+  values its filter requires and the group at point), `/` quick filter,
+  `G` group by, `s` sort, `F` filter, `c` columns, `w` save, `g` refresh.
+- Filters are small expressions: `(type "reading")`, `(tag "draft")`,
+  `(field "YEAR" > 2020)`, `(field "TOPIC" = current)`, `(todo "NEXT")`,
+  `(modified-within 7)`, `(created-within 7)`, `(links-to ID)`,
+  `(linked-from ID)`, `(under ID)`, `(title "x")`, `(text "x")`, combined with
+  `and`, `or`, `not`.
+- Columns can be fields, multi-hop paths (`TOPIC.AREA` follows the link in
+  `TOPIC` and reads `AREA` there), reverse relations (`<-reading`: reading
+  nodes that link here), and `@title @todo @tags @modified @created @in @out`.
+- Saved views live in `.orgseq/views.org` in the library (`SPC n v e`), one
+  heading per view, so they sync with your notes.
+- Embed a view in any note with a dynamic block; `current` is the note the
+  block sits in:
+
+  ```org
+  #+BEGIN: orgseq-view :type "material" :filter (field "COURSE" = current) :layout list
+  #+END:
+  ```
+
+### Command line and MCP
+
+`bin/orgseq` drives the same library without opening Emacs, in the manner of
+`doom`. Add `~/.emacs.d/bin` to `PATH`.
+
+```bash
+orgseq add "A paper" --type reading --field YEAR=2024   # new note
+orgseq daily "idea worth keeping"                        # append to today's Daily
+orgseq search attachment                                 # titles and text
+orgseq query --type reading --group STATUS --columns YEAR,AUTHORS
+orgseq show ID          orgseq set ID STATUS read        # read and edit a node
+orgseq sync             orgseq doctor       orgseq update
+orgseq help                                              # everything else
+```
+
+Add `--json` for machine-readable output. `orgseq mcp` serves the Model
+Context Protocol over stdio, so AI tools can search, read, create and edit
+notes, run views, sync, and run the self-check. For Claude Code:
+
+```bash
+claude mcp add org-seq -- ~/.emacs.d/bin/orgseq mcp
+```
+
+Each call starts a batch Emacs (about three seconds). The command line keeps
+its own node index in `.cache/` and rebuilds it from the Org files, so it
+never competes with a running Emacs for the org-roam database; notes it
+changes show up in a running Emacs when the buffer reverts.
+
+### Node types
+
+Notes are org-roam nodes: every file or heading with an Org ID. org-seq adds
+types, fields, and table views on top of org-roam (`lisp/init-nodes.el`)
+without a second database. Supertag and TextUI were removed on 2026-10-22.
+
+- Types are defined in `~/NoteHQ/.orgseq/types.org` (`SPC # T`). Each level-1
+  heading is one type; its properties `TYPE_TAG`, `TYPE_KEY`, and
+  `TYPE_FIELDS` name the Org tag, the capture key, and the fields, and
+  `NAME_ALL` lists allowed values for field `NAME`. A field written
+  `NAME:node` holds an `[[id:]]` link to another node; `NAME:date`,
+  `NAME:number` and `NAME:check` pick a matching input. `TYPE_EXTENDS` names
+  one parent type whose fields are inherited, and a view of the parent type
+  also lists the child type's nodes. The heading body is the
+  capture template. A starter file with Reading, Concept, and Person types is
+  created automatically; saving the file reloads the types.
+- Applying a type (`SPC # t`) adds its tag to the node and empty properties
+  for its fields. Fields are ordinary Org properties (`SPC # f`). A node is
+  an instance of one type by default (`my/node-single-type`): applying a
+  second type offers to replace the first, and field values always stay.
+- Org text is the only authority. The org-roam database is an index that
+  `M-x org-roam-db-sync` can rebuild at any time.
+
+See [the node model](doc/NOTES_ARCHITECTURE.md#四节点模型与权威边界) (Chinese).
 
 ## Server Mode
 
@@ -171,10 +319,10 @@ Leader key is `SPC` in normal/visual mode, `M-SPC` in insert mode. Press `SPC` a
 The leader map follows three ergonomic rules:
 
 1. **Groups are nouns**: `n` notes, `t` tasks, `a` AI, `f` file, `b` buffer,
-   `g` git, `s` search, `u` UI toggles, `#` supertag.
+   `g` git, `s` search, `u` UI toggles, `#` types & fields.
 2. **Doubled key = the group's primary action**: `SPC f f` find file,
    `SPC n n` find note, `SPC t t` today's tasks, `SPC g g` git status,
-   `SPC b b` switch buffer, `SPC s s` search buffer, `SPC # #` supertag.
+   `SPC b b` switch buffer, `SPC s s` search buffer, `SPC # #` node actions.
 3. **The highest-frequency actions are single top-level keys**:
    `SPC d` Daily, `SPC c` capture a note, `SPC /` search, `SPC m` menu.
 
@@ -186,7 +334,7 @@ owns this layer.
 
 | Capability | How |
 |------------|-----|
-| Context menus | Right-click anywhere; org notes get **Task / Note / Supertag** submenus (set state, schedule, tags, refile, insert link, transclusion, supertag fields), the agenda gets entry actions, the Daily sidebar and GTD dashboard get their own menus |
+| Context menus | Right-click anywhere; org notes get **Task / Note / Type & Fields** submenus (state, schedule, tags, refile, links, transclusion, node types, fields, and Org properties), the agenda gets entry actions, and Daily/GTD have their own menus |
 | Clickable org elements | TODO keywords, checkboxes, priorities, timestamps, and list bullets respond to clicks (org-mouse) |
 | Menu bar | Always on; the **NoteHQ** menu holds the core workflow (Daily, notes, GTD views, AI, terminal, package update/rollback). Toggle with `SPC u b` |
 | Click-driven GTD/Daily | Daily sidebar dates, GTD dashboard rows, and agenda entries all open with a single left click |
@@ -260,26 +408,52 @@ keeps working: `SPC .` find file, `SPC ,` switch buffer, `SPC :` M-x,
 | `SPC n q s` | org-ql search |
 | `SPC n q v` | org-ql view |
 
-### SPC # — org-supertag (data layer)
+### SPC # — Types & fields
 
 | Key | Action |
 |-----|--------|
-| `SPC # #` | Quick action |
-| `SPC # a` | Add tag |
-| `SPC # e` | Edit field |
-| `SPC # x` | Remove tag |
-| `SPC # l` | List fields |
-| `SPC # j` | Jump to linked node |
-| `SPC # k` | Kanban view |
-| `SPC # s` | Search supertag DB |
-| `SPC # S` | Sync status |
-| `SPC # r` | Sync now |
-| `SPC # R` | Full rebuild (`supertag-sync-full-initialize`) |
-| `SPC # t` | Edit tag schema |
-| `SPC # T` | Reload tag schema |
-| `SPC # c` | Edit capture templates |
+| `SPC # #` | Node action menu (`my/node-action`) |
+| `SPC # t` | Add a type to the node at point |
+| `SPC # x` | Remove a type (field values are kept) |
+| `SPC # f` | Set a field |
+| `SPC # e` | Edit any Org property (`org-set-property`) |
+| `SPC # p` | Promote: extract the region to a new note, or give the heading an ID |
+| `SPC # n` | New note of a type |
+| `SPC # v` | View of all nodes of a type (table, list or board) |
+| `SPC # V` | Open a saved view |
+| `SPC # r` | Review recent notes with no type or no links |
+| `SPC # s` | Find node (`org-roam-node-find`) |
+| `SPC # j` | Open Org link at point |
+| `SPC # T` | Edit `types.org` |
+| `SPC # c` | Edit free-form capture templates |
 | `SPC # C` | Reload capture templates |
-| `SPC # d` | Create new dashboard |
+| `SPC # D` | Create a new dashboard |
+
+`SPC n o` also opens the node action menu. In a table view (`SPC # v`,
+`SPC # r`): `RET` opens the node, `o` opens it in another window, `f` edits a
+field in place, `+` creates a node of the viewed type, `/` filters, `g`
+refreshes, and clicking a column header or `S` sorts. `SPC # r` lists notes
+modified in the last `my/node-review-days` days (default 14), excluding Daily
+notes.
+
+New notes of a type are also available from `SPC c` under the `t` (Typed note)
+group; free-form templates from `.orgseq/capture-templates.el` follow them.
+
+Dashboards in `00_Roam/dashboards/` are query-only. A table is an
+`orgseq-query` dynamic block; its parameters are those of `my/node-query`
+(`:type`, `:where`, `:recent-days`, `:sort`, `:order`, `:limit`) plus
+`:columns`:
+
+```org
+#+BEGIN: orgseq-query :type "reading" :where (("STATUS" "queued")) :columns ("AUTHORS" "YEAR") :sort "YEAR" :order desc :limit 50
+#+END:
+```
+
+Refresh with `C-c C-c` on the block or `org-update-all-dblocks`; opening a
+dashboard with `SPC n v v`, `SPC n v w`, or `SPC n v i` also refreshes it.
+Results come from the org-roam database, which indexes saved files. Blocks
+written for the removed Supertag package (`supertag-query`) still render for
+the forms `(tag ...)`, `(property K V)`, `(recent-days N)`, and `(and ...)`.
 
 ### SPC a — AI
 
@@ -334,11 +508,15 @@ The CLI popups are [Ghostel](https://dakra.github.io/ghostel/)-backed bottom win
 | `SPC f j` | Dired jump (to current file's directory) |
 | `SPC p` | Project (switch/find-file/search/buffer) |
 | `SPC s` | Search (line/ripgrep/notes/imenu/outline/bookmark/replace) |
-| `SPC u` | UI toggles (theme/line-numbers/wrap/fullscreen/menu-bar/sticky-header/buffer-tabs/auto-save) |
+| `SPC u` | UI toggles (theme/light-dark/centered column/line-numbers/wrap/fullscreen/menu-bar/sticky-header/buffer-tabs/auto-save) |
 | `SPC w` | Window (split/close/maximize/navigate/resize) |
 | `SPC q q` | Quit Emacs |
 | `SPC q u` | Update all packages (ELPA + vc) |
 | `SPC q r` | Rollback packages to a snapshot |
+
+Under `SPC u`, `SPC u t` picks any theme, `SPC u d` switches between the light
+and dark org-seq themes, and `SPC u c` toggles the centered prose column in the
+current buffer. See [Appearance](#appearance).
 
 ### Editing (non-leader)
 
@@ -367,7 +545,7 @@ menu is visible (insert state), so the two bindings never collide.
 
 ### Auto-save
 
-Visited files are auto-saved in place every 2s of idle time (VS Code "Auto Save: afterDelay"). No `#autosave#` files are produced; the on-disk file itself is written. Toggle it off with `SPC u a`. A Daily-note save triggers the debounced org-supertag sync (incremental — it only re-parses changed files), and saving an Emacs Lisp buffer runs compile-angel's on-save byte-compilation, which is the intended behavior but happens more often with auto-save on.
+Visited files are auto-saved in place every 2s of idle time (VS Code "Auto Save: afterDelay"). No `#autosave#` files are produced; the on-disk file itself is written. Toggle it off with `SPC u a`. Each note save is indexed by org-mem's updater, which re-indexes only the saved file, and saving an Emacs Lisp buffer runs compile-angel's on-save byte-compilation, which is the intended behavior but happens more often with auto-save on.
 
 Under `SPC l` the most important sidebar controls are:
 
@@ -429,11 +607,13 @@ Under `SPC o` the file-manager entries are:
 | `, n` | Narrow to subtree |
 | `, w` | Widen |
 | `, c` | Toggle checkbox |
-| `, # #` | Supertag: quick action |
-| `, # a` | Supertag: add tag |
-| `, # e` | Supertag: edit field |
-| `, # x` | Supertag: remove tag |
-| `, # j` | Supertag: jump to linked node |
+| `, # #` | Node action menu |
+| `, # t` / `, # x` | Add / remove a type |
+| `, # f` | Set a field |
+| `, # e` | Edit Org property |
+| `, # p` | Promote to node |
+| `, # v` | Type table view |
+| `, # j` | Open Org link at point |
 | `, k i/o/g/r/c` | Clock in/out/goto/report/cancel |
 | `, b e/b/t` | Babel execute block/buffer/tangle |
 
@@ -448,13 +628,45 @@ Under `SPC o` the file-manager entries are:
 | `, r` | Refresh TOC |
 | `, l` | Insert link |
 
+## Appearance
+
+- **Theme**: `modus-operandi` (light) and `modus-vivendi` (dark) with org-seq
+  palette overrides (`my/ui-palette-light`, `my/ui-palette-dark`): a neutral
+  white or near-black canvas, one indigo-violet accent for links, cursor,
+  selection, and Today, headings in the body text color, 1px window dividers,
+  and a 1px rule above each mode line. Set `my/ui-use-org-seq-palette` to nil
+  for the stock Modus colors. `SPC u d` toggles light and dark; `SPC u t` can
+  still load any other theme.
+- **Fonts**: Inter is the preferred proportional font (`my/latin-vp-font-candidates`),
+  with Segoe UI and other system sans fonts as fallbacks.
+- **Org**: TODO states are drawn as colored badges and tags as pills (GTD
+  context tags such as `@work` in blue-gray); headings show fold chevrons
+  instead of bullets; the `#+title:` and `#+filetags:` keywords are hidden;
+  progress cookies such as `[2/5]` are drawn as bars; the sticky header is a
+  small muted breadcrumb.
+- **Prose column**: Org buffers are shown in a centered column of
+  `my/prose-column-width` (72) columns with `my/prose-line-spacing` (0.16) extra
+  line spacing. `SPC u c` toggles the column.
+- **Sidebars and menus**: the Daily sidebar, Treemacs, and imenu-list sit on a
+  gray surface slightly offset from the page (`my/ui-surface`). These buffers,
+  the GTD dashboard, and node table views highlight the current row and hide
+  line numbers (`my/ui-surface-modes`). The Daily sidebar
+  shows a filled dot for days with a note and a hollow dot for days without
+  one, Today in the accent color, a gap between weeks, right-aligned dates,
+  and key hints. The GTD dashboard has VIEWS, PROJECTS, and CONTEXTS sections
+  with right-aligned counts.
+- **Constraints**: text contrast meets WCAG 2.2 AA (body text above 15:1,
+  labels at least 4.5:1, non-text marks at least 3:1); color is never the only
+  cue (badges keep their keyword text, Daily dots are filled or hollow, project
+  health uses glyphs with a legend).
+
 ## GTD System
 
 TODO keywords: `PROJECT` → `TODO` → `NEXT` → `IN-PROGRESS` → `WAITING` / `SOMEDAY` → `DONE` / `CANCELLED`
 
 The GTD Dashboard (`SPC t d`) shows live counts and is the central hub:
 - **Inbox / Today / Upcoming / Anytime / Waiting / Someday / Logbook** with task counts
-- **Projects** with status indicators (* stuck, ~ no NEXT, blank = healthy)
+- **Projects** with health glyphs (`!` stalled, `~` no NEXT action, `?` no tasks yet, blank = healthy) and a legend
 - **Context tags** (@work, @home, etc.) with NEXT task counts
 - Click any row to open the corresponding view in the right pane
 
@@ -474,20 +686,22 @@ guarded module list below.
 | 2 | `init-packages.el` | Git package source inventory, safe bootstrap, and read-only audit |
 | 3 | `init-popup.el` | Central popup registry backed by `display-buffer-alist` |
 | 4 | `init-keymap.el` | Leader-prefix metadata + tested critical-binding audit |
-| 5 | `init-ui.el` | Fonts (CJK mixed), modus-themes, modusregel mode-line, olivetti |
+| 5 | `init-ui.el` | Fonts (Inter + CJK mixed), modus-operandi/vivendi with the org-seq palette, light/dark toggle, prose column, navigation-surface styling, modusregel mode-line |
 | 6 | `init-completion.el` | Vertico + Orderless + Consult + Marginalia + Embark |
 | 7 | `init-pyim.el` | pyim + pyim-basedict + optional rime-frost import + sis respect/cursor integration for Chinese input |
 | 8 | `init-python.el` | Shared Python runtime selection: local conda first, uv-managed fallback, then PATH |
 | 9 | `init-markdown.el` | Markdown mode + TOC + preview/export + visual-fill |
 | 10 | `init-languages.el` | R/ESS + Python/eglot + Julia/Quarto tooling |
-| 11 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, local leader (incl. supertag `, #`) |
+| 11 | `init-org.el` | Org base: org-modern, org-appear, org-tempo, evil-org, org-babel, status badges and tag pills, local leader (incl. types & fields `, #`) |
 | 12 | `init-roam.el` | org-roam + org-node/org-mem (indexing, DB sync), Deft whole-NoteHQ search, dailies, org-roam-ui, Doom-derived advices |
 | 13 | `init-gtd.el` | GTD core: agenda views, state machine, context views, capture hooks |
 | 14 | `init-gtd-dashboard.el` | Live-count *GTD* dashboard buffer (org-ql) + debounced auto-refresh |
 | 15 | `init-focus.el` | Integration layer for the standalone `org-focus-timer` package (Vitamin-R-style focus slices) |
-| 16 | `init-pkm.el` | org-supertag bootstrap and governed compatibility + org-transclusion + org-ql |
-| 17 | `init-supertag.el` | Supertag schema/dashboard/PARA navigation + NoteHQ bootstrap |
-| 18 | `init-daily.el` | Daily Workspace, 14-day sidebar, capture-ready ID nodes, and supertag sync |
+| 16 | `init-pkm.el` | org-transclusion + org-ql |
+| 17 | `init-nodes.el` | Node types, fields, table views, review, `orgseq-query` dashboards, node action menu, capture-template merging, PARA navigation, NoteHQ bootstrap |
+| 17a | `init-views.el` | Saved views: table, list and board layouts, filter language, `orgseq-view` dynamic block |
+| 17b | `init-sync.el` | Library location state, one-time `~/NoteHQ/` import, rclone-based sync (WebDAV, OneDrive, Google Drive) |
+| 18 | `init-daily.el` | Daily Workspace, 14-day sidebar, capture-ready ID nodes |
 | 19 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
 | 20 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + .orgseq AI config + KB overview |
 | 21 | `init-ai-cli.el` | AI CLI popups (Codex, OpenCode, kimi-cli) + Claude Code |
@@ -526,18 +740,6 @@ tree as a `-replaced` snapshot so the rollback itself can be undone. Restart
 Emacs after rolling back. The last `my/update-snapshot-keep` (default 2)
 snapshots are retained. If archive refresh or either upgrade stage fails, the
 successful-update timestamp is not advanced.
-
-org-supertag 5.8.1 at revision
-`7e98ed9ad01f985881afced0fdc4a1ef3fedfa2a` needs three Emacs 30 source fixes.
-org-seq applies them only when version, revision, and complete source hashes
-match. Originals are backed up under
-`~/.emacs.d/.cache/org-seq/compat-backups/`; unknown or locally modified source
-is left untouched. The auditable upstream patch is
-`patches/org-supertag-5.8.1-emacs-30.patch`. Restore the original files with:
-
-```
-M-x my/supertag-rollback-compat-patches
-```
 
 ### ELPA signature checking on Windows
 
@@ -585,23 +787,23 @@ Notes live under `my/note-home`, which defaults to `~/NoteHQ/` and can be overri
 ├── 00_Roam/             ← Atomic notes (org-roam-directory) — flat, plus daily/, capture/, dashboards/
 │   ├── daily/           ← Daily journal entries
 │   ├── capture/         ← Captured notes (timestamp-prefixed)
-│   ├── dashboards/      ← Read-only supertag query views
-│   └── supertag-schema.el  ← Tag definitions (version-controlled with notes)
+│   └── dashboards/      ← Read-only orgseq-query views
 ├── 10_Outputs/          ← PARA: deliverable projects (bounded lifetime)
 ├── 20_Practice/         ← PARA: long-term responsibility domains
 ├── 30_Library/          ← PARA: reference materials
 ├── 40_Archives/         ← Completed/paused work
-└── .orgseq/             ← Per-library config (ai-config.org, etc.)
+└── .orgseq/             ← Per-library config (types.org, capture-templates.el, ai-config.org)
 ```
 
 The numeric prefixes (10-step gaps) exist so the sidebar sorts the layers in workflow priority order (Roam first, Archives last) instead of alphabetical-by-name order.
 
-Classification is by **supertag**, not directory — `00_Roam/` itself is flat. GTD agenda scans `00_Roam/` + `10_Outputs/` + `20_Practice/` (skips `30_Library/` and `40_Archives/`). org-roam, org-mem, and org-supertag all sync against `~/NoteHQ/00_Roam/`.
+Classification is by **node type** (an Org tag defined in `.orgseq/types.org`), not directory — `00_Roam/` itself is flat. GTD agenda scans `00_Roam/` + `10_Outputs/` + `20_Practice/` (skips `30_Library/` and `40_Archives/`). `~/NoteHQ/00_Roam/` is the org-roam directory; org-mem indexes `00_Roam/`, `10_Outputs/`, and `20_Practice/` and writes the org-roam database.
 
-The graph is **Org-only** (no md-roam). First-time supertag index: `M-x supertag-sync-full-initialize` (or `SPC # R`).
+The graph is **Org-only** (no md-roam). First-time index of existing notes: `M-x org-roam-db-sync`.
 
 ## Reference
 
+- [doc/DESIGN.md](doc/DESIGN.md) — distribution design: file ownership, storage, data protection (Chinese)
 - [doc/GUIDE.md](doc/GUIDE.md) — long-form architecture and rationale
 - [doc/WORKFLOW.md](doc/WORKFLOW.md) — day-to-day GTD / roam habits
 - [doc/NOTES_ARCHITECTURE.md](doc/NOTES_ARCHITECTURE.md) — Roam + PARA design

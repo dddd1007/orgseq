@@ -13,12 +13,16 @@
 ;; init.el), so first boot in a terminal downloads them on demand; GUI
 ;; sessions never install them.
 
+(require 'disp-table)
+
 (defun my/tty-frame-setup (frame)
   "Enable TTY-specific packages and settings for FRAME."
   (with-selected-frame frame
     (unless (display-graphic-p)
       (setq mouse-wheel-scroll-amount '(1 ((shift) . 1))
             mouse-wheel-progressive-speed nil)
+      (unless standard-display-table
+        (setq standard-display-table (make-display-table)))
       (set-display-table-slot standard-display-table 'vertical-border ?│)
       (unless (featurep 'tty-child-frames)
         (require 'corfu-terminal nil t)

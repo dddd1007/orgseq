@@ -2,6 +2,8 @@
 
 这份文档描述的是用 org-seq 做个人知识管理和任务管理的推荐姿势。它不是功能手册——键位速查请看 README 或 GUIDE 附录——而是一份"一天之内你可能会怎么用它"的剧本。你不必照搬全部；最好的方式是先读完这份文档，然后挑两三个你最能用得上的习惯实际试一周，再决定保留什么、丢弃什么。
 
+> 当前工作流以本 Markdown 与 README 为准；`WORKFLOW.pdf` 为旧导出快照，未随 2026-10-22 的节点层改版重新生成，不能作为当前类型/字段/键位依据。
+
 ## 一、每日流程
 
 ### 1. 启动 Emacs
@@ -10,20 +12,20 @@
 
 ### 2. 晨间回顾（2 分钟）
 
-先在已经打开的 Today 节点里捕捉工作意图，不急着分类；需要结构化时再添加 supertag 和字段。然后看一眼 GTD Dashboard：
+先在已经打开的 Today 节点里捕捉工作意图，不急着分类；需要结构化时再加类型和字段。然后看一眼 GTD Dashboard：
 
 ```
 SPC n d a  → 新建或复用一个时间节点
-, # a      → 稍后给当前节点添加 supertag
-, # e      → 编辑该 supertag 的字段
+, # t      → 稍后给当前节点加类型
+, # f      → 填写该类型的字段
 SPC t d    → 打开 GTD Dashboard
 ```
 
-Dashboard 左侧的每一行都是一个视图入口，带着实时计算出来的任务数，让你一眼就知道各个篮子里堆了多少东西。**Inbox** 显示的是你昨天随手记下但还没有处理的 fleeting 想法；**Today** 是今天到期或已经排期的任务；**Upcoming** 是未来几天已经排期的任务；**Anytime** 是那些可以随时做、没有具体截止日期的 NEXT 行动；**Waiting** 列出你正在等别人做的事；**Someday** 是你暂时搁置、将来也许会做的事；**Projects** 则是当前所有活跃项目的列表，每个项目前面的符号（● / ~ / 空白）告诉你它的健康度——是有明确下一步、没有下一步、还是完全卡壳了。
+Dashboard 左侧的每一行都是一个视图入口，带着实时计算出来的任务数，让你一眼就知道各个篮子里堆了多少东西。**Inbox** 显示的是你昨天随手记下但还没有处理的 fleeting 想法；**Today** 是今天到期或已经排期的任务；**Upcoming** 是未来几天已经排期的任务；**Anytime** 是那些可以随时做、没有具体截止日期的 NEXT 行动；**Waiting** 列出你正在等别人做的事；**Someday** 是你暂时搁置、将来也许会做的事；**Projects** 则是当前所有活跃项目的列表，每个项目前面的符号告诉你它的健康度：空白表示有明确的 NEXT，`~` 表示有活跃子任务但没有 NEXT，`!` 表示已经没有未完成的子任务（停滞），`?` 表示还没有子任务。区块下方有对应的图例。
 
 点击任意一行或者在那行上按回车，右侧会打开对应的详细视图。
 
-典型的晨间操作只需要三步。先点 **Today** 看看今天有什么要做——这是你今天大部分时间该聚焦的东西。然后点 **Inbox** 把昨天记下的零散想法逐一处理掉（决定每条是做、还是 refile 到某个项目、还是丢弃）。最后快速扫一遍 **Projects**，如果看到任何带 ● 标记的卡壳项目，就顺手给它添加一个 NEXT 子任务——让它重新"活过来"比积累一堆僵尸项目要轻松得多。
+典型的晨间操作只需要三步。先点 **Today** 看看今天有什么要做——这是你今天大部分时间该聚焦的东西。然后点 **Inbox** 把昨天记下的零散想法逐一处理掉（决定每条是做、还是 refile 到某个项目、还是丢弃）。最后快速扫一遍 **Projects**，如果看到任何带 `!` 或 `~` 标记的项目，就顺手给它添加一个 NEXT 子任务——让它重新"活过来"比积累一堆僵尸项目要轻松得多。
 
 ### 3. Daily 笔记：思维流与任务录入
 
@@ -38,8 +40,8 @@ SPC n d c  → 在今日 daily note 中 capture（需要模板时）
 这些文件放在 `~/NoteHQ/00_Roam/daily/` 下，以日期命名。Daily 笔记是这套系统里最"多功能"的一类文件，它同时承担两个看起来不相关但实际上高度互补的职责。
 Daily 文件只是一天的容器；每次快速记录位于一个带 `:ID:` 的一级时间标题下。
 先写内容，不必在捕捉瞬间决定结构。需要整理时，把光标放回该标题，
-使用 `, # a` 添加 supertag，再用 `, # e` 填写字段。保存 Daily
-文件会复用现有的防抖同步，不需要单独维护另一套数据库。
+使用 `, # a` 添加标签，再用 `, # e` 编辑普通 Org property。保存 Daily
+文件会复用现有防抖同步；文档投影与 Semantic Tag 元数据的权威边界见下文。
 
 左侧 Daily sidebar 始终列出最近 14 个自然日，缺失日期也会显示，但仅渲染
 sidebar 不会创建文件。它适合快速回到近期上下文；需要按目录浏览整个
@@ -162,25 +164,30 @@ Zettelkasten 的核心动作不是"建立分类体系"，而是**识别哪些想
 2. 新节点会落到 `~/NoteHQ/00_Roam/capture/` 下，文件名是时间戳前缀加 slug（比如 `20260410T143022-atomic-notes-as-conversation.org`）。这个命名方案保证了两点：节点之间不会因为重名冲突，以及将来你可以用文件名时间戳回溯"某一周我写了哪些新东西"。
 3. 屏幕下方会弹出一个窗口让你编辑新节点的正文——写几句话阐明这个想法就够了。不要在第一版就追求完美，原子笔记的价值来自数量积累而非单条完美。
 4. 写完后回到原来的 daily 位置（可以 `C-x b` 切回去，或用 `SPC b b`），按 `SPC n i` 插入一个 `[[id:...]]` 链接指向新节点。这样以后你在 daily 里看到这条"已经被提升"的想法时，可以一键跳过去查看它演化成了什么样子。
-5. 如果这条笔记属于某个已经定义好的 supertag 类别（比如你有 `concept` 或 `reading` tag），按 `SPC # #` 给它加 tag 并填上相关字段。没有合适的 tag 就跳过这一步——tag 是后来长出来的，不是预先规划的。
+5. 需要时按 `SPC # t` 加 `Concept` / `Reading` 等类型，再用 `SPC # f` 填写该类型的字段。没有合适的类型就跳过，不要求先设计类型体系。
+
+如果那段内容已经写在 daily 里，也可以选中它按 `SPC # p`：选区被提取为新笔记，daily 原位置换成指向它的链接，相当于一次完成第 1 到第 4 步。
 6. 关闭 capture 窗口，回到 daily 继续写下一段。
 
 这个过程你会做得越来越快。第一周可能每条都要想 2-3 分钟，一个月后大约每条 30 秒就能完成提取。重点是养成"看到值得的想法就提升"的本能反应——漏掉几条没关系，僵化的仪式才是真正的敌人。
 
-**分类由 tag 承担，不由目录承担**。除了 `daily/`、`capture/`、`dashboards/` 三个特殊子目录，`00_Roam/` 完全扁平——没有什么 `literature/` / `concepts/` / `people/` 之类的层级。如果你发现自己在思考"这条笔记应该放在哪个目录"，那是旧的文件系统思维在捣乱——答案是"放在 capture/ 里，让 tag 告诉你它是什么"。
+**分类由标签和类型承担，不由目录承担**。除了 `daily/`、`capture/`、`dashboards/` 三个特殊子目录，`00_Roam/` 完全扁平——没有什么 `literature/` / `concepts/` / `people/` 之类的层级。如果你发现自己在思考"这条笔记应该放在哪个目录"，那是旧的文件系统思维在捣乱——答案是"放在 capture/ 里，让标签或类型告诉你它是什么"。
 
 ### Capture 模板
 
-内置只有两个模板：
+模板有三个来源：
 
 ```
-SPC n c → d = 默认笔记（无 tag 的纯笔记，覆盖 80% 场景）
-          r = reading（文献/书籍笔记，带 TL;DR / Key points 骨架）
+SPC n c → d   = 默认笔记（无 tag 的纯笔记，覆盖 80% 场景）
+          t … = 类型模板，由 ~/NoteHQ/.orgseq/types.org 生成
+                （起始文件中有 t r = Reading、t c = Concept、t p = Person）
+          其他 = 自由模板，来自 ~/NoteHQ/.orgseq/capture-templates.el
 ```
 
 需要更多模板时：
 ```
-SPC # c  → 编辑 capture 模板文件（~/.orgseq/capture-templates.el）
+SPC # T  → 编辑 types.org：需要固定字段和表格视图的笔记定义成类型，保存即生效
+SPC # c  → 编辑自由模板文件：只需要正文骨架的笔记
 SPC # C  → 重载 capture 模板（无需重启 Emacs）
 ```
 
@@ -195,36 +202,43 @@ SPC n q s  → 用 org-ql 进行结构化查询
 SPC n q v  → org-ql 保存视图
 ```
 
-### Supertag 操作
+### 类型与字段操作
 
 **全局键位 `SPC # …`**：
 
 ```
-SPC # #  → 快速操作（context-aware 菜单：无 tag 时加 tag，有 tag 时选操作）
-SPC # a  → 添加 supertag
-SPC # e  → 编辑字段
-SPC # x  → 移除 tag
-SPC # j  → 跳转到关联节点
+SPC # #  → 节点操作菜单（SPC n o 相同）
+SPC # t  → 加类型（写入标签，并添加该类型的空字段）
+SPC # x  → 移除类型（字段值保留）
+SPC # f  → 设置字段
+SPC # e  → 编辑任意 Org property
+SPC # p  → 有选区时提取为新笔记；否则把当前标题变成节点
+SPC # n  → 新建某个类型的笔记
+SPC # v  → 某个类型的表格视图
+SPC # r  → Review：最近没有类型或没有链接的笔记
+SPC # s  → 查找节点
+SPC # j  → 打开光标处 Org 链接
+SPC # T  → 编辑 types.org
 ```
 
 **Org buffer 内局部 leader `, # …`**：
 
 ```
-, ##       → 快速操作（等同 SPC # #）
-, #a       → 添加 tag
-, #e       → 编辑字段
-, #x       → 移除 tag
-, #j       → 跳转到关联节点
+, ##       → 节点操作菜单（等同 SPC # #）
+, #t       → 加类型
+, #x       → 移除类型
+, #f       → 设置字段
+, #e       → 编辑 Org property
+, #p       → 提升为节点
+, #v       → 类型表格视图
+, #j       → 打开 Org 链接
 ```
 
-### Tag schema 维护
+### 类型、字段与 capture
 
-```
-SPC # t  → 编辑 tag schema（~/NoteHQ/00_Roam/supertag-schema.el）
-SPC # T  → 重载 tag schema（无需重启 Emacs）
-```
+类型定义在 `~/NoteHQ/.orgseq/types.org`，每个一级标题是一个类型：`TYPE_TAG` 是它的标签，`TYPE_FIELDS` 列出字段（`NAME:node` 表示链接到另一个节点），`NAME_ALL` 给出可选值，标题正文是 capture 模板。给笔记加类型只是加上这个标签，字段就是普通 Org properties，所有数据都在 Org 文本里。
 
-增加新 tag 的时机：某类事情你已经用 default 模板记过 5 次以上，且发现它们有共同结构。
+现有 Daily、PARA、GTD 和 org-roam capture 保留。增加类型和字段的时机是反复遇到真实的分类和查询需求，而不是先设计完整的类型体系。已有标签与某个类型的 `TYPE_TAG` 相同时，带这个标签的旧笔记直接属于该类型。
 
 ### Transclusion（内容嵌入）
 
@@ -256,7 +270,7 @@ Daily sidebar 内使用 `RET` 打开日期、`t` 回到 Today、`g` 刷新、
 
 ## 四、Dashboard 与 Review 工作流
 
-Dashboard 是**只读的查询窗口**，利用 org-supertag 自动渲染所有相关 tag 节点的当前状态。Dashboard 不是录入入口 —— 任何想"在 dashboard 里写注释"的冲动都该去新建独立的 Roam 节点。
+Dashboard 是**查询窗口**，由 org-roam 数据库中已保存笔记的索引渲染。org-seq 的打开入口刷新动态块，或在块上 `C-c C-c` / `org-update-all-dblocks` 刷新；块本身不会持续自动更新。结果区域不是数据录入入口，注释应写到独立节点。
 
 ### 查看 Dashboard
 
@@ -269,19 +283,35 @@ SPC n v i  → Dashboard index
 ### 创建新 Dashboard
 
 ```
-SPC # d  → 创建新 dashboard
+SPC # D  → 创建新 dashboard
 ```
 
-新 dashboard 保存在 `~/NoteHQ/00_Roam/dashboards/` 下。每个文件是独立的 org 文件，用 `#+BEGIN: supertag-query` 动态块定义查询。
+新 dashboard 保存在 `~/NoteHQ/00_Roam/dashboards/` 下。查询写成 `orgseq-query` 动态块：
+
+```org
+#+BEGIN: orgseq-query :type "reading" :where (("STATUS" "reading")) :columns ("AUTHORS" "YEAR")
+#+END:
+```
+
+参数有 `:type`、`:where`、`:recent-days`、`:sort`、`:order`、`:limit` 和 `:columns`，说明见 [NOTES_ARCHITECTURE.md 第七节](NOTES_ARCHITECTURE.md#七dashboard-起点)。查询只反映已保存的文件。旧 dashboard 中的 `supertag-query` 块对常用形式仍能渲染。
+
+### 按类型查看与 review
+
+```
+SPC # v  → 选一个类型，列出全部节点；f 就地改字段，/ 过滤，点列标题或 S 排序
+SPC # r  → 列出最近 14 天修改过、没有类型或没有链接的笔记（不含 Daily）
+```
+
+`SPC # r` 是周回顾时的整理清单：逐条决定加类型、补链接，或者确认它就是一条碎片。
 
 ### Review 操作
 
 每天结束、每周末、或某项工作收尾时：
 
 1. `SPC n v v` 进入 dashboard index
-2. 挑相关 dashboard 打开
-3. 在 dashboard 里做这些事情：
-   - 看本周新增的笔记是否需要补充字段或链接
+2. 挑相关 dashboard 打开，再用 `SPC # r` 打开 review 表格
+3. 在 dashboard 和 review 里做这些事情：
+   - 看本周新增的笔记是否需要补充类型、字段或链接
    - 看某个主题的所有相关碎片是否暗示着新的洞察
    - 看哪些笔记之间应该建立链接但还没建立
    - 决定哪些碎片足够成熟，可以晋升到 PARA 层成为正式产出物的素材
@@ -416,7 +446,7 @@ Casual 会弹出一个 Transient 面板，列出当前模式下所有可用操�
 
 ## 九、与其他工具共存
 
-Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。Zettelkasten、反向链接与 supertag 元数据都依赖 `.org` 与 org-id。
+Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。正文、Org ID、标签、properties 与链接是唯一的权威；类型就是标签，字段就是 properties。org-roam 数据库是索引，可以随时用 `M-x org-roam-db-sync` 从 Org 重建，备份 Org 文件和 `.orgseq/` 即可。见[节点模型](NOTES_ARCHITECTURE.md#四节点模型与权威边界)。
 
 若仍用 Obsidian 等工具指向 `~/NoteHQ/`：适合浏览目录中的 Org/Markdown；**主编辑与图谱闭环建议在 Emacs** 中完成，避免 Markdown 笔记不被 org-roam 索引。
 
@@ -430,7 +460,7 @@ Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。Zet
 |------|------|------|
 | 找笔记 | `SPC n s` | Deft 全库搜索 |
 | 写日记 | `SPC d` | 今日 daily note（推荐任务录入入口） |
-| 新建笔记 | `SPC n c` | org-roam capture（d=默认, r=reading） |
+| 新建笔记 | `SPC n c` | org-roam capture（d=默认, t…=类型模板） |
 | 插入链接 | `SPC n i` | 在当前位置插入 Roam 节点链接 |
 | 看 backlinks | `SPC n b` | 侧边栏显示反向链接 |
 | 搜 Roam 正文 | `SPC n /` | consult-ripgrep，限 Roam 目录 |
@@ -446,25 +476,33 @@ Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。Zet
 | 随时可做 | `SPC t a` | Anytime 视图 |
 | 改状态 | `, q` | 单键状态选择 |
 
-### Supertag（SPC #）
+### 类型与字段（SPC #）
 
 | 场景 | 键位 | 说明 |
 |------|------|------|
-| 快速操作 | `SPC # #` | context-aware 菜单 |
-| 加 tag | `SPC # a` | 添加 supertag |
-| 编辑字段 | `SPC # e` | 编辑 tag 字段 |
-| 移除 tag | `SPC # x` | 移除 tag |
-| 跳转关联 | `SPC # j` | 跳转到关联节点 |
+| 节点操作 | `SPC # #` | 节点操作菜单 |
+| 加类型 | `SPC # t` | 写入类型标签和空字段 |
+| 填字段 | `SPC # f` | 设置字段值 |
+| 编辑 property | `SPC # e` | 任意 Org property |
+| 移除类型 | `SPC # x` | 字段值保留 |
+| 提升为节点 | `SPC # p` | 提取选区，或给标题加 ID |
+| 新建类型笔记 | `SPC # n` | 先选类型再输入标题 |
+| 类型表格 | `SPC # v` | 某个类型的全部节点 |
+| 整理 | `SPC # r` | 最近未分类或无链接的笔记 |
+| 打开链接 | `SPC # j` | 普通 Org 链接 |
 
-### Supertag 局部 leader（Org buffer 内）
+### 类型与字段局部 leader（Org buffer 内）
 
 | 场景 | 键位 | 说明 |
 |------|------|------|
-| 快速操作 | `, ##` | 等同 SPC # # |
-| 加 tag | `, #a` | 添加 supertag |
-| 编辑字段 | `, #e` | 编辑 tag 字段 |
-| 移除 tag | `, #x` | 移除 tag |
-| 跳转关联 | `, #j` | 跳转到关联节点 |
+| 节点操作 | `, ##` | 等同 SPC # # |
+| 加类型 | `, #t` | 写入类型标签 |
+| 移除类型 | `, #x` | 字段值保留 |
+| 填字段 | `, #f` | 设置字段值 |
+| 编辑 property | `, #e` | 普通 Org property |
+| 提升为节点 | `, #p` | 提取选区，或给标题加 ID |
+| 类型表格 | `, #v` | 某个类型的全部节点 |
+| 打开链接 | `, #j` | 普通 Org 链接 |
 
 ### Views / Dashboard（SPC n v）
 
@@ -478,11 +516,10 @@ Roam 层与 org-node/org-mem 以 **纯 Org** 为主（已移除 md-roam）。Zet
 
 | 场景 | 键位 | 说明 |
 |------|------|------|
-| 编辑 tag schema | `SPC # t` | 打开 supertag-schema.el |
-| 重载 tag schema | `SPC # T` | 重载 tag 定义 |
+| 编辑类型定义 | `SPC # T` | 打开 types.org，保存即重载 |
 | 编辑 capture 模板 | `SPC # c` | 打开 capture-templates.el |
 | 重载 capture 模板 | `SPC # C` | 重载 capture 模板 |
-| 新建 dashboard | `SPC # d` | 创建新 dashboard |
+| 新建 dashboard | `SPC # D` | 创建新 dashboard |
 
 ### PARA 导航（SPC P）
 

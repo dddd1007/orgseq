@@ -101,14 +101,12 @@
             (kill-buffer (current-buffer))))
       (delete-directory root t))))
 
-(ert-deftest my/daily-save-schedules-supertag-sync ()
-  (let (scheduled)
-    (cl-letf (((symbol-function 'my/supertag-schedule-sync)
-               (lambda () (setq scheduled t))))
-      (with-temp-buffer
-        (my/daily-note-mode 1)
-        (run-hooks 'after-save-hook)
-        (should scheduled)))))
+(ert-deftest my/daily-note-mode-adds-no-save-work ()
+  "Daily buffers rely on the shared indexer; saving runs no Daily hook."
+  (with-temp-buffer
+    (let ((before (buffer-local-value 'after-save-hook (current-buffer))))
+      (my/daily-note-mode 1)
+      (should (equal after-save-hook before)))))
 
 (ert-deftest my/daily-sidebar-render-is-read-only-and-actionable ()
   (let* ((root (make-temp-file "org-seq-daily-sidebar-" t))

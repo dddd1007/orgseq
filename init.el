@@ -310,13 +310,10 @@ Absent optional packages are skipped silently, matching module loading."
 ;; idle time, like VS Code's "Auto Save: afterDelay".  No #autosave# files
 ;; are produced; the visited file itself is written.
 ;;
-;; Side effect 1 (verified): a Daily note save triggers
-;; `my/daily--schedule-supertag-sync' (init-daily.el) -> the debounced
-;; `my/supertag-schedule-sync' (init-pkm.el, 0.5s idle) ->
-;; `supertag-sync-check-now'.  That check is incremental: it compares each
-;; tracked file's mtime against the stored last-sync time
-;; (`supertag-sync-check-state') and re-parses only the changed files, so
-;; the 2s interval does not rescan NoteHQ.  The interval stays at 2s.
+;; Side effect 1 (acceptable): each save of a note is picked up by
+;; org-mem's updater (init-roam.el), which re-indexes only the saved file
+;; and refreshes the org-roam database, so the 2s interval does not rescan
+;; NoteHQ.
 ;;
 ;; Side effect 2 (acceptable): saving an emacs-lisp buffer runs
 ;; compile-angel's on-save byte-compilation (init-update.el), so editing
@@ -337,7 +334,8 @@ Absent optional packages are skipped silently, matching module loading."
 ;; ---- Load modules ----
 ;; Order: doctor -> packages -> popup -> keymap -> UI -> completion -> pyim -> python
 ;; -> markdown -> languages -> org -> roam
-;; -> gtd -> gtd-dashboard -> focus -> pkm -> supertag -> daily -> terminal
+;; -> gtd -> gtd-dashboard -> focus -> pkm -> nodes -> views -> sync
+;; -> daily -> terminal
 ;; -> ai -> ai-cli -> dashboard -> dired
 ;; -> mouse -> frame -> workspace -> update -> tty -> evil (last)
 ;; Each require is guarded so a single broken module does not kill the
@@ -366,7 +364,9 @@ Absent optional packages are skipped silently, matching module loading."
     init-gtd-dashboard
     init-focus
     init-pkm
-    init-supertag
+    init-nodes
+    init-views
+    init-sync
     init-daily
     init-terminal
     init-ai
@@ -390,14 +390,15 @@ order while overriding the effective load list.")
   '((init-ui            . (init-packages))
     (init-markdown      . (init-ui))
     (init-languages     . (init-completion init-python))
-    (init-org           . (init-packages))
+    (init-org           . (init-packages init-ui))
     (init-roam          . (init-org))
     (init-gtd           . (init-org))
-    (init-gtd-dashboard . (init-gtd))
+    (init-gtd-dashboard . (init-gtd init-ui))
     (init-focus         . (init-org))
-    (init-pkm           . (init-org init-packages))
-    (init-supertag      . (init-org init-pkm init-roam))
-    (init-daily         . (init-roam init-pkm))
+    (init-nodes         . (init-org init-roam))
+    (init-views         . (init-org init-nodes))
+    (init-sync          . (init-org))
+    (init-daily         . (init-roam init-ui))
     (init-terminal      . (init-popup init-org))
     (init-ai            . (init-org init-packages init-popup))
     (init-ai-cli        . (init-org init-packages init-terminal))

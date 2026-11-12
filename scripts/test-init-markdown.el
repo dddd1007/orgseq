@@ -5,6 +5,8 @@
 (require 'package)
 (require 'use-package)
 
+(defvar native-comp-enable-subr-trampolines)
+
 (load-file
  (expand-file-name "../lisp/init-markdown.el"
                    (file-name-directory load-file-name)))
@@ -20,7 +22,10 @@
   (declare (indent 0) (debug t))
   `(let* ((root (make-temp-file "org-seq-markdown-" t))
           (md-file (expand-file-name "note.md" root))
-          (org-file (expand-file-name "note.org" root)))
+          (org-file (expand-file-name "note.org" root))
+          ;; These tests replace process functions; do not run the compiler
+          ;; through the deliberately mocked call-process implementation.
+          (native-comp-enable-subr-trampolines nil))
      (unwind-protect
          (progn
            (write-region "# Note\n" nil md-file nil 'silent)

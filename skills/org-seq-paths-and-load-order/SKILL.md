@@ -5,7 +5,7 @@ description: Work on NoteHQ/PARA paths, org-seq module dependencies, and load-or
 
 # org-seq Paths and Load Order
 
-Use this skill when a change touches NoteHQ paths, PARA directories, org-roam/org-mem/org-supertag paths, or module dependencies.
+Use this skill when a change touches NoteHQ paths, PARA directories, org-roam/org-mem paths, the node type registry,, or module dependencies.
 
 ## Central Path Source
 
@@ -23,6 +23,7 @@ This includes:
 - `my/dashboards-dir`
 - `my/schema-file`
 - `my/capture-templates-file`
+- `my/types-file`
 
 Other modules should consume these with `defvar` declarations. Do not rebuild canonical paths with repeated string literals like `"00_Roam/"`, `"10_Outputs/"`, or `"20_Practice/"` unless the path is purely local and intentionally not a shared constant.
 
@@ -41,11 +42,12 @@ It intentionally excludes:
 
 Keep that behavior unless the user asks for a workflow change.
 
-## SuperTag and Dashboard Paths
+## Node Layer and Dashboard Paths
 
-- `init-supertag.el` should consume paths from `init-org.el`, not define PARA constants itself.
-- Dashboard `.org` files live under `my/dashboards-dir` and should remain query-oriented.
-- User capture templates live at `my/capture-templates-file` and are merged with built-in defaults from `init-roam.el`.
+- `init-nodes.el` should consume paths from `init-org.el`, not define PARA constants itself.
+- The node type registry lives at `my/types-file` (`.orgseq/types.org`). It stays in `.orgseq/`, outside the directories GTD scans, so TODO headings in type templates never reach the agenda.
+- Dashboard `.org` files live under `my/dashboards-dir` and should remain query-oriented (`orgseq-query` dynamic blocks).
+- User capture templates live at `my/capture-templates-file`. `init-nodes.el` merges them after the built-in default from `init-roam.el` and the templates generated from `my/types-file`.
 
 ## Dependency Refactor Checklist
 

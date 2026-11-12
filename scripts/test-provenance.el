@@ -57,13 +57,13 @@ The literal list lives in the `my/init-modules-default' defconst;
         (my/test-provenance--contents
          (file-relative-name file my/test-provenance-root)))))))
 
-(ert-deftest my/daily-module-loads-between-supertag-and-terminal ()
+(ert-deftest my/daily-module-loads-between-nodes-and-terminal ()
   (let ((modules (my/test-provenance--runtime-modules)))
     (should (equal (seq-filter
                     (lambda (module)
-                      (memq module '(init-supertag init-daily init-terminal)))
+                      (memq module '(init-nodes init-daily init-terminal)))
                     modules)
-                   '(init-supertag init-daily init-terminal)))))
+                   '(init-nodes init-daily init-terminal)))))
 
 (ert-deftest my/dashboard-daily-section-precedes-recents ()
   (let* ((contents (my/test-provenance--contents "lisp/init-dashboard.el"))

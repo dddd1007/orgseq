@@ -25,7 +25,7 @@
     (:key "u" :description "UI/toggles")
     (:key "w" :description "window")
     (:key "q" :description "quit")
-    (:key "#" :description "supertag"))
+    (:key "#" :description "types & fields"))
   "Top-level SPC leader namespaces and their which-key descriptions.
 
 Design rules (see README \"Key Bindings\"): groups are nouns, the
@@ -52,8 +52,28 @@ and the highest-frequency actions are single top-level keys
      :description "Find note (roam)")
     (:key "nda" :command my/daily-new-node
      :description "Append Daily node")
-    (:key "##" :command my/supertag-quick-action
-     :description "Quick action")
+    (:key "##" :command my/node-action
+     :description "Node actions")
+    (:key "#t" :command my/node-set-type
+     :description "Add type")
+    (:key "#x" :command my/node-remove-type
+     :description "Remove type")
+    (:key "#f" :command my/node-set-field
+     :description "Set field")
+    (:key "#e" :command org-set-property
+     :description "Edit Org property")
+    (:key "#p" :command my/node-promote
+     :description "Promote to node")
+    (:key "#n" :command my/node-capture
+     :description "New note of type")
+    (:key "#v" :command my/node-view
+     :description "Type view")
+    (:key "#r" :command my/node-review
+     :description "Review unsorted notes")
+    (:key "#s" :command org-roam-node-find
+     :description "Find node")
+    (:key "#j" :command org-open-at-point
+     :description "Open Org link")
     (:key "ax" :command my/codex-popup-toggle
      :description "Codex CLI popup")
     (:key "oy" :command my/yazi-popup-toggle

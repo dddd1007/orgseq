@@ -40,7 +40,11 @@ feature modules.
 refuse a filesystem root, the user's home directory, or any path overlapping
 the source tree. PowerShell exposes `SupportsShouldProcess`, so `-WhatIf` is
 the canonical dry run. Existing targets are backed up unless the user explicitly
-disables that step. Byte-compilation is a completion gate: missing Emacs or a nonzero compile
+disables that step. A deployment writes only the distribution files
+(`early-init.el`, `init.el`, `ec`, `lisp/`, `packages/`, `bin/`); the note
+library, `custom.el` and installed packages are never written. `deploy.sh`
+therefore backs up the replaced files plus `custom.el` (`--full-backup` copies
+the whole target); `deploy.ps1` still copies the whole target. Byte-compilation is a completion gate: missing Emacs or a nonzero compile
 result aborts the deployer before it prints the completion summary. The
 timestamped backup is the rollback boundary; move a failed target aside before
 restoring that backup.
@@ -62,16 +66,56 @@ Feature-specific `use-package` forms stay in the owner module. Use
 `M-x my/vc-package-audit` for read-only status, ownership, and source details.
 The doctor reports missing or failed records without installing them.
 
-### org-supertag compatibility exception
+### Storage, sync, and external access
 
-`init-pkm` contains a narrow compatibility manager for org-supertag 5.8.1 at
-revision `7e98ed9ad01f985881afced0fdc4a1ef3fedfa2a`. It accepts only the recorded
-original or patched Git blob hashes, creates revision-specific backups outside
-the package directory, rewrites through same-directory temporary files, and
-removes stale bytecode. Unknown versions, revisions, or source hashes are never
-mutated. `M-x my/supertag-rollback-compat-patches` restores the verified
-originals. The source-level diff and GPL boundary are recorded in
-`patches/org-supertag-5.8.1-emacs-30.patch` and `THIRD_PARTY.md`.
+The note library is `notes/` under the Emacs directory (`my/note-home`), so
+org-seq owns its storage and no folder has to be chosen. Startup never asks
+a storage question. Copies cross the library boundary through four commands
+in `lisp/init-sync.el`, none of which modifies its source: import
+(`my/storage-import`, copies missing files only), export
+(`my/storage-export`), snapshots (`my/storage-snapshot`, dated copies in
+`my/snapshot-dir` outside the Emacs directory, taken daily when the library
+changed and before imports and full comparisons) and sync.
+`my/storage-info` is the read-only status used by `my/storage-status`, the
+doctor and `orgseq info`. See [DESIGN.md](DESIGN.md) for the layer model. `lisp/init-sync.el`
+syncs it with a cloud remote through rclone bisync (WebDAV, OneDrive, Google
+Drive): whole Org files are the sync unit, the newer side wins a conflict and
+the other version is kept as a `.conflict` copy, and the org-roam database is
+excluded because it is a rebuildable local index. Device-local state lives in
+`.cache/` under the Emacs directory.
+
+`bin/orgseq` runs a batch Emacs with the same configuration and exposes the
+node layer as subcommands and as MCP tools (`orgseq mcp`, stdio transport).
+Both call the `my/api-*` functions in `lisp/orgseq-cli.el`, which write Org
+files through the same path as the interactive commands.
+
+### Views
+
+`lisp/init-views.el` turns a query plus a layout into a view (table, list,
+board). Saved views are headings in `.orgseq/views.org`. The `orgseq-view`
+dynamic block embeds a view in any note; `current` in its filter refers to
+the enclosing node.
+
+### Node layer
+
+Notes are org-roam nodes: files and headings with an Org ID. `lisp/init-nodes.el`
+adds node types, fields, table views, the review list, `orgseq-query`
+dashboard blocks, and the node action menu on top of org-roam. It keeps no
+database of its own:
+
+- Types are defined in `.orgseq/types.org` under NoteHQ (`my/types-file`). A
+  type is an Org tag, a field list, and a capture template.
+- Applying a type adds its tag; fields are ordinary Org properties; relations
+  are `[[id:]]` links.
+- Views and dashboard blocks read the org-roam database, which org-mem writes
+  and which `M-x org-roam-db-sync` can rebuild from Org at any time.
+
+Supertag and its `textui` dependency were removed on 2026-10-22. `init-pkm`
+now configures only org-transclusion and org-ql. Old `supertag-query`
+dashboard blocks still render for the forms `(tag ...)`, `(property K V)`,
+`(recent-days N)`, and `(and ...)`. Existing org-roam capture, Daily, PARA, and
+GTD remain separate responsibilities.
+See [the node model](NOTES_ARCHITECTURE.md#四节点模型与权威边界).
 
 ## Popup Policy
 
@@ -95,7 +139,8 @@ Workspace. It is a `special-mode` navigation buffer, not a popup rule:
 rendering computes 14 calendar-date records without creating files, and opening
 a missing date is the explicit mutation boundary. Each Daily file remains a
 plain Org container; capture-ready top-level headings receive normal Org IDs
-and participate in the existing supertag sync path.
+and become org-roam nodes. Saving a Daily file needs no extra hook: org-mem's
+updater re-indexes every saved Org file under the watched directories.
 
 `init-workspace` owns the transition between persistent sidebars. Opening
 the Daily Workspace closes only Treemacs in the selected frame; opening the
@@ -109,7 +154,7 @@ for bottom/side popup placement and does not register the Daily sidebar.
 
 - `my/leader-prefixes` records every top-level SPC namespace and description.
 - `my/leader-critical-bindings` records a focused cross-section of terminal,
-  GTD, focus, org-roam, supertag, AI CLI, and yazi workflows.
+  GTD, focus, org-roam, node type, AI CLI, and yazi workflows.
 
 `init-evil` defines the complete map and then calls
 `my/keymap-apply-general-contract`. The contract is applied through the

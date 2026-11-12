@@ -4,12 +4,18 @@
 
 > **这是一份设计规范文档，不是实现参考。**
 >
+> **2026-11-11 起，笔记库不再读取用户指定的本地目录。** 笔记库自动保存在 Emacs 目录下的 `notes/`（例如 `~/.emacs.d/notes/`，变量 `my/note-home`），多设备之间通过 `lisp/init-sync.el` 用 rclone 与 WebDAV、OneDrive 或 Google Drive 同步。本文档其余部分写作 `~/NoteHQ/` 的地方，均指这个笔记库；旧的 `~/NoteHQ/` 目录只在首次启动时被询问是否复制进来，不会被修改。存储、同步、视图、命令行与 MCP 见第十二节。
+>
 > 本文档记录 `~/NoteHQ/` 笔记库的**物理结构、tag 体系思路、capture 模板、dashboard 设计原则**与**生长原则**。这些内容是长期稳定的设计决策。
 >
 > **实现层面的事实**（函数名、加载顺序、键位、安装方式）请以下列源文件为准，因为它们随项目迭代而变化：
-> - `lisp/init-org.el` — 路径常量 `my/note-home` / `my/roam-dir` / `my/orgseq-dir`（defcustom，属于 `org-seq` customize group）
+> - `lisp/init-org.el` — 路径常量 `my/note-home` / `my/roam-dir` / `my/orgseq-dir` / `my/types-file`（defcustom，属于 `org-seq` customize group）
 > - `lisp/init-roam.el` — org-roam + org-node/org-mem + capture templates
-> - `lisp/init-supertag.el` — supertag schema/capture templates/dashboard/PARA 导航（函数前缀统一为 `my/`）
+> - `lisp/init-views.el` — 保存的视图（表格、列表、看板）、筛选语言、`orgseq-view` 动态块
+> - `lisp/init-sync.el` — 笔记库的设备本地状态、旧库导入、rclone 同步
+> - `lisp/orgseq-cli.el` 与 `bin/orgseq` — 命令行与 MCP 服务
+> - `lisp/init-nodes.el` — 节点类型、字段、表格视图、review、dashboard 查询块、capture 模板合并、PARA 导航（函数前缀统一为 `my/`）
+> - `~/NoteHQ/.orgseq/types.org` — 节点类型定义（用户数据，路径变量 `my/types-file`）
 > - `lisp/init-dired.el` — dired + dirvish（文件管理与侧边栏）
 > - `lisp/init-evil.el` — 所有 `SPC` leader key 绑定的唯一真相源
 > - `scripts/bootstrap-notes.{sh,ps1}` — 笔记目录初始化与 NoteHQ/Codex 脚手架部署脚本（支持 `--update` 增量刷新）
@@ -21,7 +27,7 @@
 
 本文档定义 `~/NoteHQ/` 笔记库的物理结构、tag 体系思路、capture 模板、dashboard 设计与生长原则，作为 org-seq 配置开发与数据初始化的依据。
 
-这段设计文档基于一个核心承诺：**笔记系统应该跟随使用情况自然生长，而不是预先规划完整 schema**。本文档只提供最小起点 —— 2 个示例 tag、2 个示例 dashboard、几条占位符笔记 —— 用户在真实使用中按需扩展。任何看起来"详尽完备"的初始配置都应该被视为反模式。
+这段设计文档基于一个核心承诺：**笔记系统应该跟随使用情况自然生长，而不是预先规划完整 schema**。下文的 properties、模板和 dashboard 都是按需采用的示例，不代表已经替用户迁移笔记。节点模型见第四节；Daily、PARA、GTD 和 org-roam 保持现状。
 
 ---
 
@@ -31,7 +37,7 @@
 
 第一条：**把碎片想法和正式产出物物理分开存放**。原子笔记（一个想法一条）进入 `00_Roam/` 这个扁平目录，由 org-roam 负责索引和反向链接；正式产出物（论文、课件、申请书这类有明确交付时刻的东西）进入类 PARA 层级目录，文件结构反映可交付物自身的内在组织。两层之间通过 `[[id:...]]` 链接和 `org-transclusion` 通信，但不互相混杂。这条原则同时解决了两个常见痛点：一是当你的笔记库里混入 30 页的论文草稿，org-roam 的索引会开始变慢，搜索结果里也会出现大段无关的噪音；二是当你的项目目录里塞满未成形的想法碎片，你再也找不到"这个项目真正的可交付文件是哪几个"。分开存放让两类文件各得其所，也让两种工作模式（捕捉 vs. 打磨）保持清晰的边界。
 
-第二条：**分类靠 tag，不靠目录**。除了 `daily/`、`capture/` 和 `dashboards/` 这三个功能性子目录之外，`00_Roam/` 内部是完全扁平的——不存在 `literature/`、`concepts/`、`people/` 这样的层级。每一条原子笔记都落在 `00_Roam/capture/` 下，文件名只是时间戳前缀加 slug。一条笔记是什么类型、属于哪个主题、处于哪个状态，全部靠 supertag 承载。这条原则听起来有点激进，但它解决的是一个具体的认知摩擦：每次你写新笔记时不必决定"这应该放在哪个文件夹"。那个决定本身就足以让你打断思路、甚至因为犹豫而放弃记录。扁平目录把这个决策成本降到零——你只管写，分类的事情以后由 tag 和查询完成，而且 tag 可以多维度叠加（一条笔记可以同时是 `reading`、`topic:cognition`、`source:academic`），目录做不到这一点。
+第二条：**分类靠 tag，不靠新增类型目录**。`00_Roam/` 保留 `daily/`、`capture/` 和 `dashboards/` 等功能目录；默认独立笔记落在 `capture/`，Daily 标题也可持有自己的 Org ID。类别/主题可用标签，任务进度用 Org TODO，需要查询的附加信息用普通 Org properties，笔记间关系用 Org 链接。不是所有状态都该做成节点类型，也不要求记录时完成分类。
 
 ---
 
@@ -49,7 +55,7 @@ Emacs 默认打开今天的 Daily Workspace，并在左侧显示只读的 14 日
 
 **职责 A：思维流捕捉**。一边做事一边记录进展、观察、临时想法、半成形的洞察。文字写法不严谨，可以是流水账、问句、断句。每条记录前可以用时间戳标记（手动 `[2026-04-09 14:30]` 或 `SPC b j` 插入）。
 
-**职责 B：任务录入入口**。日常 TODO 主要不通过单独的 `SPC t c` capture 入口，而是直接在 daily 笔记里就地写入。orgseq 的 agenda 已经扫描整个 `~/NoteHQ/` 树，所以 daily 里的任务会自动出现在 GTD Dashboard 各视图中。
+**职责 B：任务录入入口**。日常 TODO 可以直接在 Daily 中就地写入。agenda 扫描 `00_Roam/`、`10_Outputs/` 和 `20_Practice/`，不扫描 Library 或 Archives；Daily 中的任务因此进入 GTD Dashboard，而不依赖节点类型。
 
 任务类型按照是否有子任务进行区分：
 
@@ -81,18 +87,20 @@ orgseq 的 GTD keyword 序列是 `PROJECT/TODO → NEXT → IN-PROGRESS → WAIT
 
 写 daily 时如果出现某条内容，你判断"这值得作为独立笔记长期追溯"，立刻执行：
 
-1. 把光标停在那段内容（或要新建的word）上，按 `SPC n c` 选合适的 capture 模板（多数时候用 default 即可）
+1. 把光标停在那段内容（或要新建的word）上，按 `SPC n c` 选合适的 capture 模板（多数时候用 default 即可；有对应类型时在 `t` 组下选该类型）
 2. capture 出一个新的 Roam 节点，文件落到 `00_Roam/capture` 目录，在 daily 原位置插入 `id:` 链接（`SPC n i`）
 3. 从下方弹出buffer让我可以编辑这个节点内容
-4. 在新节点里按 `SPC # #` 添加 supertag，填字段
+4. 需要时用 `SPC # t` 加类型，`SPC # f` 填字段，`SPC # e` 编辑任意 Org property；这些都是可选的后续操作，不是记录时必须填写的表单
 5. 关闭，回到 daily 继续
+
+如果那段内容已经写成文字，也可以选中它按 `SPC # p`：选区被提取为新笔记，daily 原位置留下指向新笔记的链接。
 
 
 ### 阶段 4：汇总与整理 — Dashboard 作为周期性 review 入口
 
-每天结束、每周末、或某项工作收尾时，按 `SPC n v v` 进入 dashboard index，挑相关 dashboard 打开。dashboard 是**只读的查询窗口**，利用org-supertag的功能自动渲染所有相关 supertag 节点的当前状态。在 dashboard 里你做的事情：
+每天结束、每周末、或某项工作收尾时，按 `SPC n v v` 选择 dashboard。它是**查询窗口**，由 org-roam 数据库中已保存笔记的索引渲染；org-seq 的打开入口刷新动态块，动态块本身不会持续自动刷新。另用 `SPC # r` 打开 review 表格，列出最近没有类型或没有链接的笔记。在 dashboard 和 review 里你做的事情：
 
-- 看本周新增的笔记是否需要补充字段或链接
+- 看本周新增的笔记是否需要补充类型、字段或链接
 - 看某个主题的所有相关碎片是否暗示着新的洞察
 - 看哪些笔记之间应该建立链接但还没建立
 - 决定哪些碎片足够成熟，可以晋升到 PARA 层成为正式产出物的素材
@@ -108,8 +116,7 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 ├── 00_Roam/                              ← 原子层 (org-roam-directory)
 │   ├── daily/                         ← 每日笔记 (唯一例外子目录)
 │   ├── dashboards/                    ← 查询入口文件 (唯一例外子目录)
-│   ├── supertag-schema.el             ← tag 定义,跟笔记一起 git
-│   └── caputre/20260409143022-*.org   ← 全部扁平,时间戳前缀文件名
+│   └── capture/20260409143022-*.org    ← 默认独立笔记,时间戳前缀文件名
 │
 ├── 10_Outputs/                           ← PARA 产出层
 │   └── _template/                     ← 项目目录模板,复制后改名使用
@@ -160,8 +167,8 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 ;; daily 笔记里的 TODO/PROJECT 通过这个范围进入 GTD 视图
 (my/org-roam-agenda-files)  ; returns 00_Roam/ + 10_Outputs/ + 20_Practice/ (not 30_Library/ or 40_Archives/)
 
-;; init-pkm.el / init-supertag.el —— org-supertag 同样锁在 00_Roam/
-(setq org-supertag-sync-directories (list my/roam-dir))
+;; init-org.el —— 节点类型注册表放在 .orgseq/,不在 agenda 扫描范围内
+(defcustom my/types-file (expand-file-name "types.org" my/orgseq-dir) ...)
 ```
 
 **重要**：org-seq 内部**没有任何模块**应该硬编码 `~/NoteHQ/00_Roam/` 字符串——全部通过 `my/roam-dir` 或 `my/note-home` 派生。如果你在新写的模块里看到硬编码路径，请统一替换成变量。
@@ -178,134 +185,179 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 ---
 
-## 四、Supertag Schema 起点
+## 四、节点模型与权威边界
 
-文件位置：`~/NoteHQ/00_Roam/supertag-schema.el`
+2026-10-22 起，org-seq 不再使用 Supertag 和 TextUI。笔记结构直接建立在 org-roam 上，由 `lisp/init-nodes.el` 提供类型、字段、表格视图和查询。设计参照 Tana 的 supertag 和 Fibery 的数据库，但不引入第二个数据库。
 
-下面只给两个 tag 作为示例，演示两种核心模式 —— 实体 tag 与事件 tag —— 以及它们之间通过 `:node` 字段关联。**不要把这两个 tag 当成"应该用的 tag"**，它们只是模式的示范。真实的 tag 应该在你写过几次某类笔记之后才创建。
+### 节点
 
-```elisp
-;;; supertag-schema.el --- User tag schema -*- lexical-binding: t; -*-
-;;;
-;;; 设计模式:
-;;; - 实体 tag (entity): 被关联的对象,相对静态。例如一个长期主题、一个项目、一个人。
-;;; - 事件 tag (event):  流式输入,通过 :node 字段挂到实体上。例如一次会议、一篇文献。
-;;;
-;;; 当前只有 2 个示范 tag。增加新 tag 的时机:
-;;; 某类事情你已经用 default 模板记过 5 次以上,且发现它们有共同结构。
-;;; 编辑后用 SPC # T 重载,无需重启 Emacs。
+节点是任何带 Org ID 的文件或标题，也就是 org-roam 节点。节点之间的关系是 `[[id:...]]` 链接。没有 ID 的标题不是节点；`SPC # p` 可以给当前标题补上 ID，使它成为原位节点。
 
-(require 'org-supertag)
+### 类型：`.orgseq/types.org`
 
-;; ----------------------------------------------------------------
-;; 示例 1:实体 tag
-;; topic — 一个长期关注的主题或领域
-;; ----------------------------------------------------------------
-(org-supertag-tag-create "topic"
-  :fields '((:name "status"  :type :options :options ("active" "paused" "shelved"))
-            (:name "started" :type :date)))
+类型是一个 Org 标签、一组字段和一个 capture 模板。所有类型定义在 `~/NoteHQ/.orgseq/types.org`（变量 `my/types-file`，在 `init-org.el` 中定义），每个一级标题定义一个类型：
 
-;; ----------------------------------------------------------------
-;; 示例 2:事件 tag
-;; reading — 文献/书籍/文章笔记,通过 topic 字段关联到 topic 实体
-;; ----------------------------------------------------------------
-(org-supertag-tag-create "reading"
-  :fields '((:name "authors"   :type :string)
-            (:name "year"      :type :number)
-            (:name "topic"     :type :node :ref-tag "topic")    ; 关联字段
-            (:name "status"    :type :options :options ("queued" "reading" "read" "cited"))))
-
-(provide 'supertag-schema)
-;;; supertag-schema.el ends here
+```org
+* Reading
+:PROPERTIES:
+:TYPE_TAG:    reading
+:TYPE_KEY:    r
+:TYPE_FIELDS: AUTHORS YEAR STATUS TOPIC:node
+:STATUS_ALL:  queued reading read cited
+:END:
+** Summary
+%?
+** Key points
+** My commentary
 ```
 
-### 扩展思路
+| 属性 | 含义 |
+|---|---|
+| `TYPE_TAG` | 类型对应的 Org 标签；省略时取标题名的小写形式 |
+| `TYPE_KEY` | capture 键；生成的模板键为 `t` 加该字母（上例为 `tr`） |
+| `TYPE_FIELDS` | 字段名，空格分隔；写成 `NAME:node` 的字段保存指向另一个节点的 `[[id:]]` 链接 |
+| `NAME_ALL` | 字段 `NAME` 的可选值，沿用 Org 自身的 `KEY_ALL` 约定 |
 
-当你在某个领域积累了足够多的笔记，发现某类事情值得专门定义结构时：
+标题正文就是该类型的 capture 模板，层级比定义处浅一级，`%?` 是光标落点。
 
-1. `SPC # t` 打开 `supertag-schema.el`
-2. 在合适的位置加新的 `org-supertag-tag-create` 块
-3. 决定它是实体 tag 还是事件 tag。事件 tag 通常需要至少一个 `:node` 字段挂到某个实体
-4. 字段宁少勿多，每个字段都该回答一个**你已经反复需要查询但当前 schema 答不出来**的问题
-5. `SPC # T` 重载
+`types.org` 放在 `.orgseq/`，不放在 `00_Roam/`：GTD agenda 扫描 `00_Roam/`、`10_Outputs/` 和 `20_Practice/`，模板里的 TODO 标题如果放在这些目录中会进入 agenda。文件不存在时 org-seq 自动创建一份带 Reading、Concept、Person 三个示例的起始文件。`SPC # T` 打开该文件，保存后类型立即重载（`my/node-types-reload`）。
 
-可能的扩展方向：临床工作的 client/session、教学的 course/lesson_prep/reflection、学生指导的 student/meeting、研究工作的 hypothesis/experiment/concept、健康追踪的 health_log。**但具体怎么定义字段、定义多少字段，请等到你真的写过 5 次再决定**。
+### 应用类型与填写字段
+
+- `SPC # t`（`my/node-set-type`）给光标所在节点加一个类型：文件节点写入 `#+filetags:`，标题节点写入标题标签；节点还没有 ID 时先补 ID。`my/node-add-empty-fields` 为非 nil（默认）时，同时为该类型的字段添加空 property，提示有哪些字段可填。
+- `SPC # x`（`my/node-remove-type`）移除类型标签，已有字段值保留。
+- `SPC # f`（`my/node-set-field`）设置字段。`NAME:node` 字段弹出节点选择器，写入 `[[id:...][标题]]`；其他字段从 `NAME_ALL` 或库中已经用过的值里补全，也可以输入新值。
+- `SPC # e`（`org-set-property`）编辑任意 Org property。
+
+应用类型后，Org 文本就是全部数据，例如：
+
+```org
+:PROPERTIES:
+:ID:       example-reading-id
+:AUTHORS:  Example Author
+:YEAR:     2026
+:STATUS:   reading
+:TOPIC:    [[id:example-topic-id][一个主题]]
+:END:
+#+title: 一篇阅读笔记
+#+filetags: :reading:
+```
+
+一个节点可以同时有多个类型。字段就是普通 Org property，不属于任何类型时也可以存在。
+
+### 视图与回顾
+
+- `SPC # v`（`my/node-view`）显示某个类型全部节点的表格：每行一个节点，每列一个字段，最后一列是修改日期。`RET` 打开节点，`o` 在另一个窗口打开，`f` 就地编辑字段（写回文件并更新该文件的索引），`+` 新建该类型的节点，`/` 过滤，`g` 刷新，点击列标题或按 `S` 排序。
+- `SPC # r`（`my/node-review`）列出最近 `my/node-review-days`（默认 14）天内修改过、没有类型或没有任何 id 链接（入链和出链都为 0）的笔记，不含带 `daily` 标签的笔记。列为标题、类型、入链数、出链数和修改日期。这是周回顾时的整理清单：给笔记加类型、建立链接，或者确认它保持为碎片。
+- Dashboard 中的 `orgseq-query` 动态块按同样的条件生成 Org 表格，见第七节。
+
+### 节点操作菜单
+
+`SPC # #`（也是 `SPC n o` 和 `, # #`）打开 `my/node-action`，对应 Tana 的命令行。菜单内容随上下文变化：有选区时可提取为新笔记；不在节点内时可把标题变成节点；节点已有类型时可设置字段、移除类型、查看该类型的表格。另有插入链接、切换反向链接面板、复制节点链接、添加别名、编辑任意 property、新建类型笔记和打开 review。
+
+`SPC # p`（`my/node-promote`）有两种行为：有选区时把选区提取为新笔记，原位置留下指向新笔记的链接，新笔记的 `Source` 小节链接回原节点；没有选区时给当前标题补 ID，使它原位成为节点，然后询问是否加类型。它不会把笔记移动到 PARA 目录。
+
+### 单一权威
+
+Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[id:]]` 链接。org-roam 数据库（由 org-mem 写入）只是索引，随时可以用 `M-x org-roam-db-sync` 从 Org 文件重建；org-mem 的更新器在每次保存时重新索引被保存的文件。
+
+由此得到两条规则：
+
+1. 视图、review 和 dashboard 读取数据库，反映已保存的文件，不反映未保存的缓冲区修改。对光标所在节点的命令（加类型、设字段）直接读缓冲区，所以对刚 capture、尚未索引的笔记也有效。
+2. 备份覆盖 Org 文件和 `.orgseq/`（`types.org`、`capture-templates.el`）即可。数据库不需要备份。
+
+心智模型是：**先写 Org → 需要引用时给它 ID → 逐步补类型、字段和链接 → 用表格视图和 review 回顾 → 由人确认概念与关系**。它与 Daily 的低摩擦捕捉相容，不要求把 PARA 或 GTD 改造成数据库。
+
+### 旧 Supertag 数据
+
+- 笔记里原有的 `#+filetags:` 和标题标签仍是普通 Org 标签。某个标签与 `types.org` 中的 `TYPE_TAG` 相同时，带该标签的笔记自动属于该类型。
+- 原有 properties 原样保留，可以直接列入某个类型的 `TYPE_FIELDS`。
+- 旧 dashboard 中的 `supertag-query` 动态块仍可渲染，支持 `(tag ...)`、`(property K V)`、`(recent-days N)` 和 `(and ...)` 四种形式；其他形式会在表格位置显示错误说明。新的 dashboard 应改用 `orgseq-query`。
+- `supertag-schema.el`、`.supertag-metadata.eld` 和 Supertag 本地数据库不再被读取，可以作为档案保留。
 
 ---
 
 ## 五、Capture 模板
 
-Capture 模板分两层：
+`org-roam-capture-templates` 由三个来源按顺序合并（`my/reload-capture-templates`）：
 
-1. **内置默认模板** — 定义在 `lisp/init-roam.el` 里，只有一个 `default`：落到 `00_Roam/capture/%<%Y%m%dT%H%M%S>-${slug}.org`，不带 filetag。这是 org-seq 开箱即用的最低起点，**不建议**修改仓库内这个默认模板，因为它是部署时会被覆盖的部分。
+1. **内置默认模板**：定义在 `lisp/init-roam.el`，只有一个 `d`（Default），落到 `00_Roam/capture/%<%Y%m%dT%H%M%S>-${slug}.org`，不带 filetag。这是部署时会被覆盖的部分，**不建议**修改。
 
-2. **用户自定义模板** — 放在 `~/NoteHQ/.orgseq/capture-templates.el`，通过 `setq my/user-capture-templates` 定义。`init-supertag.el` 首次启动时会创建这个文件的模板骨架（含注释好的示例 `reading` 模板）。用户模板与内置默认模板通过 `my/reload-capture-templates` 合并到 `org-roam-capture-templates`。
+2. **类型模板**：由 `types.org` 自动生成，归在 `t`（Typed note）组下，键为 `t` 加 `TYPE_KEY`（省略 `TYPE_KEY` 时取标签首字母，重复时追加数字）。目标文件同样在 `00_Roam/capture/`，文件头带 `#+filetags: :TYPE_TAG:`，正文取自类型标题的正文。新笔记创建后自动加上该类型的空字段。修改 `types.org` 并保存后，这部分模板随之更新。
+
+3. **用户自由模板**：放在 `~/NoteHQ/.orgseq/capture-templates.el`，通过 `setq my/user-capture-templates` 定义，用于不需要字段和视图、只需要正文骨架的笔记。文件不存在时 `init-nodes.el` 创建一份带注释示例的骨架。以 `t` 开头的键保留给类型模板。
 
 ```elisp
 ;; ~/NoteHQ/.orgseq/capture-templates.el
 (setq my/user-capture-templates
-      '(;; 示例:带 tag 的笔记。其他 tag 类型按这个模式增加。
-        ("r" "reading" plain
-         "* TL;DR\n%?\n* Key points\n* My commentary\n"
+      '(("m" "Meeting" plain
+         "* Attendees\n* Notes\n%?\n* Decisions\n"
          :target (file+head "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
-                            "#+title: ${title}\n#+filetags: :reading:\n")
+                            "#+title: ${title}\n")
          :unnarrowed t)
-
-        ;; 继续添加你常用的类型:session / client / lesson / experiment...
         ))
 ```
 
 ### 常用操作
 
-- `SPC # c`（`my/edit-capture-templates`）— 打开 `~/NoteHQ/.orgseq/capture-templates.el`
-- `SPC # C`（`my/reload-capture-templates`）— 重载用户模板（无需重启 Emacs）
-- 在 `~/NoteHQ/` 目录里让 Codex 按 `AGENTS.md` 约定帮你生成新模板
+- `SPC c` / `SPC n c` — 新建笔记，在 capture 菜单中选择模板
+- `SPC # n`（`my/node-capture`）— 先选类型再输入标题，直接新建该类型的笔记
+- `SPC # T`（`my/node-types-edit`）— 打开 `types.org`，保存即生效
+- `SPC # c`（`my/edit-capture-templates`）— 打开 `capture-templates.el`
+- `SPC # C`（`my/reload-capture-templates`）— 重载全部模板（无需重启 Emacs）
+- 在 `~/NoteHQ/` 目录里让 Codex 按 `AGENTS.md` 约定帮你编写类型或模板
 
 ### 起步建议
 
-**只需要 default 模板就够**。当你决定为某类笔记建立独立的 supertag（例如 `lesson_prep`、`session`、`hypothesis`），**同时**在 `.orgseq/capture-templates.el` 加一个对应的 capture 模板，模板正文用 org 标题骨架引导你思考关键问题。
-
-模板正文的设计原则：**标题骨架而非字段**。字段交给 supertag 处理（通过 `SPC # a` 在节点上添加 tag 并弹出字段表单），模板只负责让你看到笔记应该展开的几个思考方向。
+**只需要 default 模板就够**。某类笔记反复需要固定字段、并且需要按字段查看和筛选时，在 `types.org` 中为它定义类型；只需要固定正文骨架时，在 `capture-templates.el` 中加一个自由模板。不要求每个标签都对应一个类型或模板。
 
 ---
 
-## 六、`lisp/init-supertag.el` 模块职责
+## 六、`lisp/init-nodes.el` 模块职责
 
-> **实现参考**：真实代码在 `lisp/init-supertag.el`，请以源文件为准。本节只说明模块的**设计职责**。
+> **实现参考**：真实代码在 `lisp/init-nodes.el`，请以源文件为准。本节只说明模块的**设计职责**。
 
-`init-supertag.el` 是 supertag 相关基础设施的上层胶水层，提供以下五类职责：
+`init-nodes.el` 在 org-roam 之上提供类型、字段、视图和操作，并承担原 `init-supertag.el` 中与 Supertag 无关的职责：
 
-1. **消费集中路径常量**：`my/outputs-dir` / `my/practice-dir` / `my/library-dir` / `my/archives-dir` / `my/dashboards-dir` / `my/schema-file` 全部在 `init-org.el` 中从 `my/note-home` 派生。`init-supertag.el` 只通过 `defvar` 前向声明并消费这些变量，不重新拼接 PARA 子目录。
+1. **消费集中路径常量**：`my/types-file`、`my/capture-templates-file`、`my/dashboards-dir` 以及 PARA 各层路径全部在 `init-org.el` 中从 `my/note-home` 派生，本模块只通过 `defvar` 使用。
 
-2. **Schema 编辑与重载**：`my/edit-supertag-schema`（打开 `supertag-schema.el`）和 `my/reload-supertag-schema`（`load` 文件，无需重启）。对应 leader key：`SPC # t` / `SPC # T`。
+2. **类型注册表**：解析 `types.org`（`my/node-types`），文件缺失时创建起始文件（`my/node-types-ensure-file`），保存时重载（`my/node-types-reload`）。对应 `SPC # T`。
 
-3. **Capture 模板管理**：`my/edit-capture-templates` 和 `my/reload-capture-templates`。用户模板存在 `~/NoteHQ/.orgseq/capture-templates.el`，首次使用时由 `my/ensure-capture-templates-file` 创建带示例的文件。`init-roam.el` 中的默认模板和用户模板通过 `my/reload-capture-templates` 合并到 `org-roam-capture-templates`。对应 leader key：`SPC # c` / `SPC # C`。
+3. **Capture 模板合并**：内置默认模板、类型模板和用户模板按此顺序合并到 `org-roam-capture-templates`；`my/edit-capture-templates` / `my/reload-capture-templates` 对应 `SPC # c` / `SPC # C`。
 
-4. **Supertag 快速操作**：`my/supertag-quick-action` 是上下文感知的弹出菜单——当前 heading 无 tag 时直接加 tag，有 tag 时列出 "加另一个 / 删除 / 编辑字段 / 跳转到关联节点" 四类动作。对应 leader key：`SPC # #`（全局）和 `, # #`（org buffer 内）。
+4. **节点命令**：`my/node-set-type`、`my/node-remove-type`、`my/node-set-field`、`my/node-promote`、`my/node-capture-region-as-note`、`my/node-copy-id-link`、`my/node-capture`。
 
-5. **Dashboard 导航与创建**：
-   - `my/dashboard-find`：从 `00_Roam/dashboards/` 选择一个 dashboard 打开并刷新所有 dynamic blocks。对应 `SPC n v v`。
+5. **查询**：`my/node-query` 按标签、字段值、修改天数筛选 org-roam 节点，并排序和截断。表格视图和 dashboard 动态块都用它。
+
+6. **表格视图**：`my/node-view`（类型表格）和 `my/node-review`（待整理笔记），共用 `my/node-view-mode`。
+
+7. **Dashboard 动态块**：`orgseq-query` 块的渲染函数，以及旧 `supertag-query` 块的兼容渲染。
+
+8. **节点操作菜单**：`my/node-action`，对应 `SPC # #` / `SPC n o` / `, # #`。
+
+9. **Dashboard 导航与创建**：
+   - `my/dashboard-find`：从 `00_Roam/dashboards/` 选择一个 dashboard 打开并刷新所有动态块。对应 `SPC n v v`。
    - `my/dash-index` / `my/dash-review`：命名快捷方式。对应 `SPC n v i` / `SPC n v w`。
-   - `my/dashboard-create`：提示名字后生成带骨架的新 dashboard 文件。对应 `SPC # d`。
+   - `my/dashboard-create`：提示名字和类型后生成带一个 `orgseq-query` 块的新 dashboard 文件。对应 `SPC # D`。
    - 需要更多快捷方式时，直接在 `00_Roam/dashboards/` 加文件，用 `my/dashboard-find` 访问即可，**不必再改 elisp**。
 
-6. **PARA 层导航**：`my/find-in-outputs` / `my/find-in-practice` / `my/find-in-library` / `my/ripgrep-notehq`。对应 leader key：`SPC P o` / `SPC P p` / `SPC P l` / `SPC P g`。
+10. **PARA 层导航**：`my/find-in-outputs` / `my/find-in-practice` / `my/find-in-library` / `my/ripgrep-notehq`。对应 leader key：`SPC P o` / `SPC P p` / `SPC P l` / `SPC P g`。
 
-7. **NoteHQ 目录结构 bootstrap**：`my/ensure-notehq-structure` 在模块加载时调用，幂等地创建 `00_Roam/daily/` / `00_Roam/capture/` / `00_Roam/dashboards/` / `10_Outputs/` / `20_Practice/` / `30_Library/` / `40_Archives/`。
+11. **NoteHQ 目录结构 bootstrap**：`my/ensure-notehq-structure` 在启动完成后的空闲时间调用，幂等地创建 `00_Roam/daily/` / `00_Roam/capture/` / `00_Roam/dashboards/` / `10_Outputs/` / `20_Practice/` / `30_Library/` / `40_Archives/`。
 
 ### 加载顺序要求
 
-`init-supertag.el` 的加载位置在 `init-pkm.el` 之后、`init-ai.el` 之前。完整链条见 `AGENTS.md` 的 "Load Order" 小节。
+`init-nodes.el` 依赖 `init-org`（路径常量）和 `init-roam`（默认 capture 模板），加载位置在 `init-pkm.el` 之后、`init-daily.el` 之前。完整链条见 `AGENTS.md` 的 "Load Order" 小节。
 
 ### 函数命名约定
 
-所有函数统一用 `my/` 前缀（私有 helper 用 `my/module--helper` 双短横线）。**不使用** `orgseq/` 前缀——这是早期设计草稿的命名方案，已被统一为 `my/`。
+所有函数统一用 `my/` 前缀（私有 helper 用 `my/module--helper` 双短横线）。**不使用** `orgseq/` 前缀——这是早期设计草稿的命名方案，已被统一为 `my/`。动态块名 `orgseq-query` 是 Org 动态块的名字，不是函数前缀。
 
 ---
 
 ## 七、Dashboard 起点
 
-每个 dashboard 是 `~/NoteHQ/00_Roam/dashboards/` 下的独立 org 文件，只存查询定义。下面只给 3 个起点文件：一个总入口、一个 weekly review、一个按 tag 查询的示例。**需要更多 dashboard 时按这个模式自己加**。
+每个 dashboard 是 `~/NoteHQ/00_Roam/dashboards/` 下的独立 org 文件，只存查询定义。下面只给 3 个起点文件：一个总入口、一个 weekly review、一个按类型和状态分组的示例。**需要更多 dashboard 时按这个模式自己加**。
 
 ### `index.org`
 
@@ -314,19 +366,25 @@ Capture 模板分两层：
 #+startup: showall
 
 * 入口
-  - [[file:weekly-review.org][🔄 Weekly review]] :: 周回顾入口
-  - [[file:reading.org][📖 Reading]] :: reading tag 查询示例
+  - [[file:weekly-review.org][Weekly review]] :: 周回顾入口
+  - [[file:reading.org][Reading]] :: reading 类型查询示例
 
 * 快捷键
-  - ~SPC # t~ 编辑 tag schema
-  - ~SPC # T~ 重载 schema
-  - ~SPC n c~  新建笔记 (按类型选模板)
-  - ~SPC # #~ 当前节点 tag/字段操作
+  - ~SPC # t~ 给当前笔记加类型，~SPC # f~ 填字段
+  - ~SPC # v~ 查看某个类型的全部节点
+  - ~SPC # r~ 整理最近没有类型或链接的笔记
+  - ~SPC # p~ 把选区提取为新笔记，或把标题变成节点
+  - ~SPC n c~ 新建 org-roam 笔记
+  - ~SPC # #~ 节点操作菜单
   - ~SPC P o/p/l~ PARA 导航 (10_Outputs/20_Practice/Library)
 
+* 最近修改的 reading 节点
+#+BEGIN: orgseq-query :type "reading" :sort "modified" :order desc :limit 10
+#+END:
+
 * 增加新 dashboard 的步骤
-  1. SPC # d (my/dashboard-create) 生成带骨架的新 dashboard 文件
-  2. 编辑 #+BEGIN: supertag-query 块定义查询
+  1. SPC # D (my/dashboard-create) 生成带一个查询块的新 dashboard 文件
+  2. 编辑 #+BEGIN: orgseq-query 块的参数
   3. SPC n v v (my/dashboard-find) 会自动列出此目录下的所有 .org 文件,
      无需再改 elisp 或加命名函数
 ```
@@ -338,16 +396,16 @@ Capture 模板分两层：
 #+startup: content
 #+description: 每周末打开,review 本周累积内容并整理
 
-* 本周新增笔记 (Roam 全部)
-#+BEGIN: supertag-query :where (within-days created 7) :columns (title tags created) :sort created
-#+END
+* 最近七天的节点
+#+BEGIN: orgseq-query :recent-days 7 :sort "modified" :order desc :limit 50
+#+END:
 
 * Review checklist
-  - [ ] 本周新增笔记是否需要补 supertag 字段?
+  - [ ] SPC # r 列出的笔记是否需要补类型、字段或链接?
   - [ ] 是否有想法应该建立链接但还没建立?
   - [ ] daily 里的 TODO 是否都已经被推进或重新调度?
   - [ ] 是否有碎片足够成熟,应该晋升到 PARA Outputs?
-  - [ ] 是否需要新增/修改某个 supertag 定义?
+  - [ ] types.org 中是否需要新增或修改某个类型?
 ```
 
 ### `reading.org`
@@ -355,24 +413,36 @@ Capture 模板分两层：
 ```org
 #+title: Reading Queue
 #+startup: content
-#+description: 按 tag 分组查询的示例 dashboard。其他 tag 类型可以仿照这个文件创建。
+#+description: 按类型和 STATUS 字段分组查询的示例 dashboard。其他类型可以仿照这个文件创建。
 
 * 待读
-#+BEGIN: supertag-query :tag reading :where (equal status "queued") :columns (title authors year topic) :sort year
-#+END
+#+BEGIN: orgseq-query :type "reading" :where (("STATUS" "queued")) :columns ("AUTHORS" "YEAR" "TOPIC") :sort "YEAR"
+#+END:
 
 * 在读
-#+BEGIN: supertag-query :tag reading :where (equal status "reading") :columns (title authors year topic)
-#+END
+#+BEGIN: orgseq-query :type "reading" :where (("STATUS" "reading")) :columns ("AUTHORS" "YEAR" "TOPIC")
+#+END:
 
-* 已读 (按 topic 分组)
-#+BEGIN: supertag-query :tag reading :where (equal status "read") :group-by topic :columns (title year)
-#+END
+* 已读
+#+BEGIN: orgseq-query :type "reading" :where (("STATUS" "read")) :columns ("YEAR" "TOPIC") :sort "YEAR" :order desc
+#+END:
 ```
 
-### 关于查询语法的说明
+### 关于查询参数的说明
 
-`supertag-query` dynamic block 的 `:where` 表达式语法以你装的 org-supertag 版本为准。如果某些谓词在当前版本不支持，先用最朴素的 `:tag tagname` 罗列全部，再手动按 `/` 过滤。**先让结构跑起来，再雕琢查询表达力**。
+`orgseq-query` 的参数就是 `my/node-query` 的参数，另加 `:columns`：
+
+| 参数 | 含义 |
+|---|---|
+| `:type` 或 `:tag` | 节点必须带的标签 |
+| `:where` | `(("FIELD" "value") ...)`，每个字段值必须完全相等 |
+| `:recent-days N` | 文件在最近 N 天内修改过 |
+| `:sort` | `"title"`（默认）、`"modified"` 或某个字段名；两边都是数字时按数值比较 |
+| `:order` | `asc`（默认）或 `desc` |
+| `:limit N` | 最多 N 行 |
+| `:columns` | 要显示的字段列表；省略时取该类型的全部字段 |
+
+第一列总是链接到节点的标题。动态块以 `#+END:` 结束；在块上 `C-c C-c` 或 `org-update-all-dblocks` 刷新，org-seq 的 dashboard 打开入口也会刷新。结果来自 org-roam 数据库，只反映已保存的文件。没有匹配节点时块内显示 `No matching nodes.`。
 
 ---
 
@@ -430,9 +500,9 @@ bootstrap 脚本应该创建以下种子文件，让用户启动后立刻有可�
 最初记录于 [[file:daily/example-day.org][2026-04-09]] daily 笔记。
 
 * COMMENT 后续操作
-按 SPC # # 添加 tag。
-建议先用 default 模板的形式存在,等到积累了 5 条类似笔记
-再考虑为它们定义专门的 supertag。
+按 SPC # t 添加类型。
+建议先用 default 模板的形式存在,等到积累了几条类似笔记
+再考虑在 types.org 中为它们定义一个类型。
 ```
 
 ### `10_Outputs/_template/README.org` —— 项目目录模板
@@ -511,16 +581,16 @@ Library 层存放被取用而非被维护的素材:
 1. **创建目录骨架**：`00_Roam/daily/` / `00_Roam/capture/` / `00_Roam/dashboards/` / `10_Outputs/_template/` / `20_Practice/_template/` / `30_Library/{bibliography,datasets,snippets,references,pdfs}` / `40_Archives/` / `.orgseq/`。所有目录均幂等创建。
 2. **扁平化历史子目录**：如果从旧版本升级并发现 `00_Roam/lit/` 或 `00_Roam/concepts/`，把里面的 `.org` 文件移动到 `00_Roam/` 根目录，然后删掉空子目录。
 3. **部署 NoteHQ/Codex 脚手架**：把 `notehq/AGENTS.md` 拷贝到 `~/NoteHQ/AGENTS.md`。首次执行时只创建缺失文件，不覆写已有文件。
-4. **增量更新模式**（`--update` / `-Update` flag）：当 org-seq 仓库里的 `notehq/*` 文件升级后，运行 `bash scripts/bootstrap-notes.sh --update` 或 `.\scripts\bootstrap-notes.ps1 -Update`，脚本会按内容比较，只覆写实际有变化的脚手架文件。用户内容（笔记、`supertag-schema.el`、`capture-templates.el`、`ai-config.org`）**永远不会被触碰**。
+4. **增量更新模式**（`--update` / `-Update` flag）：当 org-seq 仓库里的 `notehq/*` 文件升级后，运行 `bash scripts/bootstrap-notes.sh --update` 或 `.\scripts\bootstrap-notes.ps1 -Update`，脚本会按内容比较，只覆写实际有变化的脚手架文件。用户内容（笔记、`types.org`、`capture-templates.el`、`ai-config.org`）**永远不会被触碰**。
 
 ### 首次执行后的下一步
 
-脚本本身不会替你写笔记或 schema。跑完之后你需要：
+脚本本身不会替你制定标签体系。跑完之后可以：
 
-1. 在 `~/NoteHQ/00_Roam/supertag-schema.el` 写第一个 supertag（参考本文档 §4）
-2. 在 `~/NoteHQ/00_Roam/dashboards/index.org` 写 dashboard 索引（参考本文档 §7；或用 `SPC # d` 打开对应入口）
-3. （可选）`cd ~/NoteHQ && git init && git add . && git commit -m 'initial structure'`——把笔记本身纳入版本控制
-4. 在 Emacs 中运行 `M-x supertag-sync-full-initialize`（或 `SPC # R`）完成 supertag 首次索引
+1. 先按现有 Daily/org-roam capture 写笔记，需要时再加类型和字段（参考 §4；`SPC # T` 编辑 `types.org`）
+2. 在 `~/NoteHQ/00_Roam/dashboards/index.org` 写 dashboard 索引（参考 §7；`SPC # D` 创建）
+3. （可选）把 Org 笔记和 `.orgseq/` 纳入版本控制；org-roam 数据库不需要纳入
+4. 运行 `M-x org-roam-db-sync` 为已有笔记建立索引
 
 ### 更新部署的 NoteHQ/Codex 脚手架
 
@@ -537,7 +607,7 @@ bash scripts/bootstrap-notes.sh --update
 - 对比源文件与已部署文件的 hash
 - 只覆写实际有差异的文件（`[updated]`）
 - 对内容一致的文件报告 `[unchanged]`，不产生 mtime 变动
-- **永远不触碰** `00_Roam/supertag-schema.el`、`.orgseq/capture-templates.el`、`.orgseq/ai-config.org`、任何笔记内容
+- **永远不触碰** `.orgseq/types.org`、`.orgseq/capture-templates.el`、`.orgseq/ai-config.org`、任何笔记内容
 
 ---
 
@@ -550,15 +620,15 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 | 操作 | Emacs | Obsidian |
 |------|-------|---------|
 | 写新笔记（结构化捕捉）| 主入口 | 仅手机端临时捕捉 |
-| 编辑 supertag 字段 | 唯一方式 | 看不到 |
-| Dashboard 查询 | 实时刷新 | 显示为静态文本 |
+| 编辑普通 Org properties | 主入口 | 需支持 Org 的工具;不是隐藏数据库字段 |
+| Dashboard 查询 | 打开入口/手动刷新 | 仅静态结果,不能执行 `orgseq-query` 动态块 |
 | 全文搜索（快速翻阅）| `SPC P g` / `SPC /` | 启动更快 |
 | 阅读已有笔记 | 是 | 是 |
 | 长文写作 | 是 (org-mode) | 否 |
 | 代码执行 | 是 (org-babel) | 否 |
 | 跨设备同步 | git push/pull | Obsidian Sync E2EE |
 
-**约定**：手机端 Obsidian 只往 `00_Roam/` 写，不碰 `10_Outputs/` 和 `20_Practice/`。手机捕捉的 .md 文件回到桌面后由你决定是否转换为 .org 并加 supertag 字段。
+**约定**：移动端临时输入不改变当前目录边界。`.md` 文件不会自动进入 org-roam 的 Org 节点图谱；回桌面后再决定是否转换成带 ID 的 `.org`。类型和字段都是 Org 文本，外部编辑器修改标签和 properties 就是修改全部数据；在 Emacs 中运行 `M-x org-roam-db-sync` 后修改进入查询结果。
 
 ---
 
@@ -566,15 +636,17 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 
 笔记系统几乎没有办法被一次性设计完美。你不知道自己将来会写什么样的笔记，也不知道哪些 tag 和字段在实际使用中会变得重要——这些都要在真实使用中才能显现。因此这份架构文档给出的不是一个完整的 schema，而是一套**扩展决策的判断标准**：当你考虑增加什么、删除什么、提升什么的时候，回到这些原则来做决定。
 
-### 关于 Schema 字段
+### 关于 Org properties
 
-**什么时候该加一个新字段？** 当你发现自己已经**反复需要查询某个信息但当前 schema 答不出来**的时候。比如你多次想查"上季度我和某某谈话的所有记录"，却发现 session tag 没有 date 字段——这时候就该加一个。**不要**因为"以后可能用得上"就预先加字段——闲置字段会带来持续的录入摩擦（每次新建节点都看到一个空表单）却几乎不会被填写，最终变成整个系统里最令人烦躁的部分。
+**什么时候该加一个 property？** 当你反复需要查询一个信息时再加，优先沿用 Org 已有的 TODO、时间戳和链接。不同含义的状态可以用 `BOOK_STATUS` / `TASK_STATUS` 等不同键，必要时用 Org `KEY_ALL` 给出可选值。
 
-**什么时候该删一个字段？** 规则同样简单：如果某个字段**两周内没填过三次**，立刻删掉它。已经录入的历史数据里的孤立值不影响你删除 schema 里的字段定义——org-supertag 容忍 schema 和数据不完全一致。宁愿砍得狠一点，总比让 schema 变成僵尸字段的博物馆强。
+**什么时候该停止维护？** 不再有查询用途就停止新增，不必为了改模型删除历史值。从某个类型的 `TYPE_FIELDS` 中去掉一个字段，不会删除笔记里已有的值；删除历史 properties 是独立的数据操作，应先备份并检查依赖查询。
 
 ### 关于 tag
 
-**什么时候该定义一个新 tag？** 当你已经用 default 模板记过至少 **5 条以上同类型笔记**，并且你发现这些笔记共享某种结构（比如都有 "核心观点 / 例子 / 反驳"），才考虑为它建一个专门的 tag。**先用，再结构化**，不要反过来——那些先设计 tag 体系再去写笔记的人，最后往往发现 70% 的 tag 从未被用过。
+**什么时候该定义一个新 tag？** 当一个主题反复出现并且确有检索用途时再建。可以把“积累几条同类记录后再整理”当作个人启发式，而不是经过验证的固定次数阈值。标签用于分类，正文骨架交给模板，不要求每个主题都有专门模板或 properties。
+
+**什么时候把一个 tag 定义为类型？** 当这类笔记需要固定字段，并且你需要按字段查看、筛选或排序时，在 `types.org` 中为它定义类型，`TYPE_TAG` 写成已有的标签名，已有笔记随即属于该类型。只用于分类的标签不必定义为类型。
 
 ### 关于 Dashboard
 
@@ -592,6 +664,60 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 
 **从 Roam 碎片晋升到 Practice 沉淀**：判断问题是"我将来会**主动维护和审阅**它吗？"Practice 层的文件不是被动的档案，是你定期回头修改的活文档。如果一条笔记你写完就再也不会主动打开，它应该留在 Roam 而不是晋升到 Practice——晋升到 Practice 只会让 Practice 目录越来越像坟场。
 
-### 关于 Schema 文件的版本控制
+### 关于版本控制与备份
 
-`supertag-schema.el` 放在 `00_Roam/` 内，和你的笔记一起 git commit。这意味着 schema 的演化历史和笔记的演化历史是**共同**的版本历史——某天你想知道"半年前我的 reading tag 有哪些字段"，直接 `git log` 就能查到。每次做**重大改动**前建议打一个 git tag（例如 `schema-2026-04`），方便回滚。所谓重大改动是指：删除字段、删除 tag、修改 `:type`、修改 `:options` 的可选值列表——任何会让已有数据变得"不合 schema"的改动。单纯添加新字段或新 tag 不算重大改动，不需要打 tag。
+保留 Org 文本和 `.orgseq/`（`types.org`、`capture-templates.el`）的版本历史，这就是完整的数据。org-roam 数据库是索引，恢复或跨机迁移时用 `git checkout` 取回 Org 文件，再运行 `M-x org-roam-db-sync` 重建。重命名类型标签前，先用 `SPC # v` 或 ripgrep 确认受影响的笔记。历史 `supertag-schema.el` 和 `.supertag-metadata.eld` 可以作为档案保留，但不再被读取。
+
+---
+
+## 十二、存储、同步、视图、命令行与 MCP（2026-11-11）
+
+### 存储位置
+
+笔记库是 Emacs 目录下的 `notes/`，由 org-seq 自己创建，位置固定，不需要选择文件夹，启动时也不询问任何问题。`ORG_SEQ_NOTE_HOME` 仍可覆盖这个位置，验证脚本用它隔离写入。设备本地的状态（同步基线、旧库提示是否已显示、命令行索引）放在 Emacs 目录的 `.cache/` 下，不进入笔记库，因为笔记库会在设备之间同步。
+
+笔记库之外的内容只通过四条通道进出（2026-11-12 起）：
+
+- 导入：`SPC n S i`（`my/storage-import`）或 `orgseq import DIR`，把一个文件夹复制进来。带有 `00_Roam/` 或 `.orgseq/` 的文件夹按层合并，其他文件夹整体放到 `30_Library/` 下的同名子目录。只复制笔记库里没有的文件，不覆盖已有文件，不改动来源。旧的 `~/NoteHQ/` 也走这条通道，存在且未导入时只在回显区提示一次，并一直显示在存储状态里。
+- 导出：`SPC n S e`（`my/storage-export`）或 `orgseq export DIR`，把整个笔记库复制到一个带日期的新文件夹。
+- 快照：`SPC n S b`（`my/storage-snapshot`）或 `orgseq snapshot`，把笔记库复制到 Emacs 目录之外的快照目录（Linux 为 `~/.local/share/org-seq/snapshots/`）。笔记库有改动的日子自动做一次，导入前和同步做全量比较前也各做一次，保留最近 `my/storage-snapshot-keep` 份（默认 10）。删除或替换 Emacs 目录不会同时丢掉笔记库和快照。
+- 同步：见下一节。
+
+`SPC n S t`（`my/storage-status`）显示位置、文件数、同步状态和快照；笔记库只有一份副本时 `M-x my/doctor` 给出警告。完整的分层和取舍见 [DESIGN.md](DESIGN.md)。
+
+### 同步
+
+同步引擎是 rclone 的双向同步（bisync），一套实现覆盖 WebDAV（坚果云、Nextcloud 等）、OneDrive 和 Google Drive。账号凭据由 rclone 保存在它自己的配置文件里，不进入仓库、`custom.el` 或笔记库。
+
+- `SPC n S c`（`my/sync-setup`）选择网盘、登录、指定网盘上的文件夹。
+- 第一次同步把两边合并，不删除任何一边的文件。之后启动后不久同步一次，并每隔 `my/sync-auto-interval` 分钟（默认 15）同步一次；`SPC n S s` 立即同步，`SPC n S p` 只预览。
+- 同步单位是整个文件。两台设备改了同一个文件时，较新的一份生效，另一份保留在旁边，文件名带 `.conflict` 后缀；`SPC n S x` 列出这些冲突副本。
+- org-roam 数据库是本机索引，不同步；同步带来变化后自动刷新索引和类型定义。
+
+### 类型（SuperTag）的扩充
+
+- `TYPE_EXTENDS` 指定一个父类型（单继承）：子类型继承父类型的字段和可选值；查询或查看父类型时也包含子类型的节点。
+- 字段类型：`NAME:node`（指向另一个节点的关系）、`NAME:date`、`NAME:number`、`NAME:check`，其余为文本；有 `NAME_ALL` 的字段从可选值里选。
+- 一个节点默认只属于一个类型（`my/node-single-type`）：再加一个类型时询问是否替换，原类型的字段值始终保留在节点上。已经带多个类型标签的笔记照常工作。
+
+### 视图
+
+视图是“查询加布局”，本身不存数据；在视图里改字段或移动卡片，改的是节点所在的 Org 文件。
+
+- 布局：表格（每行一个节点，每列一个字段）、列表（每个节点一行）、看板（分组字段的每个取值一列，`H`/`L` 移动卡片即修改该字段；按 `@todo` 分组时修改 TODO 状态）。`v` 切换布局。
+- 视图内按键：`RET` 打开，`e` 编辑光标所在字段，`t` 设 TODO，`+` 新建节点（自动带上视图的类型、筛选条件要求的字段值和光标所在的分组值），`/` 快速筛选，`G` 分组，`s` 排序，`F` 筛选条件，`c` 列，`w` 保存，`g` 刷新。
+- 筛选条件：`(type "reading")`、`(tag "x")`、`(todo "NEXT")`、`(field "YEAR" > 2020)`、`(field "TOPIC" = current)`、`(field "TOPIC" empty)`、`(modified-within 7)`、`(created-within 7)`、`(links-to ID)`、`(linked-from ID)`、`(under ID)`、`(title "x")`、`(text "x")`，用 `and`、`or`、`not` 组合。
+- 列：字段名；多跳路径 `TOPIC.AREA`（沿 `TOPIC` 里的链接取目标节点的 `AREA`）；反向关系 `<-reading`（链接到本节点的 reading 节点）；`@title @todo @tags @modified @created @in @out`。
+- 保存的视图放在 `.orgseq/views.org`，每个一级标题一个视图，随笔记库同步。`SPC # v` 打开某类型的视图，`SPC n v o` 打开保存的视图，`SPC n v n` 新建。
+- `orgseq-view` 动态块把视图嵌入任意笔记，筛选条件里的 `current` 指动态块所在的节点，例如在课程页里放“所属课程等于当前节点”的资料列表：
+
+```org
+#+BEGIN: orgseq-view :type "material" :filter (field "COURSE" = current) :layout list
+#+END:
+```
+
+### 命令行与 MCP
+
+`bin/orgseq` 不打开 Emacs 界面即可操作同一个笔记库：`add`、`daily`、`search`、`show`、`set`、`retype`、`append`、`types`、`views`、`query`、`sync`、`doctor`、`update`、`reindex`、`info`，加 `--json` 输出 JSON。`orgseq mcp` 以标准输入输出提供 MCP 服务，工具与命令行共用同一组 `my/api-*` 函数和同一条写入路径。
+
+命令行使用自己的节点索引（Emacs 目录下 `.cache/cli-index.db`），由 Org 文件重建，不写交互会话的 org-roam 数据库。

@@ -17,11 +17,6 @@
      :url "https://github.com/jdtsmith/org-modern-indent"
      :owner init-org
      :purpose "Org indentation rendering")
-    (:package org-supertag
-     :library "org-supertag"
-     :url "https://github.com/yibie/org-supertag"
-     :owner init-pkm
-     :purpose "Structured note metadata")
     (:package ob-gptel
      :library "ob-gptel"
      :url "https://github.com/jwiegley/ob-gptel"

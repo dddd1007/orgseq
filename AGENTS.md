@@ -8,13 +8,14 @@ It applies to the entire repository unless a deeper `AGENTS.md` overrides it.
 - `org-seq` is a deployable `~/.emacs.d/` configuration, not a standalone app.
 - Primary target is Windows, with Linux and macOS support.
 - Treat Emacs 30+ as the active requirement. The repo still contains some older 29+ wording in docs; do not copy that drift into new changes.
-- Runtime output is mainly `early-init.el`, `init.el`, `lisp/`, `packages/`, and selected scripts.
+- Runtime output is mainly `early-init.el`, `init.el`, `lisp/`, `packages/`, `bin/`, and selected scripts.
 
 ## Repo Boundaries
 
 - Root files plus `lisp/` are the org-seq config itself.
 - `packages/` holds bundled subprojects that should remain publishable on their own. See `packages/AGENTS.md`.
-- `notehq/` is end-user scaffolding copied into a user's `~/NoteHQ/`. See `notehq/AGENTS.md`.
+- `notehq/` is end-user scaffolding copied into the user's note library. See `notehq/AGENTS.md`.
+- `bin/orgseq` (and `bin/orgseq.cmd`) is the command line and MCP launcher. It runs a batch Emacs that loads `init.el` and then `lisp/orgseq-cli.el`; that file is not an init module and must not be added to `my/init-modules-default`.
 - `doc/` is user-facing documentation and architecture rationale, not runtime code.
 
 ## Elisp Conventions
@@ -40,10 +41,15 @@ These rules apply to `early-init.el`, `init.el`, root helper `.el` files, and `l
 ## Paths And Platform Notes
 
 - Use forward slashes in Elisp paths.
-- Use `file-truename` for paths that feed org-roam, org-mem, or org-supertag.
+- Use `file-truename` for paths that feed org-roam or org-mem.
 - Central path constants belong in `lisp/init-org.el`.
-  - This includes `my/note-home`, `my/orgseq-dir`, `my/roam-dir`, PARA layer paths, dashboard paths, schema paths, and user capture-template paths.
+  - This includes `my/note-home`, `my/orgseq-dir`, `my/roam-dir`, PARA layer paths, dashboard paths, and user capture-template paths.
   - Other modules should consume these variables via `defvar`, not rebuild `00_Roam/`, `10_Outputs/`, or `20_Practice/` by string.
+- The note library (`my/note-home`) defaults to `notes/` under `user-emacs-directory`; the name NoteHQ in docs and identifiers refers to that library. Do not reintroduce a required user-chosen directory. `ORG_SEQ_NOTE_HOME` remains as an override and is what validation uses to isolate writes. The old `~/NoteHQ/` location is only read by `my/storage-import` in `lisp/init-sync.el` and is never modified.
+- The Emacs directory has four owners; keep them apart (see `doc/DESIGN.md`): distribution files (`early-init.el`, `init.el`, `ec`, `lisp/`, `packages/`, `bin/`; the only things deployment writes), user settings (`custom.el`), the library (`notes/`), and rebuildable device state (`.cache/`, `elpa/`, `eln-cache/`).
+- Device-local state (sync baseline, legacy notice, the command-line index) lives under `.cache/` in the Emacs directory, never inside the library, because the library is synced between devices.
+- Content crosses the library boundary only through import, export, snapshots and sync in `lisp/init-sync.el`. Each copies and never modifies its source; import never overwrites. Do not add startup prompts about storage; report state through `my/storage-info` instead.
+- Snapshots live in `my/snapshot-dir` (defined in `lisp/init-org.el`), outside the Emacs directory and outside the library. When `ORG_SEQ_NOTE_HOME` is set the default follows it to a sibling `.snapshots` directory, so validation never writes to the real data directory.
 - Keep Windows-specific notes in plain ASCII comments such as `NOTE(win): ...`.
 - Remember that Windows uses `server-use-tcp t` and the named server `org-seq`.
 
@@ -57,7 +63,7 @@ intentionally absent from `my/init-modules-default`.
 
 The module load order in `init.el` is intentional:
 
-`init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-gtd-dashboard -> init-focus -> init-pkm -> init-supertag -> init-daily -> init-terminal -> init-ai -> init-ai-cli -> init-dashboard -> init-dired -> init-mouse -> init-frame -> init-workspace -> init-update -> init-tty -> init-evil`
+`init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-roam -> init-gtd -> init-gtd-dashboard -> init-focus -> init-pkm -> init-nodes -> init-views -> init-sync -> init-daily -> init-terminal -> init-ai -> init-ai-cli -> init-dashboard -> init-dired -> init-mouse -> init-frame -> init-workspace -> init-update -> init-tty -> init-evil`
 
 Module dependencies are machine-checked: `my/init-module-requires` in `init.el`
 declares each module's dependencies, mirroring the module's `;; Requires:`
@@ -89,6 +95,15 @@ Startup failure visibility:
 - Register Git-hosted package source, owner, and purpose metadata in `lisp/init-packages.el`; keep feature configuration in the owning module.
 - Use `my/vc-package-ensure` for registered Git packages; do not add split Emacs-29/30 bootstrap branches or batch-time network installation.
 - Record copied or closely adapted upstream fragments in `THIRD_PARTY.md` before committing them.
+- Notes are org-roam nodes: any file or heading with an Org ID. The node layer (`lisp/init-nodes.el`) adds types, fields, table views, and dashboard queries on top of org-roam; do not add a second note database or a package that keeps its own copy of note data.
+- Node types are defined only in `.orgseq/types.org` under NoteHQ (`my/types-file`, defined in `lisp/init-org.el`). A type is an Org tag, a list of fields, and a capture template. Do not hard-code types in Elisp.
+- Org text is the only authority. Types are tags, fields are ordinary Org properties, relations are `[[id:]]` links. The org-roam database is an index that can always be rebuilt with `M-x org-roam-db-sync`.
+- Views (`lisp/init-views.el`) are a query plus a layout (table, list, board) over org-roam nodes. Saved views are headings in `.orgseq/views.org` (`my/views-file`); they hold no note data. Edits made in a view go through `my/node-call-at-id` into the node's Org file. Add new layouts and filter forms there instead of building a separate view store.
+- A type may extend one parent type (`TYPE_EXTENDS`). `my/node-single-type` makes a node an instance of one type by default; notes carrying several type tags must keep working.
+- Library sync (`lisp/init-sync.el`) uses rclone bisync so one engine covers WebDAV, OneDrive and Google Drive. Credentials stay in rclone's config; never store them in the repo, `custom.el`, or the library. The org-roam database is a local index and is excluded from sync.
+- The command line and the MCP tools (`lisp/orgseq-cli.el`) call the same `my/api-*` functions and the same write path as the interactive commands. They keep their own index (`.cache/cli-index.db`) instead of writing the interactive session's org-roam database. Standard output of `orgseq mcp` carries protocol messages only.
+- Keep dashboards in `00_Roam/dashboards/` query-only. Write new dashboard tables as `orgseq-query` dynamic blocks; the `supertag-query` renderer exists only so dashboards written before Supertag was removed (2026-10-22) keep working.
+- Preserve org-roam capture, Daily, PARA, and GTD.
 
 ## Validation
 
@@ -178,6 +193,7 @@ For `.org` files anywhere in the repo:
 - `elisp-lint`: run the full byte-compile pass described above.
 - `startup-check`: run `emacs --batch -Q -l init.el`.
 - `add-package`: follow the package-placement rules in this file and `packages/AGENTS.md`.
+- `cli-check`: from a source checkout run `ORG_SEQ_PACKAGE_DIR=~/.emacs.d/elpa ORG_SEQ_NOTE_HOME=<temp dir> bin/orgseq doctor`; never point a test run at the real library.
 - `centralize-paths`: define shared NoteHQ/PARA paths in `lisp/init-org.el`, then consume them elsewhere with `defvar`.
 - `review-and-commit`: review `git diff`, stage only intended tracked files, leave local pi/session/untracked state alone unless asked, commit with the existing style, then push.
 - `deploy-config`: prefer `deploy.ps1` or `deploy.sh`.

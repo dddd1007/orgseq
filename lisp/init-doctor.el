@@ -6,6 +6,7 @@
 (defvar my/--init-errors nil)
 (defvar my/--init-results nil)
 (defvar my/note-home)
+(defvar my/sync-remote)
 (defvar ghostel-module-directory)
 (defvar my/terminal-popup-command)
 (defvar my/codex-command)
@@ -154,7 +155,35 @@ Each entry contains :id, :label, and :check keys.")
    (t
     (my/doctor--payload
      'warn (format "Directory does not exist: %s" my/note-home)
-     "Run the NoteHQ bootstrap script or M-x my/ensure-notehq-structure."))))
+     "Start Emacs once, or run M-x my/ensure-notehq-structure."))))
+
+(declare-function my/storage-info "init-sync" ())
+
+(defun my/doctor--check-library-protection ()
+  "Check that the library exists in more than one place.
+Read-only: neither syncs nor takes a snapshot."
+  (if (not (fboundp 'my/storage-info))
+      (my/doctor--payload
+       'warn "init-sync is not loaded"
+       "Inspect init-sync with M-x my/init-errors.")
+    (let* ((info (my/storage-info))
+           (snapshots (plist-get info :snapshots))
+           (synced (bound-and-true-p my/sync-remote)))
+      (cond
+       ((zerop (plist-get info :files))
+        (my/doctor--payload 'pass "The library is empty"))
+       ((or synced (> snapshots 0))
+        (my/doctor--payload
+         'pass (format "%s; %d local snapshots%s"
+                       (if synced (format "syncs with %s" my/sync-remote) "sync off")
+                       snapshots
+                       (if (plist-get info :last-snapshot)
+                           (format ", newest %s" (plist-get info :last-snapshot))
+                         ""))))
+       (t
+        (my/doctor--payload
+         'warn (format "The only copy is %s" (plist-get info :library))
+         "Run M-x my/storage-snapshot, or M-x my/sync-setup for a cloud remote."))))))
 
 (defun my/doctor--check-module-loads ()
   "Report module load failures recorded by the guarded loader."
@@ -204,6 +233,12 @@ REQUIRED makes a missing executable a failure instead of a warning."
     (my/doctor--check-executable
      (list command) t
      "Customize my/terminal-popup-command to an installed shell.")))
+
+(defun my/doctor--check-rclone ()
+  "Check rclone, which carries library sync (init-sync)."
+  (my/doctor--check-executable
+   '("rclone") nil
+   "Install rclone to sync the library with WebDAV, OneDrive or Google Drive."))
 
 (defun my/doctor--check-yazi ()
   "Check optional Yazi integration."
@@ -355,7 +390,7 @@ nil when the source or the constant cannot be found."
 
 (defun my/doctor--check-active-packages ()
   "Check representative packages required by active core workflows."
-  (let* ((libraries '("general" "evil" "org-roam" "org-ql" "org-supertag"))
+  (let* ((libraries '("general" "evil" "org-roam" "org-ql" "org-node"))
          (missing (cl-remove-if #'locate-library libraries)))
     (if missing
         (my/doctor--payload
@@ -371,8 +406,10 @@ nil when the source or the constant cannot be found."
          :check my/doctor--check-sqlite)
         (:id dynamic-modules :label "Dynamic modules"
          :check my/doctor--check-dynamic-modules)
-        (:id note-home :label "NoteHQ root"
+        (:id note-home :label "Note library"
          :check my/doctor--check-note-home)
+        (:id library-protection :label "Library copies"
+         :check my/doctor--check-library-protection)
         (:id module-loads :label "Module loading"
          :check my/doctor--check-module-loads)
         (:id ghostel :label "Ghostel"
@@ -389,6 +426,8 @@ nil when the source or the constant cannot be found."
          :check my/doctor--check-rg)
         (:id fd :label "fd"
          :check my/doctor--check-fd)
+        (:id rclone :label "rclone (library sync)"
+         :check my/doctor--check-rclone)
         (:id yazi :label "Yazi"
          :check my/doctor--check-yazi)
         (:id ai-clis :label "AI command-line tools"

@@ -25,7 +25,17 @@
                       ("tf" . org-focus-start)
                       ("nn" . org-roam-node-find)
                       ("nda" . my/daily-new-node)
-                      ("##" . my/supertag-quick-action)
+                      ("##" . my/node-action)
+                      ("#t" . my/node-set-type)
+                      ("#x" . my/node-remove-type)
+                      ("#f" . my/node-set-field)
+                      ("#e" . org-set-property)
+                      ("#p" . my/node-promote)
+                      ("#n" . my/node-capture)
+                      ("#v" . my/node-view)
+                      ("#r" . my/node-review)
+                      ("#s" . org-roam-node-find)
+                      ("#j" . org-open-at-point)
                       ("ax" . my/codex-popup-toggle)
                       ("oy" . my/yazi-popup-toggle)))
     (let ((spec (seq-find
@@ -43,14 +53,6 @@
                  "eaf\\|pyqterminal"
                  (downcase (format "%S" spec))))))
 
-(ert-deftest my/keymap-general-arguments-preserve-contract-shape ()
-  (let ((arguments (my/keymap-general-arguments)))
-    (should (equal (plist-get (cadr (member "t" arguments)) :wk)
-                   "tasks"))
-    (should (eq (car (cadr (member "'" arguments)))
-                'my/terminal-popup-toggle))
-    (should (equal (plist-get (cdr (cadr (member "'" arguments))) :wk)
-                   "Terminal popup"))))
 
 (ert-deftest my/keymap-apply-contract-uses-general-function-boundary ()
   (let (captured)

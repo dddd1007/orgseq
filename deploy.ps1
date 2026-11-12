@@ -299,6 +299,15 @@ function Deploy-Config {
         Write-Pass "packages/ ($pkgCount elisp files)"
     }
 
+    # Command line and MCP launcher (bin/orgseq); loads lisp/orgseq-cli.el.
+    $binSrc = Join-Path $ScriptDir "bin"
+    $binDst = Join-Path $Target "bin"
+    if (Test-Path $binSrc) {
+        New-Item -ItemType Directory -Force -Path $binDst | Out-Null
+        Copy-Item -Force (Join-Path $binSrc "*") $binDst
+        Write-Pass "bin/ (orgseq command line)"
+    }
+
     $rimeFrostDict = Join-Path $ScriptDir "pyim\rime-frost.pyim"
     if (Test-Path $rimeFrostDict) {
         $pyimDst = Join-Path $Target "pyim"
@@ -575,25 +584,26 @@ function Test-Deployment {
 
 function Write-PostInstall {
     Write-Section "Deployment complete"
-    $noteHome = if ($env:ORG_SEQ_NOTE_HOME) { $env:ORG_SEQ_NOTE_HOME } else { "~/NoteHQ/" }
+    $noteHome = if ($env:ORG_SEQ_NOTE_HOME) { $env:ORG_SEQ_NOTE_HOME } else { Join-Path $Target "notes" }
     Write-Host ""
     Write-Host "  Next steps:" -ForegroundColor White
-    Write-Host "    1. Run:  .\scripts\bootstrap-notes.ps1  (creates the NoteHQ directory structure)"
+    Write-Host "    1. Optional: .\scripts\bootstrap-notes.ps1  (seed files; Emacs creates the library itself)"
     Write-Host "    2. Launch Emacs — packages auto-install on first run (needs internet)"
     Write-Host "    3. Run:  M-x nerd-icons-install-fonts"
     Write-Host "       Then right-click downloaded .ttf files → Install (Windows)"
-    Write-Host "    4. Run:  M-x supertag-sync-full-initialize  (first-time supertag index)"
+    Write-Host "    4. Run:  M-x org-roam-db-sync  (first-time index of existing notes)"
     Write-Host "    5. Optional: Point Obsidian at $noteHome as reading client"
     Write-Host ""
-    Write-Host "  NoteHQ root:" -ForegroundColor DarkGray
-    Write-Host "    ORG_SEQ_NOTE_HOME = $noteHome" -ForegroundColor DarkGray
-    if (-not $env:ORG_SEQ_NOTE_HOME) {
-        Write-Host "    Set ORG_SEQ_NOTE_HOME before launching Emacs to use another notes root." -ForegroundColor DarkGray
-    }
+    Write-Host "  Note library:" -ForegroundColor DarkGray
+    Write-Host "    $noteHome" -ForegroundColor DarkGray
+    Write-Host "    Sync across devices:  M-x my/sync-setup  (WebDAV, OneDrive, Google Drive; needs rclone)" -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "  Command line:" -ForegroundColor DarkGray
+    Write-Host "    Add $Target\bin to PATH, then:  orgseq help   (orgseq mcp serves MCP clients)" -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "  Key bindings:" -ForegroundColor DarkGray
     Write-Host "    SPC d       → Daily workspace     SPC t d  → GTD dashboard" -ForegroundColor DarkGray
-    Write-Host "    SPC n c     → new note            SPC # t/c → schema/templates" -ForegroundColor DarkGray
+    Write-Host "    SPC n c     → new note            SPC # t/c → tags/templates" -ForegroundColor DarkGray
     Write-Host "    SPC P o/p/l → PARA navigation     SPC n v v → dashboards" -ForegroundColor DarkGray
     Write-Host ""
 }

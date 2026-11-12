@@ -7,6 +7,9 @@
 (declare-function my/daily-date-records "init-daily" (&optional time count))
 (declare-function my/daily-workspace-open "init-daily" ())
 (declare-function my/daily-workspace-open-date "init-daily" (time))
+(declare-function my/org-open-task-dashboard "init-gtd" ())
+(declare-function my/org-open-weekly-review "init-gtd" ())
+(declare-function deft "deft" ())
 
 (defconst my/dashboard-version-file
   (expand-file-name ".org-seq-version" user-emacs-directory)
@@ -72,11 +75,17 @@
   (let ((items
          (mapcar
           (lambda (record)
-            (propertize
-             (format "%s  %s"
-                     (plist-get record :label)
-                     (plist-get record :date))
-             'my/daily-time (plist-get record :time)))
+            ;; Date first so the column lines up; the weekday (or Today)
+            ;; follows instead of repeating the month and day.
+            (let ((label (plist-get record :label))
+                  (time (plist-get record :time)))
+              (propertize
+               (format "%s  %s"
+                       (plist-get record :date)
+                       (if (string-match-p "\\`[[:alpha:]]+\\'" label)
+                           label
+                         (format-time-string "%A" time)))
+               'my/daily-time time)))
           (my/daily-date-records nil list-size))))
     (dashboard-insert-section
      "Daily Notes:" items list-size 'daily
@@ -166,7 +175,19 @@
     (when my/dashboard--resize-timer
       (cancel-timer my/dashboard--resize-timer))
     (setq my/dashboard--resize-timer
-          (run-with-idle-timer 0.1 nil #'my/dashboard-vertically-center))))
+          (run-with-idle-timer 0.1 nil #'my/dashboard--refit))))
+
+(declare-function dashboard-insert-startupify-lists "dashboard"
+                  (&optional force-refresh))
+(defvar my/dashboard--layout)
+
+(defun my/dashboard--refit ()
+  "Re-render the dashboard when its width class changed, then center it."
+  (when-let* ((window (get-buffer-window dashboard-buffer-name)))
+    (unless (eq (my/dashboard--layout-class window) my/dashboard--layout)
+      (with-selected-window window
+        (dashboard-insert-startupify-lists t))))
+  (my/dashboard-vertically-center))
 
 (defun my/dashboard--kill-cleanup ()
   "Cancel orphaned resize timer when the dashboard buffer is killed."
@@ -174,13 +195,89 @@
     (cancel-timer my/dashboard--resize-timer)
     (setq my/dashboard--resize-timer nil)))
 
+;; ---- Width-aware layout ----
+;; The dashboard often shares a half-screen frame with the sidebar, which
+;; leaves it 50-60 columns.  The ASCII banner is 60 columns wide and the
+;; five navigator buttons need about 70; both were clipped with truncation
+;; arrows.  The banner and the navigator rows are therefore chosen from
+;; the width of the window that shows the dashboard, and re-chosen when a
+;; resize crosses a threshold.
+(defconst my/dashboard--lisp-dir
+  (file-name-directory (or load-file-name buffer-file-name))
+  "Directory holding the banner files.")
+
+(defvar dashboard-startup-banner)
+(defvar dashboard-navigator-buttons)
+
+(defvar my/dashboard--layout nil
+  "Layout class the dashboard was last rendered with.")
+
+(defun my/dashboard--window ()
+  "Return the window showing the dashboard, or the selected window."
+  (or (and (boundp 'dashboard-buffer-name)
+           (get-buffer-window dashboard-buffer-name))
+      (selected-window)))
+
+(defun my/dashboard--layout-class (&optional window)
+  "Return the layout class for WINDOW: `wide', `medium' or `narrow'."
+  (let ((width (window-width (or window (my/dashboard--window)))))
+    (cond ((>= width 76) 'wide)
+          ((>= width 64) 'medium)
+          (t 'narrow))))
+
+(defun my/dashboard--navigator-specs ()
+  "Return the navigator buttons as a flat list."
+  (list
+   (list (my/dashboard-icon "nf-md-notebook_edit")
+         " Today " "Open today's daily note  [SPC n d d]"
+         (lambda (&rest _) (my/daily-workspace-open))
+         nil "" "   ")
+   (list (my/dashboard-icon "nf-md-magnify")
+         " Find " "Search all NoteHQ notes with Deft  [SPC n f]"
+         (lambda (&rest _) (deft))
+         nil "" "   ")
+   (list (my/dashboard-icon "nf-md-format_list_checks")
+         " Tasks " "Open GTD task dashboard  [SPC a n]"
+         (lambda (&rest _) (my/org-open-task-dashboard))
+         nil "" "   ")
+   (list (my/dashboard-icon "nf-md-calendar_week")
+         " Review " "Open weekly review  [SPC a w]"
+         (lambda (&rest _) (my/org-open-weekly-review))
+         nil "" "   ")
+   (list (my/dashboard-icon "nf-md-history")
+         " Last File " "Open the most recently edited file"
+         (lambda (&rest _) (my/dashboard-open-last-file))
+         nil "" "")))
+
+(defun my/dashboard--apply-layout (&optional class)
+  "Choose the banner and navigator rows for layout CLASS."
+  (let ((class (or class (my/dashboard--layout-class)))
+        (specs (my/dashboard--navigator-specs)))
+    (setq my/dashboard--layout class
+          dashboard-startup-banner
+          (expand-file-name (if (eq class 'narrow)
+                                "banner-narrow.txt"
+                              "banner-compact.txt")
+                            my/dashboard--lisp-dir)
+          ;; Empty prefix/suffix drop the default [ ] brackets: the accent
+          ;; color already marks the buttons as actions.
+          dashboard-navigator-buttons
+          (if (eq class 'wide)
+              (list specs)
+            (list (seq-take specs 3) (seq-drop specs 3))))))
+
+(defun my/dashboard--init-info ()
+  "Return a short startup summary that fits a narrow window."
+  (format "%d packages, started in %.2f s"
+          (length (bound-and-true-p package-activated-list))
+          (float-time (time-subtract after-init-time before-init-time))))
+
 (use-package dashboard
   :demand t
   :config
-  (setq dashboard-startup-banner
-        (expand-file-name "banner-compact.txt"
-                          (file-name-directory
-                           (or load-file-name buffer-file-name))))
+  (my/dashboard--apply-layout)
+  (add-hook 'dashboard-before-initialize-hook #'my/dashboard--apply-layout)
+  (setq dashboard-init-info #'my/dashboard--init-info)
 
   (setq dashboard-banner-logo-title nil
         dashboard-center-content t
@@ -212,27 +309,10 @@
   (setq dashboard-startupify-list
         '(dashboard-insert-banner
           dashboard-insert-navigator
+          dashboard-insert-newline
           dashboard-insert-init-info
           dashboard-insert-items
           dashboard-insert-footer))
-
-  ;; Quick action buttons — horizontal row
-  (setq dashboard-navigator-buttons
-        `(((,(my/dashboard-icon "nf-md-notebook_edit")
-           " Today " "Open today's daily note  [SPC n d d]"
-           (lambda (&rest _) (my/daily-workspace-open)))
-          (,(my/dashboard-icon "nf-md-magnify")
-           " Find " "Search all NoteHQ notes with Deft  [SPC n f]"
-           (lambda (&rest _) (deft)))
-          (,(my/dashboard-icon "nf-md-format_list_checks")
-           " Tasks " "Open GTD task dashboard  [SPC a n]"
-           (lambda (&rest _) (my/org-open-task-dashboard)))
-          (,(my/dashboard-icon "nf-md-calendar_week")
-           " Review " "Open weekly review  [SPC a w]"
-           (lambda (&rest _) (my/org-open-weekly-review)))
-          (,(my/dashboard-icon "nf-md-history")
-           " Last File " "Open the most recently edited file"
-           (lambda (&rest _) (my/dashboard-open-last-file))))))
 
   ;; ---- Vertical centering ----
 

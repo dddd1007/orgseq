@@ -19,6 +19,7 @@
 ;; └─────────────────────────────────────────────────────────────────┘
 
 ;; Requires: init-gtd (agenda cache, view openers, GTD state predicates)
+;; Requires: init-ui (surface, accent, section-title, and hint faces)
 
 (require 'cl-lib)
 (require 'org)
@@ -77,23 +78,32 @@
     (when (markerp m) (set-marker m nil)))
   (setq my/gtd--old-markers nil))
 
-(defun my/gtd--dash-row (label count action)
-  "Insert a dashboard row: LABEL, COUNT, ACTION on RET."
-  (let ((start (point)))
-    (insert (format "  %-14s%s" label
-                    (cond ((or (equal count "") (eql count 0)) "")
-                          ((stringp count) (format " %s" count))
-                          (t (format " %d" count)))))
+(defconst my/gtd--dash-count-column 26
+  "Column at which dashboard counts end (counts are right-aligned).")
+
+(defun my/gtd--dash-row (label count action &optional emphasize)
+  "Insert a dashboard row: LABEL, COUNT, ACTION on RET.
+Zero or empty counts are omitted.  When EMPHASIZE is non-nil a positive
+count uses the accent color: it marks items that need processing."
+  (let* ((start (point))
+         (text (cond ((or (equal count "") (eql count 0)) nil)
+                     ((stringp count) count)
+                     (t (number-to-string count)))))
+    (insert "  " label)
+    (when text
+      (insert (propertize " " 'display
+                          `(space :align-to ,(- my/gtd--dash-count-column
+                                                (string-width text))))
+              (propertize text 'face (if emphasize
+                                         '(:inherit my/ui-accent :weight semibold)
+                                       'my/ui-hint))))
     (add-text-properties start (point)
                          (list 'gtd-action action 'mouse-face 'highlight)))
   (insert "\n"))
 
 (defun my/gtd--dash-section (text)
   "Insert a non-clickable section label."
-  (let ((start (point)))
-    (insert (format "  %s\n" text))
-    (add-text-properties start (point)
-                         '(face (:inherit shadow :height 1.0)))))
+  (insert "  " (propertize (upcase text) 'face 'my/ui-section-title) "\n"))
 
 (defun my/gtd-dashboard-activate ()
   "Open the GTD view for the current dashboard row."
@@ -203,8 +213,9 @@ Uses org-ql for efficient querying across agenda files."
               (my/gtd-dashboard-activate)))
 
           (insert "\n")
-          (my/gtd--dash-row "Inbox"    inbox    (lambda () (my/org-open-inbox)))
-          (my/gtd--dash-row "Today"    today    (lambda () (my/org-open-today)))
+          (my/gtd--dash-section "Views")
+          (my/gtd--dash-row "Inbox"    inbox    (lambda () (my/org-open-inbox)) t)
+          (my/gtd--dash-row "Today"    today    (lambda () (my/org-open-today)) t)
           (my/gtd--dash-row "Upcoming" upcoming #'my/org-open-upcoming)
           (my/gtd--dash-row "Anytime"  anytime  (lambda () (my/org-open-anytime)))
           (my/gtd--dash-row "Waiting"  waiting  (lambda () (my/org-open-waiting)))
@@ -213,41 +224,64 @@ Uses org-ql for efficient querying across agenda files."
 
           ;; Projects section
           (when proj-entries
-            (insert "\n")
-            (my/gtd--dash-section "Projects")
-            (dolist (entry proj-entries)
-              (let* ((name (aref entry 0))
-                     (mark (aref entry 1))
-                     (child-active (aref entry 2))
-                     (child-total (aref entry 3))
-                     (has-next (aref entry 4))
-                     (indicator (cond ((= child-total 0) "?")
-                                      ((> has-next 0) " ")
-                                      ((> child-active 0) "~")
-                                       (t "*")))
-                     (max-len (- (min 30 (window-width)) 6))
-                     (display (if (> (length name) max-len)
-                                  (concat (substring name 0 (1- max-len)) "…")
-                                name))
-                     (label (if (string= indicator " ")
-                                display
-                              (concat indicator " " display)))
-                     (start (point))
-                     (action (let ((m mark))
-                                (lambda ()
-                                  (if-let* ((source-buffer (marker-buffer m)))
-                                      (progn
-                                        (switch-to-buffer source-buffer)
-                                        (widen)
-                                        (goto-char m)
-                                        (org-narrow-to-subtree)
-                                        (goto-char (point-min)))
-                                    (message "org-seq GTD: project source moved; refresh dashboard"))))))
-                 (insert (format "  %s\n" label))
-                 (add-text-properties start (1- (point))
-                                      (list 'gtd-action action
-                                            'mouse-face 'highlight
-                                            'face 'default)))))
+            (let ((has-flagged nil))
+              (insert "\n")
+              (my/gtd--dash-section "Projects")
+              (dolist (entry proj-entries)
+                (let* ((name (aref entry 0))
+                       (mark (aref entry 1))
+                       (child-active (aref entry 2))
+                       (child-total (aref entry 3))
+                       (has-next (aref entry 4))
+                       ;; Project health: "?" no tasks yet, "~" active but
+                       ;; no NEXT action, "!" stalled (no open task).  The
+                       ;; glyph, its color, and the legend below agree, so
+                       ;; color is not the only cue.
+                       (indicator (cond ((= child-total 0) "?")
+                                        ((> has-next 0) " ")
+                                        ((> child-active 0) "~")
+                                        (t "!")))
+                       (indicator-face (pcase indicator
+                                         ("?" 'shadow)
+                                         ("~" 'warning)
+                                         ("!" 'error)))
+                       (max-len (- (min 30 (window-width)) 6))
+                       ;; Plain text: the heading's own level face would
+                       ;; render each project at heading size.
+                       (name (substring-no-properties name))
+                       (display (if (> (length name) max-len)
+                                    (concat (substring name 0 (1- max-len)) "…")
+                                  name))
+                       (label (concat (propertize indicator
+                                                  'face indicator-face)
+                                      " " display))
+                       (start (point))
+                       (action (let ((m mark))
+                                 (lambda ()
+                                   (if-let* ((source-buffer (marker-buffer m)))
+                                       (progn
+                                         (switch-to-buffer source-buffer)
+                                         (widen)
+                                         (goto-char m)
+                                         (org-narrow-to-subtree)
+                                         (goto-char (point-min)))
+                                     (message "org-seq GTD: project source moved; refresh dashboard"))))))
+                  (unless (string= indicator " ") (setq has-flagged t))
+                  (insert (format "  %s\n" label))
+                  (add-text-properties start (1- (point))
+                                       (list 'gtd-action action
+                                             'mouse-face 'highlight
+                                             'help-echo
+                                             (pcase indicator
+                                               ("?" "No tasks under this project yet")
+                                               ("~" "Active, but no NEXT action")
+                                               ("!" "Stalled: no open task")
+                                               (_ "Has a NEXT action"))))))
+              (when has-flagged
+                (insert "  "
+                        (propertize "! stalled   ~ no next   ? empty"
+                                    'face 'my/ui-hint)
+                        "\n"))))
 
           ;; Context section
           (when my/gtd-context-tags
@@ -266,8 +300,13 @@ Uses org-ql for efficient querying across agenda files."
           (insert "\n")
           (goto-char (point-min))))
       (my/gtd--show-buffer buf)
+      ;; Start on the first actionable row so RET works immediately and the
+      ;; row highlight marks a real item.
       (with-current-buffer buf
-        (goto-char (point-min))))))
+        (goto-char (or (next-single-property-change (point-min) 'gtd-action)
+                       (point-min)))
+        (dolist (window (get-buffer-window-list buf nil t))
+          (set-window-point window (point)))))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Auto-refresh

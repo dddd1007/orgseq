@@ -1,7 +1,7 @@
 ;;; init-daily.el --- Daily-first workspace and navigation -*- lexical-binding: t; -*-
 
 ;; Requires: init-roam (my/roam-dir, dailies path helpers)
-;; Requires: init-pkm (my/supertag-schedule-sync)
+;; Requires: init-ui (surface, accent, and hint faces)
 
 (require 'calendar)
 (require 'button)
@@ -15,7 +15,6 @@
 
 (declare-function my/org-roam-dailies--file-for-date "init-roam" (time))
 (declare-function my/org-roam-dailies-open-date "init-roam" (time))
-(declare-function my/supertag-schedule-sync "init-pkm" ())
 (declare-function my/workspace-close-treemacs "init-workspace" ())
 
 (defcustom my/daily-sidebar-days 14
@@ -23,7 +22,7 @@
   :type 'integer
   :group 'org-seq)
 
-(defcustom my/daily-sidebar-width 25
+(defcustom my/daily-sidebar-width 28
   "Width in columns of the Daily sidebar."
   :type 'integer
   :group 'org-seq)
@@ -153,20 +152,11 @@
     (save-buffer)
     marker))
 
-(defun my/daily--schedule-supertag-sync ()
-  "Request existing debounced supertag sync without breaking save."
-  (when (fboundp 'my/supertag-schedule-sync)
-    (condition-case err
-        (my/supertag-schedule-sync)
-      (error
-       (message "WARNING org-seq: Daily supertag sync failed: %s" err)))))
-
+;; Marks Daily buffers.  Indexing needs no hook here: org-mem's updater
+;; (init-roam) re-indexes every saved Org file under the roam directory.
 (define-minor-mode my/daily-note-mode
   "Minor mode for org-seq Daily Notes."
-  :lighter " Daily"
-  (if my/daily-note-mode
-      (add-hook 'after-save-hook #'my/daily--schedule-supertag-sync nil t)
-    (remove-hook 'after-save-hook #'my/daily--schedule-supertag-sync t)))
+  :lighter " Daily")
 
 (defun my/daily--maybe-enable-note-mode ()
   "Enable `my/daily-note-mode' for files in the dailies directory."
@@ -193,21 +183,84 @@
 
 (define-derived-mode my/daily-sidebar-mode special-mode "Daily-Notes"
   "Major mode for recent Daily Note navigation."
-  (setq-local truncate-lines t))
+  ;; A menu, not a document: the header row names it, the highlighted row
+  ;; shows the position (see `my/ui-surface-setup'), so neither a mode line
+  ;; nor a text cursor adds information.
+  (setq-local truncate-lines t
+              mode-line-format nil
+              cursor-type nil))
 
-(defun my/daily-sidebar--insert-record (record)
-  "Insert one actionable sidebar row for RECORD."
-  (insert-text-button
-   (format "%s %-10s %s"
-           (if (plist-get record :exists) "*" ".")
-           (plist-get record :label)
-           (plist-get record :date))
-   'follow-link t
-   'my/daily-time (plist-get record :time)
-   'action (lambda (button)
-             (my/daily-workspace-open-date
-              (button-get button 'my/daily-time))))
+;; ---- Sidebar rendering ----
+;; Rows read "dot  weekday ... Mon DD".  The dot is filled when a note
+;; exists and hollow when opening the day would create one, so the
+;; distinction does not rely on color alone.  Today uses the accent color.
+;; A short gap separates calendar weeks to make the list scannable.
+
+(defface my/daily-sidebar-today
+  '((t :inherit my/ui-accent :weight semibold))
+  "Daily sidebar row for today."
+  :group 'org-seq)
+
+(defface my/daily-sidebar-missing
+  '((t :inherit shadow))
+  "Daily sidebar row for a day without a note."
+  :group 'org-seq)
+
+(define-button-type 'my/daily-sidebar-row
+  'face nil
+  'follow-link t
+  'mouse-face 'highlight
+  'action (lambda (button)
+            (my/daily-workspace-open-date
+             (button-get button 'my/daily-time))))
+
+(defun my/daily-sidebar--row-label (record offset)
+  "Return the weekday label for RECORD at OFFSET days before today."
+  (cond ((plist-get record :today) "Today")
+        ((= offset 1) "Yesterday")
+        (t (format-time-string "%A" (plist-get record :time)))))
+
+(defun my/daily-sidebar--insert-record (record &optional offset)
+  "Insert one actionable sidebar row for RECORD.
+OFFSET is the number of days between RECORD and today."
+  (let* ((offset (or offset 0))
+         (time (plist-get record :time))
+         (exists (plist-get record :exists))
+         (face (cond ((plist-get record :today) 'my/daily-sidebar-today)
+                     (exists nil)
+                     (t 'my/daily-sidebar-missing)))
+         (row (concat
+               " "
+               (propertize (if exists "\u25cf" "\u25cb")
+                           'face (or face 'my/ui-hint))
+               "  "
+               (propertize (my/daily-sidebar--row-label record offset)
+                           'face face)
+               (propertize " " 'display '(space :align-to (- right 8)))
+               (propertize (format-time-string "%b %d" time)
+                           'face (if (plist-get record :today)
+                                     'my/daily-sidebar-today
+                                   'my/ui-hint)))))
+    (insert-text-button
+     row
+     :type 'my/daily-sidebar-row
+     'my/daily-time time
+     'help-echo (format "%s%s"
+                        (plist-get record :date)
+                        (if exists "" " (no note yet; opening creates it)"))))
   (insert "\n"))
+
+(defun my/daily-sidebar--insert-hints ()
+  "Insert the key hint block at the bottom of the Daily sidebar."
+  (dolist (row '((("RET" . "open") ("t" . "today"))
+                 (("c" . "pick date") ("g" . "refresh"))))
+    (insert " ")
+    (dolist (hint row)
+      (insert (propertize (car hint) 'face 'my/ui-key)
+              " "
+              (propertize (cdr hint) 'face 'my/ui-hint)
+              "   "))
+    (insert "\n")))
 
 (defun my/daily-sidebar-refresh ()
   "Refresh the Daily sidebar without creating note files."
@@ -218,13 +271,29 @@
         (my/daily-sidebar-mode))
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (insert "Daily Notes\n\n")
+        (insert "\n " (propertize "DAILY NOTES" 'face 'my/ui-section-title)
+                "\n")
         (setq my/daily-sidebar-records
               (my/daily-date-records (funcall my/daily--clock)))
-        (dolist (record my/daily-sidebar-records)
-          (my/daily-sidebar--insert-record record))
-        (insert "\nRET open   t today   c calendar   g refresh\n")
-        (goto-char (point-min))))
+        (let ((offset 0))
+          (dolist (record my/daily-sidebar-records)
+            (my/daily-sidebar--insert-record record offset)
+            ;; Records run newest first, so a Monday closes a week.
+            (when (and (= (decoded-time-weekday
+                           (decode-time (plist-get record :time)))
+                          1)
+                       (< (1+ offset) (length my/daily-sidebar-records)))
+              (insert (propertize "\n" 'face '(:height 0.5))))
+            (setq offset (1+ offset))))
+        (insert "\n")
+        (my/daily-sidebar--insert-hints)
+        (goto-char (point-min))
+        (when-let* ((first (next-button (point-min))))
+          (goto-char (button-start first))
+          ;; Keep visible sidebars on a real row so the row highlight
+          ;; marks an item instead of the blank top line.
+          (dolist (window (get-buffer-window-list buffer nil t))
+            (set-window-point window (point))))))
     buffer))
 
 (defun my/daily-sidebar-window ()

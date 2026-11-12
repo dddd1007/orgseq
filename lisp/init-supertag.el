@@ -1,33 +1,12 @@
-;;; init-supertag.el --- Tana-style structured tags + PARA navigation + dashboard helpers -*- lexical-binding: t; -*-
+;;; init-supertag.el --- Supertag V2, capture templates, and PARA navigation -*- lexical-binding: t; -*-
 ;;
-;; This module is the USER-FACING side of org-supertag integration. The
-;; package itself is installed and minimally configured by init-pkm.el;
-;; this file layers on:
-;;
-;;   - Schema edit/reload                 (my/edit-supertag-schema, SPC n m t/T)
-;;   - Capture template management        (my/user-capture-templates merged
-;;                                         with my/default-capture-templates
-;;                                         from init-roam.el)
-;;   - Context-aware quick-action menu    (my/supertag-quick-action, SPC n p p)
-;;   - Tana-style node action menu        (my/node-action, SPC n n / , ,)
-;;   - Dashboard open/create/find         (my/dashboard-find, my/dashboard-create)
-;;   - PARA layer navigation              (my/find-in-outputs, my/ripgrep-notehq)
-;;   - NoteHQ directory bootstrap         (my/ensure-notehq-structure, runs on load)
-;;
-;; Load order:
-;;
-;;   init-org  ->  init-roam  ->  init-gtd  ->  init-pkm  ->  init-supertag
-;;   (paths)       (templates)                   (install)     (this file)
-;;
-;; The split between init-pkm (bootstrap) and init-supertag (higher-level)
-;; exists because init-supertag depends on `my/default-capture-templates'
-;; from init-roam.el, which must load before the supertag package can be
-;; set up. Keeping the install in init-pkm means "packages that need to
-;; be installed early" and "features that need the install plus downstream
-;; state" stay separate.
+;; Org files own note text, identities, properties, and explicit links.
+;; Supertag provides semantic tag metadata, document projections, and views.
+;; Keep the existing org-roam capture workflow and query-only dashboards;
+;; V2 has no typed-field schema or dedicated capture implementation.
 
 ;; Requires: init-org  (NoteHQ path constants)
-;; Requires: init-pkm  (org-supertag package installed)
+;; Requires: init-pkm  (Supertag V2 package installed)
 ;; Requires: init-roam (my/default-capture-templates)
 (defvar my/note-home)
 (defvar my/orgseq-dir)
@@ -37,7 +16,6 @@
 (defvar my/library-dir)
 (defvar my/archives-dir)
 (defvar my/dashboards-dir)
-(defvar my/schema-file)
 (defvar my/capture-templates-file)
 (defvar my/default-capture-templates)
 (defvar org-roam-capture-templates)
@@ -48,11 +26,9 @@
 (declare-function consult-ripgrep "consult")
 (declare-function org-roam-capture- "org-roam-capture")
 (declare-function org-roam-node-create "org-roam")
-(declare-function org-supertag-node-get-tags "org-supertag")
-(declare-function org-supertag-tag-add-tag "org-supertag")
-(declare-function org-supertag-tag-remove "org-supertag")
-(declare-function org-supertag-node-edit-field "org-supertag")
-(declare-function org-supertag-node-follow-ref "org-supertag")
+(declare-function supertag-menu "supertag-menu" ())
+(declare-function supertag-query-node-tags "supertag-query" (node-id))
+(declare-function supertag-tag-get "supertag-tag" (id))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: User file loading helpers
@@ -70,27 +46,6 @@
     (error
      (message "org-seq: failed to load %s from %s: %s" description file err)
      nil)))
-
-;; ═══════════════════════════════════════════════════════════════════════════
-;; Section 2: Schema editing and reloading
-;; ═══════════════════════════════════════════════════════════════════════════
-
-(defun my/edit-supertag-schema ()
-  "Open the supertag schema definition file."
-  (interactive)
-  (find-file my/schema-file))
-
-(defun my/reload-supertag-schema ()
-  "Reload tag definitions without restarting Emacs."
-  (interactive)
-  (if (file-exists-p my/schema-file)
-      (if (my/load-user-file-safely my/schema-file "supertag schema")
-        (message "org-seq: supertag schema reloaded from %s" my/schema-file))
-    (message "org-seq: schema file not found: %s" my/schema-file)))
-
-(with-eval-after-load 'org-supertag
-  (when (file-exists-p my/schema-file)
-    (my/load-user-file-safely my/schema-file "supertag schema")))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 3: Capture template management
@@ -185,40 +140,21 @@
   (my/ensure-capture-templates-file)
   (my/reload-capture-templates))
 
-;; ═══════════════════════════════════════════════════════════════════════════
-;; Section 4: Tag and field quick actions
-;; ═══════════════════════════════════════════════════════════════════════════
+;; ---- Supertag V2 actions ----
 
 (defun my/supertag-quick-action ()
-  "Context-aware popup for tag and field operations on the current node."
+  "Open Supertag's write, organize, find, and maintain menu."
   (interactive)
-  (require 'org-supertag)
-  (let* ((node-id (org-id-get-create))
-         (tags (condition-case err
-                   (org-supertag-node-get-tags node-id)
-                 (error
-                  (message "org-seq: failed to read supertag metadata: %s" err)
-                  nil))))
-    (if (null tags)
-        (call-interactively #'org-supertag-tag-add-tag)
-      (let ((choice (completing-read
-                     "Action: "
-                     `("[+] Add another tag"
-                       "[-] Remove a tag"
-                       ,@(mapcar (lambda (tag) (format "[edit] %s fields" tag)) tags)
-                       ,@(mapcar (lambda (tag) (format "[goto] linked from %s" tag)) tags)))))
-        (cond
-         ((string-prefix-p "[+]"    choice) (call-interactively #'org-supertag-tag-add-tag))
-         ((string-prefix-p "[-]"    choice) (call-interactively #'org-supertag-tag-remove))
-         ((string-prefix-p "[edit]" choice) (call-interactively #'org-supertag-node-edit-field))
-         ((string-prefix-p "[goto]" choice) (call-interactively #'org-supertag-node-follow-ref)))))))
+  (require 'supertag)
+  (require 'supertag-menu)
+  (call-interactively #'supertag-menu))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 4.5: Tana-style node action menu
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
 ;; Tana users expect one fast command menu from any node.  In org-seq the
-;; underlying actions live in org-roam, org-supertag, and dashboard helpers;
+;; underlying actions live in org-roam, Supertag, and dashboard helpers;
 ;; this menu gives them one keyboard-first front door without hiding the
 ;; native commands.
 
@@ -244,13 +180,15 @@
     (message "Copied node link: %s" link)))
 
 (defun my/node--supertags ()
-  "Return supertags attached to the current node, or nil."
-  (when (require 'org-supertag nil t)
-    (condition-case err
-        (org-supertag-node-get-tags (org-id-get-create))
-      (error
-       (message "org-seq: failed to read supertags: %s" err)
-       nil))))
+  "Return display names of the existing node's Semantic Tags.
+Reading metadata never creates an Org ID."
+  (when (require 'supertag nil t)
+    (when-let* ((id (org-id-get))
+                (tags (supertag-query-node-tags id)))
+      (delq nil
+            (mapcar (lambda (tag-id)
+                      (plist-get (supertag-tag-get tag-id) :name))
+                    tags)))))
 
 (defun my/node--capture-template-text (text)
   "Escape TEXT for safe use as org-capture template body."
@@ -295,7 +233,8 @@ The new note includes a source link back to the current node."
         (insert (format "#+title: %s\n#+startup: content\n#+description: Nodes tagged %s\n\n"
                         tag tag)
                 "* Query\n"
-                (format "#+BEGIN: supertag-query :tag %s :columns (title)\n" tag)
+                (format "#+BEGIN: supertag-query :query %S\n"
+                        (prin1-to-string (list 'tag tag)))
                 "#+END\n")))
     (my/dashboard-open tag)))
 
@@ -318,15 +257,18 @@ The new note includes a source link back to the current node."
           (my/dashboard-create-for-tag name)))))))
 
 (defun my/node-action ()
-  "Open a Tana-style action menu for the current Org node."
+  "Open an action menu for the current Org node."
   (interactive)
   (my/node--ensure-org)
   (let ((actions
          '(("Supertag quick action" . my/supertag-quick-action)
-           ("Add supertag" . org-supertag-tag-add-tag)
-           ("Edit supertag fields" . org-supertag-node-edit-field)
-           ("Remove supertag" . org-supertag-tag-remove)
-           ("Jump linked field" . org-supertag-node-follow-ref)
+           ("Add semantic tag" . supertag-add-tag)
+           ("Edit Org property" . org-set-property)
+           ("Remove semantic tag" . supertag-remove-tag-from-node)
+           ("Open link at point" . org-open-at-point)
+           ("Promote to concept" . supertag-promote)
+           ("Open tag stream" . supertag-view-stream)
+           ("Discover notes" . supertag-discovery)
            ("Insert link to another node" . org-roam-node-insert)
            ("Toggle backlinks panel" . org-roam-buffer-toggle)
            ("Copy node id link" . my/node-copy-id-link)
@@ -383,7 +325,7 @@ The new note includes a source link back to the current node."
       (find-file file)
       (insert (format "#+title: %s\n#+startup: content\n#+description: \n\n" name)
               "* Query\n"
-              "#+BEGIN: supertag-query :tag TAG_HERE :columns (title)\n"
+              "#+BEGIN: supertag-query :query \"(tag \\\"TAG_HERE\\\")\"\n"
               "#+END\n"
               "\n* Notes\n")
       (save-buffer)

@@ -276,7 +276,7 @@ when working with notes."))
                    "- =daily= — Journal entries, task logs\n\n"
                    "* Tag Conventions\n\n"
                    "- Use =#+filetags:= for broad categories\n"
-                   "- Use org-supertag =#tags= for structured data with fields\n"
+                   "- A tag listed in .orgseq/types.org is a node type; its fields are Org properties\n"
                    "- Prefix context tags with =@= (e.g., =@work=, =@home=)\n\n"
                    "* Linking Rules\n\n"
                    "- Link to existing notes with =[[id:...]]= or =[[*Heading]]=\n"

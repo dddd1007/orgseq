@@ -4,7 +4,8 @@ set -euo pipefail
 # deploy.sh — Deploy org-seq Emacs configuration to ~/.emacs.d/
 #
 # Usage:
-#   ./deploy.sh                  # backup existing config, then deploy
+#   ./deploy.sh                  # back up the files it replaces, then deploy
+#   ./deploy.sh --full-backup    # back up the whole target directory instead
 #   ./deploy.sh --no-backup      # deploy without creating a backup
 #   ./deploy.sh --force          # continue despite failed required checks
 #   ./deploy.sh --skip-checks    # skip prerequisite checks
@@ -14,17 +15,24 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET="${HOME}/.emacs.d"
 FORCE=0
 NO_BACKUP=0
+FULL_BACKUP=0
 SKIP_CHECKS=0
+
+# What a deployment replaces.  Everything else in the target belongs to the
+# user (notes/, custom.el) or is rebuildable device state (elpa/, .cache/)
+# and is never written.  custom.el is backed up but not replaced.
+DEPLOYED_ITEMS=(early-init.el init.el ec lisp packages bin .org-seq-version)
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --target)    TARGET="$2"; shift 2 ;;
         --backup)    NO_BACKUP=0; shift ;;
         --no-backup) NO_BACKUP=1; shift ;;
+        --full-backup) FULL_BACKUP=1; shift ;;
         --force)     FORCE=1; shift ;;
         --skip-checks) SKIP_CHECKS=1; shift ;;
         -h|--help)
-            echo "Usage: $0 [--target DIR] [--no-backup] [--force] [--skip-checks]"
+            echo "Usage: $0 [--target DIR] [--no-backup] [--full-backup] [--force] [--skip-checks]"
             exit 0 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -140,8 +148,23 @@ backup_existing() {
     timestamp="$(date +%Y%m%d-%H%M%S)"
     local backup_dir="${TARGET}.backup-${timestamp}"
     echo "  Backing up to: $backup_dir"
-    cp -a "$TARGET" "$backup_dir"
-    pass "Backup complete"
+    if [[ "$FULL_BACKUP" -eq 1 ]]; then
+        cp -a "$TARGET" "$backup_dir"
+        pass "Backup complete (whole directory)"
+        return
+    fi
+
+    # Copy only what this deployment replaces, plus custom.el.  The note
+    # library and installed packages are not written by a deployment, so
+    # copying them would only cost time and disk space.
+    mkdir -p "$backup_dir"
+    local item
+    for item in "${DEPLOYED_ITEMS[@]}" custom.el; do
+        if [[ -e "$TARGET/$item" ]]; then
+            cp -a "$TARGET/$item" "$backup_dir/"
+        fi
+    done
+    pass "Backup complete (replaced files and custom.el; notes/ and elpa/ are not touched by deployment)"
 }
 
 # ── Deploy ──
@@ -173,6 +196,14 @@ deploy_config() {
         local pkg_count
         pkg_count="$(find "$TARGET/packages" -name '*.el' | wc -l)"
         pass "packages/ ($pkg_count elisp files)"
+    fi
+
+    # Command line and MCP launcher (bin/orgseq); loads lisp/orgseq-cli.el.
+    if [[ -d "$SCRIPT_DIR/bin" ]]; then
+        mkdir -p "$TARGET/bin"
+        cp -f "$SCRIPT_DIR/bin/"* "$TARGET/bin/"
+        chmod +x "$TARGET/bin/orgseq"
+        pass "bin/ (orgseq command line)"
     fi
 
     if [[ -f "$SCRIPT_DIR/pyim/rime-frost.pyim" ]]; then
@@ -254,10 +285,10 @@ verify_deployment() {
 
 print_summary() {
     section "Deployment complete"
-    local note_home="${ORG_SEQ_NOTE_HOME:-~/NoteHQ/}"
+    local note_home="${ORG_SEQ_NOTE_HOME:-$TARGET/notes/}"
     echo ""
     echo "  Next steps:"
-    echo "    1. Run:  ./scripts/bootstrap-notes.sh  (creates the NoteHQ directory structure)"
+    echo "    1. Optional: ./scripts/bootstrap-notes.sh  (seed files; Emacs creates the library itself)"
     echo "    2. Launch Emacs — packages auto-install on first run (needs internet)"
     echo "    3. Run:  M-x nerd-icons-install-fonts"
     if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -265,18 +296,21 @@ print_summary() {
     elif [[ "$(uname -s)" == *"MINGW"* || "$(uname -s)" == *"MSYS"* ]]; then
         echo "       Then right-click downloaded .ttf files → Install (Windows)"
     fi
-    echo "    4. Run:  M-x supertag-sync-full-initialize  (first-time supertag index)"
+    echo "    4. Run:  M-x org-roam-db-sync  (first-time index of existing notes)"
     echo "    5. Optional: Point Obsidian at $note_home as reading client"
     echo ""
-    echo "  NoteHQ root:"
-    echo "    ORG_SEQ_NOTE_HOME = $note_home"
-    if [[ -z "${ORG_SEQ_NOTE_HOME:-}" ]]; then
-        echo "    Set ORG_SEQ_NOTE_HOME before launching Emacs to use another notes root."
-    fi
+    echo "  Note library:"
+    echo "    $note_home"
+    echo "    Deployment never writes there.  Local snapshots: M-x my/storage-snapshot"
+    echo "    Sync across devices:  M-x my/sync-setup  (WebDAV, OneDrive, Google Drive; needs rclone)"
+    echo "    Bring notes in from a folder:  M-x my/storage-import  (or: orgseq import DIR)"
+    echo ""
+    echo "  Command line:"
+    echo "    Add $TARGET/bin to PATH, then:  orgseq help   (orgseq mcp serves MCP clients)"
     echo ""
     echo "  Key bindings:"
     echo "    SPC d       → Daily workspace     SPC t d  → GTD dashboard"
-    echo "    SPC n c     → new note            SPC # t/c → schema/templates"
+    echo "    SPC n c     → new note            SPC # t/c → tags/templates"
     echo "    SPC P o/p/l → PARA navigation     SPC n v v → dashboards"
     echo ""
 }

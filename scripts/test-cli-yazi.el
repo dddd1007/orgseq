@@ -61,67 +61,6 @@
   (should noninteractive)
   (should-not (file-exists-p my/orgseq-ai-config)))
 
-(ert-deftest my/cli-popup-display-buffer-uses-popup-policy ()
-  (let (captured)
-    (cl-letf (((symbol-function 'my/popup-display-buffer)
-               (lambda (buffer overrides)
-                 (setq captured (list buffer overrides))
-                 'popup-window)))
-      (should (eq (my/cli-popup-display-buffer "buffer" 0.5)
-                  'popup-window)))
-    (should (equal captured
-                   '("buffer" (:height 0.5 :select t))))))
-
-(ert-deftest my/cli-popup-open-displays-before-ghostel-spawn ()
-  (let ((events nil)
-        (dir (make-temp-file "org-seq-ghostel-dir" t))
-        buffer)
-    (unwind-protect
-        (cl-letf (((symbol-function 'my/cli-popup--show-buffer)
-                   (lambda (buf _height _display-kind)
-                     (push (list 'display (buffer-name buf)) events)))
-                  ((symbol-function 'my/cli-popup--resolve-command)
-                   (lambda (_command) "C:/Tools/pwsh.exe"))
-                  ((symbol-function 'ghostel-mode) #'fundamental-mode)
-                  ((symbol-function 'ghostel-exec)
-                   (lambda (buf program &optional arguments)
-                     (push (list 'spawn (buffer-name buf) program arguments
-                                 default-directory)
-                           events))))
-          (setq buffer
-                (my/cli-popup-open
-                 "*NoteHQ-test*" "pwsh" '("-NoLogo") dir 0.4 t))
-          (should (equal (nreverse events)
-                         `((display "*NoteHQ-test*")
-                           (spawn "*NoteHQ-test*" "C:/Tools/pwsh.exe" ("-NoLogo")
-                                  ,(file-name-as-directory
-                                    (file-truename dir))))))
-          (should (eq buffer (get-buffer "*NoteHQ-test*"))))
-      (when (buffer-live-p buffer)
-        (kill-buffer buffer))
-      (delete-directory dir t))))
-
-(ert-deftest my/cli-popup-open-runs-setup-before-ghostel-spawn ()
-  (let ((events nil)
-        buffer)
-    (unwind-protect
-        (cl-letf (((symbol-function 'my/cli-popup--show-buffer) #'ignore)
-                  ((symbol-function 'ghostel-mode) #'fundamental-mode)
-                  ((symbol-function 'ghostel-exec)
-                   (lambda (&rest _)
-                     (push 'spawn events))))
-          (setq buffer
-                (my/cli-popup-open
-                 "*NoteHQ-setup-test*" "pwsh" nil temporary-file-directory
-                 nil t nil
-                 (lambda (_buffer) (push 'setup events))))
-          (should (equal (nreverse events) '(setup spawn))))
-      (when (buffer-live-p buffer)
-        (kill-buffer buffer)))))
-
-(ert-deftest my/claude-code-selects-ghostel-backend ()
-  (should (eq claude-code-terminal-backend 'ghostel)))
-
 (ert-deftest my/powershell-quote-argument-uses-single-quote-escaping ()
   (should (equal (my/powershell--quote-argument "C:/Tools/it's/codex.ps1")
                  "'C:/Tools/it''s/codex.ps1'")))

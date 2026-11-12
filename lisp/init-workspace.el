@@ -49,7 +49,7 @@ fallback."
   :type 'integer
   :group 'org-seq)
 
-(defcustom my/workspace-sidebar-width-range '(30 . 46)
+(defcustom my/workspace-sidebar-width-range '(24 . 42)
   "Minimum and maximum adaptive treemacs sidebar width in columns."
   :type '(cons integer integer)
   :group 'org-seq)

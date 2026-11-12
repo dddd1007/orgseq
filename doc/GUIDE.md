@@ -1,6 +1,8 @@
 # org-seq 完全上手指南
 
 > 本指南面向 Emacs 初学者，从零开始介绍 org-seq 配置的全部功能。即使你从未用过 Emacs，也可以按照本文一步步上手。
+>
+> 现行说明以本 Markdown 与 README 为准；仓库中的 `GUIDE.pdf` 是旧导出快照，未随 2026-10-22 的节点层和界面改版重新生成，不能作为当前键位依据。
 
 ---
 
@@ -37,11 +39,11 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 
 与其罗列功能清单，不如想象一下你完整的一天：
 
-早上打开 Emacs，第一眼看到的是 GTD Dashboard，上面实时统计着今天该做的事、本周在等的回复、几个卡住的项目。你点进去处理待办，回到当天的 daily 笔记继续写工作流水。写着写着冒出一个值得单独存放的想法，你按两下键把它提取为一条独立的 Zettelkasten 笔记，org-roam 自动为它分配一个永久 ID，并在原来的 daily 里留下一条 `[[id:...]]` 链接。稍后这条新笔记会出现在反向链接面板里——提醒你它和过去哪些笔记产生了关联。
+早上打开 Emacs，先进入今日 Daily Workspace，在当前时间节点里写下工作意图；需要校准任务时按 `SPC t d` 查看 GTD Dashboard，再回到 daily 继续工作流水。写着写着出现值得独立存放的想法，可以沿用 org-roam capture 创建带永久 Org ID 的笔记，并用普通 `[[id:...]]` 链接连接原记录。
 
-如果你想把它归类，可以按 `SPC # a` 给它加一个 supertag（比如 `reading` 或 `concept`），这些 tag 不只是标签，而是 Tana 式的"数据库记录"——每个 tag 可以定义字段、在 dashboard 里跨 tag 聚合查询。下午你在读一篇长文，选中几段文字按 `SPC a s` 让 LLM 摘要；想翻译一段中文按 `SPC a l`；想让 AI 建议相关笔记按 `SPC a k`。所有这些交互都发生在 Emacs 里，所有输出都保留在你的 `.org` 文件里，没有 SaaS 订阅、没有 vendor lock-in、没有离线就断联的焦虑。
+需要归类时，按 `SPC # t` 给笔记加一个类型（例如 Reading），再用 `SPC # f` 填写该类型的字段（作者、年份、状态）；字段就是普通 Org properties，关联用普通 Org 链接。`SPC # v` 把同一类型的全部笔记列成表格。下午可用 `SPC a s` 摘要、`SPC a l` 翻译、`SPC a k` 建议相关笔记；AI 服务可能需要联网，发送范围遵循命令的确认设置。
 
-技术底座：**Zettelkasten 笔记网络**由 org-roam 驱动（双向链接 + 知识图谱）；**GTD 任务系统**是用 org-agenda + org-ql 自建的 dashboard；**结构化数据**由 org-supertag 提供，把标签变成带字段的数据库表格和看板；**性能层**由 org-node / org-mem 承担，让 3000+ 节点的索引从几分钟降到两秒；**AI 集成**通过 gptel 和 Claude Code 完成；**Vim 手感**由 Evil mode 保证；**版本控制**交给 Magit（几乎所有用过它的人都认为它是目前最好的 Git 界面）；**Markdown 文件**也能在同一个编辑器里流畅编辑，方便你从 Obsidian 或其他工具过渡过来。
+技术底座：**org-roam** 管理节点、双向链接与 capture；**org-agenda + org-ql** 驱动 GTD；**init-nodes** 在 org-roam 上提供类型、字段、表格视图和 dashboard 查询；**org-node / org-mem** 承担索引；**gptel 与 AI CLI** 提供 AI 交互；**Evil** 提供 Vim 操作；**Magit** 管理版本。类型、字段和链接都写在 Org 文本里，索引数据库可以随时从 Org 重建。
 
 ### 1.3 核心理念
 
@@ -59,7 +61,6 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 │   ├── daily/                     ← 每日笔记（思维流 + 任务录入）
 │   ├── capture/                   ← 所有捕获的笔记（扁平，时间戳前缀）
 │   ├── dashboards/                ← 查询入口文件（只放查询，不放数据）
-│   ├── supertag-schema.el         ← 标签定义（跟笔记一起 git）
 │   └── purpose.org / schema.org   ← AI 上下文文件
 ├── 10_Outputs/                    ← PARA：可交付的项目（论文、课件…）
 ├── 20_Practice/                   ← PARA：长期角色与责任域（教学、研究…）
@@ -67,12 +68,13 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 ├── 40_Archives/                   ← 已完成/暂停的内容
 └── .orgseq/                       ← 个性化配置（类似 .vscode/）
     ├── ai-config.org              ← AI 服务配置
+    ├── types.org                  ← 节点类型定义（类型、字段、模板）
     └── capture-templates.el       ← 用户自定义捕获模板
 ```
 
 目录前面的数字前缀（00/10/20/30/40）不是强迫症,它有一个具体的作用:让 dirvish 侧边栏按字母序排列时,**这些层级按"工作优先级"顺序显示**,而不是按英文字母。每天最常打开的 `00_Roam/` 永远在最上面,几乎不会动的 `40_Archives/` 沉到最下面。10 步的间隔给以后插入新层级留了余地(比如你哪天想加一个 `15_Inbox/` 就不用重新编号所有后面的层)。
 
-**核心设计**:`00_Roam/` 内部是扁平的——分类靠 supertag 标签,不靠目录。PARA 四层存放产出物和素材。两层通过 `id:` 链接和 transclusion 通信。
+**核心设计**:`00_Roam/` 内部是扁平的——分类靠标签和节点类型,不靠目录。PARA 四层存放产出物和素材。两层通过 `id:` 链接和 transclusion 通信。
 
 ---
 
@@ -100,7 +102,8 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 
 **推荐字体**：
 
-- 英文：[Cascadia Code](https://github.com/microsoft/cascadia-code)（微软出品等宽字体）
+- 英文等宽：[Cascadia Code](https://github.com/microsoft/cascadia-code)（微软出品等宽字体）
+- 英文正文：[Inter](https://rsms.me/inter/)（Org 正文、侧栏和 dashboard 使用的比例字体；未安装时依次退回 Segoe UI 等系统无衬线字体）
 - 中文：[LXGW WenKai Mono](https://github.com/lxgw/LxgwWenKai)（霞鹜文楷等宽）
 
 Windows 下载 `.ttf` 文件后右键"安装"即可；macOS 会通过 Font Book 安装；Linux 通常会自动放到当前用户字体目录。
@@ -150,8 +153,8 @@ M-x nerd-icons-install-fonts
 ;; Windows 用户额外一步：找到刚下载的 .ttf 文件右键"安装"
 ;; macOS 可能会弹出 Font Book 确认窗口
 
-;; 第一次索引 org-supertag 的数据
-M-x supertag-sync-full-initialize
+;; 已有笔记时，第一次建立 org-roam 索引
+M-x org-roam-db-sync
 ```
 
 ### 2.4 配置 AI（可选但推荐）
@@ -549,8 +552,11 @@ org-seq 默认启动时显示所有标题但折叠内容（`content` 模式）�
 ### 7.5 Org-modern 视觉增强
 
 org-seq 使用 **org-modern** 让 Org 文件更美观：
-- 标题使用 ◉ ○ ◈ ◇ ⁕ 作为项目符号
-- 关键字（TODO、DONE 等）使用彩色标签样式
+- 标题前显示折叠箭头（▸ 折叠，▾ 展开），代替装饰性项目符号
+- TODO 状态显示为带底色的状态徽章，每个状态一种颜色，徽章内保留关键字文字
+- 标签显示为圆角标签；GTD 上下文标签（如 `@work`）用蓝灰色，其他标签用强调色
+- `#+title:` 和 `#+filetags:` 关键字本身隐藏，只显示标题和标签
+- `[2/5]` 这类进度标记显示为进度条
 - 时间戳使用更清晰的格式
 - 列表项使用现代化的点符号
 
@@ -571,7 +577,7 @@ org-seq 把 Zettelkasten 的这三条原则落地成了一个三层架构，每�
 | 层 | 工具 | 它在做什么 |
 |----|------|------|
 | **图谱层** | org-roam | 管理节点、双向链接、反向链接、capture 模板——Zettelkasten 的原始形态 |
-| **数据层** | org-supertag | 把标签变成带字段的数据库记录，提供表格和看板视图——借鉴 Tana 的思路 |
+| **结构层** | init-nodes | 节点类型、字段、按类型的表格视图、review 和 dashboard 查询；全部读写 Org 标签和 properties，不另建数据库 |
 | **性能层** | org-node + org-mem | 异步索引，让 3000+ 节点的搜索和反向链接刷新从几分钟降到两秒 |
 
 这三层不是层层叠加的抽象，而是分工合作的三个引擎。日常写笔记时你感觉不到它们的存在；当你的笔记库长到上千条、开始需要查询和聚合时，你会感谢底层有这些东西在默默工作。
@@ -587,19 +593,21 @@ SPC n c        → 新建笔记（弹出模板选择）
 | 按键 | 类型 | 用途 |
 |------|------|------|
 | `d` | 默认 | 通用笔记（覆盖 80% 场景） |
-| `r` | 阅读 | 文献/书籍笔记（TL;DR / Key points / Commentary） |
+| `t r` | Reading | 文献/书籍笔记（Summary / Key points / My commentary），带 AUTHORS、YEAR、STATUS、TOPIC 字段 |
+| `t c` | Concept | 概念笔记（Definition / Related），带 STAGE、SOURCE 字段 |
+| `t p` | Person | 人物笔记（Context），带 ROLE、AFFILIATION 字段 |
 
-每条笔记自动获得一个唯一 ID（时间戳格式），存储在 `~/NoteHQ/00_Roam/capture/` 下。
+`t` 组下的模板由 `~/NoteHQ/.orgseq/types.org` 自动生成，上表是起始文件中的三个示例类型（见 8.8）。每条笔记自动获得一个唯一 ID，存储在 `~/NoteHQ/00_Roam/capture/` 下。
 
-**添加更多模板**（如咨询记录、学生信息等）：
+**添加更多模板**：需要固定字段和表格视图的笔记（如咨询记录、学生信息）在 `types.org` 中定义类型；只需要正文骨架的笔记用自由模板：
 
 ```
-SPC # c      → 打开模板配置文件（~/.orgseq/capture-templates.el）
-               编辑后保存
-SPC # C      → 热重载，立即生效
+SPC # T      → 打开 types.org，保存后立即生效
+SPC # c      → 打开自由模板文件（~/NoteHQ/.orgseq/capture-templates.el）
+SPC # C      → 重载全部模板
 ```
 
-模板文件里已有 session（咨询记录）、client（来访者）、student（学生）的注释示例，取消注释即可启用。
+自由模板文件里有一个注释掉的 Meeting 示例，取消注释并重载即可启用。以 `t` 开头的键保留给类型模板。
 
 ### 8.3 查找和打开笔记
 
@@ -658,11 +666,12 @@ SPC n d C      → 选择日期并 capture
 
 Daily 文件是日期容器，不是单一 org-roam 节点。`SPC n d a` 会在文件
 末尾新建或复用一个一级时间标题，并确保它有 `:ID:`；每个一级标题都可
-独立使用 `, # a` 添加 supertag，再用 `, # e` 编辑字段。建议先捕捉，
+独立使用 `, # t` 加类型，再用 `, # f` 填字段或 `, # e` 编辑普通 Org property。建议先捕捉，
 等内容值得整理时再加结构。
 
-Daily sidebar 显示最近 14 个自然日，包括尚未创建的日期。`RET` 打开日期，
-`t` 回到 Today，`g` 刷新，`c` 选择日期，`q` 关闭。单纯
+Daily sidebar 显示最近 14 个自然日，包括尚未创建的日期。实心圆点表示该日已有笔记，
+空心圆点表示还没有（打开时才创建）；Today 用强调色显示，不同周之间留出间隔，日期右对齐，
+底部列出按键提示。`RET` 打开日期，`t` 回到 Today，`g` 刷新，`c` 选择日期，`q` 关闭。单纯
 刷新 sidebar 不会创建缺失文件，已有历史日期默认以浏览方式打开。
 
 
@@ -671,48 +680,58 @@ Daily capture 有三种模板：
 - `t`：任务（自动创建带日期的 TODO）
 - `j`：日记（带时间戳的日记条目）
 
-### 8.8 org-supertag（结构化数据）
+### 8.8 节点类型与字段（先记录，后整理）
 
-org-supertag 把 Org 文件中的标签变成数据库表格。例如给一个笔记加上 `reading` 标签，就可以自动出现"作者"、"年份"、"状态"等字段。
+org-roam 中每个带 Org ID 的文件或标题都是一个节点。org-seq 在此之上提供类型和字段（`lisp/init-nodes.el`），做法参照 Tana 的 supertag 和 Fibery 的数据库，但所有数据都写在 Org 文本里，不另建数据库。2026-10-22 之前使用的 Supertag 包已移除。
 
-**最常用的操作——快速操作菜单**：
+**类型**定义在 `~/NoteHQ/.orgseq/types.org`，每个一级标题是一个类型：
 
-```
-SPC # #      → 上下文感知菜单（自动判断当前节点有无标签）
-               如果没有标签 → 直接进入添加标签流程
-               如果已有标签 → 弹出选项：添加/移除/编辑字段/跳转关联
-```
-
-**全部 supertag 操作**：
-
-```
-SPC # #      → 快速操作（最常用）
-SPC # a      → 添加标签
-SPC # e      → 编辑字段
-SPC # x      → 移除标签
-SPC # j      → 跳转到关联节点
-SPC # k      → 看板视图
-SPC # s      → 搜索 supertag 数据库
+```org
+* Reading
+:PROPERTIES:
+:TYPE_TAG:    reading
+:TYPE_KEY:    r
+:TYPE_FIELDS: AUTHORS YEAR STATUS TOPIC:node
+:STATUS_ALL:  queued reading read cited
+:END:
+** Summary
+%?
+** Key points
+** My commentary
 ```
 
-在 Org buffer 中也可以用 local leader：
+- `TYPE_TAG`：类型对应的 Org 标签
+- `TYPE_KEY`：capture 键，生成的模板键为 `t` 加该字母
+- `TYPE_FIELDS`：字段名；写成 `NAME:node` 的字段保存指向另一个节点的链接
+- `NAME_ALL`：字段 `NAME` 的可选值
+- 标题正文：该类型的 capture 模板，`%?` 是光标位置
 
-```
-, ##           → 快速操作（同 SPC # #）
-, #a           → 添加标签
-, #e           → 编辑字段
-, #x           → 移除标签
-, #j           → 跳转关联
+文件不存在时自动创建，带 Reading、Concept、Person 三个示例。`SPC # T` 打开它，保存后立即生效。它放在 `.orgseq/` 而不是 `00_Roam/`，所以模板里的 TODO 不会出现在 GTD 视图中。
+
+**给笔记加类型和填字段**：
+
+```text
+SPC # # / , # #  → 节点操作菜单（SPC n o 相同）
+SPC # t / , # t  → 加类型：写入标签，并为该类型的字段添加空 property
+SPC # x / , # x  → 移除类型（字段值保留）
+SPC # f / , # f  → 设置字段：从可选值或已有值中补全；node 字段弹出节点选择器
+SPC # e / , # e  → 编辑任意 Org property
+SPC # p / , # p  → 有选区时提取为新笔记并留下链接；否则给当前标题加 ID，使其成为节点
+SPC # n          → 新建某个类型的笔记
+SPC # s          → 查找节点（org-roam-node-find）
+SPC # j / , # j  → 打开光标处的 Org 链接
+SPC # T          → 编辑 types.org
+SPC # c / # C    → 编辑自由 capture 模板 / 重载全部模板
 ```
 
-**标签定义**（schema）管理：
+文件笔记的类型写在 `#+filetags:`，标题笔记的类型写在标题标签上。一条笔记可以有多个类型。
 
-```
-SPC # t      → 编辑 supertag-schema.el（定义标签和字段）
-SPC # T      → 热重载 schema（改完立即生效）
-```
+**表格视图**：
 
-**首次使用需要初始化**：`M-x supertag-sync-full-initialize`
+- `SPC # v`（`, # v`）选择一个类型，列出该类型全部节点，每列一个字段。`RET` 打开，`o` 在另一个窗口打开，`f` 就地修改字段，`+` 新建该类型的节点，`/` 过滤，`g` 刷新，点击列标题或按 `S` 排序。
+- `SPC # r` 打开 review 表格：最近 14 天（`my/node-review-days`）修改过、没有类型或没有任何链接的笔记，不含 Daily 笔记。适合每周整理一次。
+
+**权威边界**：Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[id:]]` 链接。表格视图和 dashboard 读取 org-roam 数据库，只反映已保存的文件；数据库可以随时用 `M-x org-roam-db-sync` 重建。备份 Org 文件和 `.orgseq/` 即可。完整说明见[节点模型](NOTES_ARCHITECTURE.md#四节点模型与权威边界)。
 
 ### 8.9 Dashboard 视图
 
@@ -722,8 +741,20 @@ Dashboard 是只读的查询窗口，用来汇总和回顾你的笔记状态。
 SPC n v v      → 选择并打开一个 dashboard
 SPC n v w      → 打开每周回顾 dashboard
 SPC n v i      → 打开 dashboard 索引
-SPC # d      → 创建新的 dashboard
+SPC # D        → 创建新的 dashboard
 ```
+
+查询写成 `orgseq-query` 动态块，参数有 `:type`、`:where`、`:recent-days`、`:sort`、`:order`、`:limit` 和 `:columns`：
+
+```org
+#+BEGIN: orgseq-query :type "reading" :where (("STATUS" "queued")) :columns ("AUTHORS" "YEAR") :sort "YEAR" :order desc :limit 50
+#+END:
+```
+
+块上 `C-c C-c` 或 `org-update-all-dblocks` 刷新；org-seq 打开 dashboard 时也刷新，
+不是后台持续实时更新。结果是一张 Org 表格，第一列链接到节点。旧 dashboard 中的 `supertag-query` 块仍能渲染常用的
+`(tag ...)`、`(property K V)`、`(recent-days N)`、`(and ...)` 形式，新建时请用 `orgseq-query`。
+参数说明和示例见 [NOTES_ARCHITECTURE.md 第七节](NOTES_ARCHITECTURE.md#七dashboard-起点)。
 
 ### 8.10 PARA 层导航
 
@@ -817,6 +848,7 @@ Dashboard 显示：
 
 ```
 ┌─ GTD Dashboard ──────────────────────────────────┐
+│  VIEWS                                             │
 │  Inbox      3     ← 未处理的闪念笔记              │
 │  Today      5     ← 今天到期/已排期的任务          │
 │  Upcoming   8     ← 未来已排期的任务               │
@@ -825,19 +857,21 @@ Dashboard 显示：
 │  Someday    7     ← 将来也许做的任务               │
 │  Logbook   42     ← 已完成/已取消的任务            │
 │                                                    │
-│  Projects                                          │
+│  PROJECTS                                          │
 │    写论文          ← 健康（有 NEXT 子任务）          │
-│  ● 装修计划        ← ● 卡壳（没有 NEXT 子任务）     │
-│  ~ 学英语          ← ~ 无下一步                     │
+│  ! 装修计划        ← ! 停滞（没有未完成的子任务）   │
+│  ~ 学英语          ← ~ 有活跃子任务，但没有 NEXT    │
+│  ? 新项目          ← ? 还没有子任务                 │
+│  ! stalled   ~ no next   ? empty   ← 图例           │
 │                                                    │
-│  Contexts                                          │
+│  CONTEXTS                                          │
 │    @work     3    ← 工作场景下的 NEXT 任务数         │
 │    @home     2    ← 家里可做的 NEXT 任务数           │
 │    @computer 5    ← 需要电脑的 NEXT 任务数           │
 └──────────────────────────────────────────────────┘
 ```
 
-点击任意行（或按 `RET`）打开对应的详细视图。按 `g` 刷新数据。
+数字右对齐，计数为 0 的行不显示数字；Inbox 和 Today 有待处理项时数字用强调色。点击任意行（或按 `RET`）打开对应的详细视图。按 `g` 刷新数据。
 
 ### 9.5 GTD 完整工作流
 
@@ -1253,7 +1287,7 @@ q              → 退出
 
 如果你翻一下 org-seq 的代码，会发现 `org-focus-timer` 不像其他功能那样住在 `lisp/init-*.el` 里，而是独占一个子目录：`packages/org-focus-timer/`。旁边只有一个薄薄的 `lisp/init-focus.el`（大约 60 行）负责引用它。
 
-这个结构是有意为之的过渡形态。这个计时器对任何用 org-mode 的人都有价值——它不依赖 org-roam、不依赖 supertag、不依赖 org-seq 的任何路径约定，核心是纯粹的 elisp + 时间计算 + 文件读写。等到 API 和日志格式稳定下来之后，它会**毕业**成一个独立的 GitHub 项目，那时候 `init-focus.el` 会从当前的 `:load-path` 引用改成 `:vc` 引用，`packages/org-focus-timer/` 这个目录会被移出 org-seq。
+这个结构是有意为之的过渡形态。这个计时器对任何用 org-mode 的人都有价值——它不依赖 org-roam、不依赖节点类型层、不依赖 org-seq 的任何路径约定，核心是纯粹的 elisp + 时间计算 + 文件读写。等到 API 和日志格式稳定下来之后，它会**毕业**成一个独立的 GitHub 项目，那时候 `init-focus.el` 会从当前的 `:load-path` 引用改成 `:vc` 引用，`packages/org-focus-timer/` 这个目录会被移出 org-seq。
 
 在那之前，把源代码放在 org-seq 内部带来一个实用的好处：**迭代闭环更短**。你想改 `org-focus-timer.el` 的某段逻辑？直接编辑 `packages/org-focus-timer/org-focus-timer.el`，保存，`M-x eval-buffer`——下一次 `SPC t f` 就用上了新代码，不需要重新 deploy，不需要切换仓库。对于一个尚在打磨的功能，这种零摩擦的改动环境比"干净的包边界"更重要。
 
@@ -1306,44 +1340,63 @@ SPC g p        → 跳到上一个改动块（diff-hl）
 
 ### 15.1 主题
 
-默认主题是 **modus-operandi-tinted**（浅色主题），属于 Modus 主题家族——为可读性和无障碍设计的高对比度主题。
+默认主题是 **modus-operandi**（浅色）和 **modus-vivendi**（深色），并叠加 org-seq 自己的配色（`my/ui-palette-light` / `my/ui-palette-dark`，以 Modus palette override 的方式应用）：
+
+- 背景是中性的白色（深色模式为接近黑色），正文对比度高
+- 只有一种强调色（靛紫色），用于链接、光标、选区、Today 和当前行
+- 各级标题使用正文颜色，靠字号和字重区分层级
+- 窗口分隔线和 mode line 上沿都是 1 像素细线
+- Daily 侧栏、Treemacs、imenu-list 使用比正文页面略深的灰色背景
 
 ```
-SPC u t        → 切换主题（从可用主题列表中选择）
+SPC u d        → 在浅色和深色之间切换（my/ui-toggle-dark）
+SPC u t        → 从全部已安装主题中选择
 ```
+
+把 `my/ui-use-org-seq-palette` 设为 nil 可以恢复 Modus 原始配色。启动时加载浅色还是深色由 `my/ui-startup-variant` 决定。
 
 已安装的主题家族：
-- **Modus themes**：高对比度、无障碍（推荐）
-- **Ef themes**：Daniel Mendler 的优雅主题集
+- **Modus themes**：高对比度、无障碍（默认，叠加 org-seq 配色）
+- **Ef themes**：Protesilaos 的配色主题集
 - **Doom themes**：Doom Emacs 风格的主题集
+
+切换到其他主题后，org-seq 自己的状态徽章、标签和侧栏样式仍按浅色/深色背景分别取色。
+
+**设计约束**：文字对比度满足 WCAG 2.2 AA（正文高于 15:1，标签类文字不低于 4.5:1，折叠箭头等非文字标记不低于 3:1）；颜色从不作为唯一线索——状态徽章保留关键字文字，Daily 侧栏用实心/空心圆点区分，GTD 项目状态用符号加图例。
 
 ### 15.2 字体
 
 org-seq 配置了中英文混排：
 - 英文/代码：Cascadia Code（如果安装了的话）
+- 英文正文（比例字体）：Inter > Segoe UI > 其他系统无衬线字体（按优先级尝试，候选列表为 `my/latin-vp-font-candidates`）
 - 中文：LXGW WenKai Mono > Sarasa Fixed SC > Microsoft YaHei UI > SimHei（按优先级尝试）
 - 中文字体会自动缩放以对齐英文（等宽对齐）
+
+Org 文件中正文用比例字体，代码块和表格保持等宽（mixed-pitch）。
 
 ### 15.3 界面开关
 
 ```
+SPC u d        → 浅色/深色切换
+SPC u c        → 开关 Org 正文居中栏（my/prose-column-mode）
 SPC u l        → 显示/隐藏行号
 SPC u w        → 显示/隐藏自动换行
-SPC t o        → 显示/隐藏 Olivetti（居中）模式
 SPC u f        → 全屏切换
 SPC u i        → 显示/隐藏 org-modern 美化效果
+SPC u n        → 显示/隐藏标题编号
+SPC u m        → 开关 mixed-pitch（比例字体正文）
 SPC u s        → 显示/隐藏 Org 顶部标题面包屑（org-sticky-header，VS Code Sticky Scroll）
 SPC u T        → 显示/隐藏可点击的 buffer 标签页（tab-line）
 SPC u a        → 开关失焦/空闲自动保存（auto-save-visited-mode，间隔 2 秒）
 ```
 
-`SPC u T` 控制的标签页会自动排除工具型缓冲区（Treemacs、Daily 侧栏、outline、终端/AI 雷神窗、Messages/Warnings 以及 special/dired/dashboard 模式），只显示真正的编辑缓冲区。`SPC u a` 打开时，Daily 笔记保存会触发去抖的 supertag 同步（增量，只重扫改动文件），编辑本仓库的 Elisp 文件则会触发 compile-angel 的保存时编译（属预期行为，只是更频繁）。
+`SPC u T` 控制的标签页会自动排除工具型缓冲区（Treemacs、Daily 侧栏、outline、终端/AI 雷神窗、Messages/Warnings 以及 special/dired/dashboard 模式），只显示真正的编辑缓冲区。`SPC u a` 打开时，每次保存都会由 org-mem 的更新器重新索引被保存的文件（只处理这一个文件），编辑本仓库的 Elisp 文件则会触发 compile-angel 的保存时编译（属预期行为，只是更频繁）。
 
-### 15.4 Olivetti（居中阅读模式）
+`SPC u s` 打开的顶部标题面包屑以小号灰色文字显示当前位置的标题路径，用 ` / ` 分隔。
 
-在 Org 文件中默认自动启用。它会把文本内容居中显示，两侧留白，让宽屏上的阅读体验接近纸质书。
+### 15.4 正文居中栏
 
-文本宽度会根据窗口大小自适应调整（最小 88 字符，最大 140 字符）。
+Org 文件默认把正文放在居中的固定宽度栏里，宽度为 `my/prose-column-width`（默认 72 列，约 80 个英文字符或 40 个汉字），不随窗口变宽而变长；窗口比这更窄时使用整个窗口宽度。正文另有 `my/prose-line-spacing`（默认 0.16）的额外行距。`SPC u c` 在当前 buffer 中开关居中栏。
 
 ---
 
@@ -1422,14 +1475,19 @@ M-x customize-group RET org-seq RET
 | 变量 | 含义 | 默认值 |
 |------|------|--------|
 | `my/note-home` | 笔记总目录 | `ORG_SEQ_NOTE_HOME`，未设置时为 `~/NoteHQ/` |
-| `my/roam-dir` | 原子笔记层（org-roam + supertag + AI context 全部指向此处） | `~/NoteHQ/00_Roam/` |
+| `my/roam-dir` | 原子笔记层（org-roam + AI context 指向此处） | `~/NoteHQ/00_Roam/` |
 | `my/orgseq-dir` | 个性化配置目录（.orgseq/） | `~/NoteHQ/.orgseq/` |
+| `my/types-file` | 节点类型定义文件 | `~/NoteHQ/.orgseq/types.org` |
+| `my/node-review-days` | `SPC # r` 列出最近多少天的笔记 | `14` |
 | `my/agenda-cache-ttl` | Agenda 文件缓存过期秒数 | `300` |
 | `my/gtd-context-tags` | GTD 上下文标签列表 | `("@work" "@home" "@computer" "@errands" "@phone")` |
 | `my/workspace-startup-delay` | 启动后开工作区的 idle 延迟（秒） | `0.3` |
 | `my/ai-purpose-file` | AI 上下文 purpose.org 路径 | `<roam-dir>/purpose.org` |
 | `my/ai-schema-file` | AI 上下文 schema.org 路径 | `<roam-dir>/schema.org` |
-| `my/olivetti-body-width-*` | Org 居中阅读模式的宽度范围 | 88–140 |
+| `my/prose-column-width` | Org 正文居中栏宽度（列） | `72` |
+| `my/prose-line-spacing` | Org 正文额外行距 | `0.16` |
+| `my/ui-use-org-seq-palette` | 是否在 Modus 主题上叠加 org-seq 配色 | `t` |
+| `my/ui-startup-variant` | 启动时加载浅色还是深色 | `light` |
 | `my/markdown-body-width-*` | Markdown 居中阅读模式的宽度范围 | 84–120 |
 
 修改后按 `C-x C-s` 保存到 `custom.el`，下次启动自动生效。也可以直接在 custom.el 里写：
@@ -1440,7 +1498,7 @@ M-x customize-group RET org-seq RET
  '(my/gtd-context-tags '("@work" "@home" "@deep-work")))
 ```
 
-**注意**：改了 `my/note-home` 后，派生路径 `my/roam-dir` 和 `my/orgseq-dir` 会跟随更新（它们的默认值通过 `expand-file-name` 依赖 `my/note-home`），但需要**重启 Emacs** 才能让所有模块重新计算路径。运行时改这些变量只影响变量本身，不影响已经传给 org-roam/org-mem/org-supertag 的派生值。
+**注意**：修改 `my/note-home` 后应重启 Emacs，让 org-roam、org-mem 和节点类型注册表使用一致的派生路径。
 
 ### 16.6 配置热重载
 
@@ -1453,7 +1511,7 @@ M-x customize-group RET org-seq RET
 
 | 修改内容 | 热重载方式 |
 |---------|-----------|
-| supertag schema（`~/NoteHQ/00_Roam/supertag-schema.el`） | `SPC # T`（`my/reload-supertag-schema`） |
+| 节点类型（`~/NoteHQ/.orgseq/types.org`） | 保存文件即重载；也可 `M-x my/node-types-reload` |
 | capture 模板（`~/NoteHQ/.orgseq/capture-templates.el`） | `SPC # C`（`my/reload-capture-templates`） |
 | AI 后端（`~/NoteHQ/.orgseq/ai-config.org`） | 保存文件后下次 `M-x gptel` 会重新解析 |
 | 单个 `init-*.el` 模块 | `M-x eval-buffer` |
@@ -1618,21 +1676,25 @@ M-x customize-group RET org-seq RET
 | `SPC n d p` | 上一篇 |
 | `SPC n d n` | 下一篇 |
 
-### SPC # — Supertag
+### SPC # — 类型与字段
 
 | 键位 | 功能 |
 |------|------|
-| `SPC # #` | 快速操作（上下文感知菜单） |
-| `SPC # a` | 添加标签 |
-| `SPC # e` | 编辑字段 |
-| `SPC # x` | 移除标签 |
-| `SPC # l` | 列出字段 |
-| `SPC # j` | 跳转关联 |
-| `SPC # k` | 看板 |
-| `SPC # s` | 搜索 |
-| `SPC # S` | 同步状态 |
-| `SPC # r` | 立即同步 |
-| `SPC # R` | 完全重建索引 |
+| `SPC # #` | 节点操作菜单 |
+| `SPC # t` | 加类型 |
+| `SPC # x` | 移除类型 |
+| `SPC # f` | 设置字段 |
+| `SPC # e` | 编辑任意 Org property |
+| `SPC # p` | 提取选区为新笔记 / 把标题变成节点 |
+| `SPC # n` | 新建某个类型的笔记 |
+| `SPC # v` | 类型表格视图 |
+| `SPC # r` | Review：最近未分类或无链接的笔记 |
+| `SPC # s` | 查找节点 |
+| `SPC # j` | 打开 Org 链接 |
+| `SPC # T` | 编辑 types.org |
+| `SPC # c` | 编辑自由 capture 模板 |
+| `SPC # C` | 重载 capture 模板 |
+| `SPC # D` | 创建新 dashboard |
 
 ### SPC n v — 视图 / Dashboard
 
@@ -1641,16 +1703,6 @@ M-x customize-group RET org-seq RET
 | `SPC n v v` | 选择并打开 dashboard |
 | `SPC n v w` | 每周回顾 |
 | `SPC n v i` | Dashboard 索引 |
-
-### SPC # — 扩展中心
-
-| 键位 | 功能 |
-|------|------|
-| `SPC # t` | 编辑 tag schema |
-| `SPC # T` | 重载 tag schema |
-| `SPC # c` | 编辑 capture 模板 |
-| `SPC # C` | 重载 capture 模板 |
-| `SPC # d` | 创建新 dashboard |
 
 ### SPC n t — Transclusion
 
@@ -1718,9 +1770,10 @@ M-x customize-group RET org-seq RET
 | 键位 | 功能 |
 |------|------|
 | `SPC u t` | 切换主题 |
+| `SPC u d` | 浅色/深色 |
+| `SPC u c` | 正文居中栏 |
 | `SPC u l` | 行号 |
 | `SPC u w` | 自动换行 |
-| `SPC t o` | Olivetti |
 | `SPC u f` | 全屏 |
 | `SPC u i` | Org-modern |
 | `SPC u s` | Org 顶部标题面包屑（sticky header） |
@@ -1777,8 +1830,9 @@ M-x customize-group RET org-seq RET
 | `, h` | 隐藏/显示已完成 |
 | `, n / , w` | 缩窄/还原 |
 | `, c` | 切换复选框 |
-| `, ##` | Supertag 快速操作 |
-| `, #a/e/x/j` | 添加/编辑字段/移除/跳转 |
+| `, ##` | 节点操作菜单 |
+| `, #t/x/f/e` | 加类型/移除类型/设置字段/编辑 Org property |
+| `, #p/v/j` | 提升为节点/类型表格视图/打开 Org 链接 |
 | `, k i/o/g/r/c` | 时钟操作 |
 | `, b e/b/t` | Babel 操作 |
 
@@ -1830,8 +1884,8 @@ M-x customize-group RET org-seq RET
 | 启动很慢 | `M-x esup` | 查看启动耗时分析 |
 | org-node 缓存过旧 | `M-x org-mem-reset` | 强制全量重扫 |
 | org-roam-ui 图谱不完整 | 检查 `org-mem-roamy-do-overwrite-real-db` | 应为 `t` |
-| supertag 数据丢失 | `M-x supertag-sync-full-initialize` | 一次性全量重建 |
-| supertag 字段不同步 | `M-x supertag-sync-check-now` | 手动触发同步 |
+| 表格视图或 dashboard 缺少刚改的字段 | 确认文件已保存 | 保存后在视图中按 `g` 或刷新动态块；仍不对时 `M-x org-roam-db-sync` 重建索引 |
+| `SPC # t` 提示没有类型 | 检查 `~/NoteHQ/.orgseq/types.org` | `SPC # T` 打开文件，至少定义一个一级标题并保存 |
 | AI 命令报错 "No API key" | 检查 `~/.authinfo` | 确认有 `machine openrouter.ai login apikey password sk-or-XXX` |
 | Transient 版本太旧 | 检查 `package-install-upgrade-built-in` | 确认为 `t` |
 | 图标显示为方块 | `M-x nerd-icons-install-fonts` | Windows 需右键安装 .ttf |
@@ -1854,7 +1908,7 @@ M-x customize-group RET org-seq RET
 
 **第四周**你可以尝试 AI 功能（第十章）和 GTD Dashboard（第九章 9.4）。这两块都是"如虎添翼"而非"不可或缺"——它们会让你前三周形成的习惯发挥得更好，但前三周的基础没打牢之前，提前用这些功能反而会让人感觉不踏实。
 
-**四周之后**，supertag、transclusion、org-ql 这些高级功能可以按需探索——等到你真正遇到某个具体问题（"我想查所有读过但没写评论的书"、"我想在论文里引用某条笔记的原文"）再去学对应的功能，学习效率会比预先通读手册高得多。
+**四周之后**，节点类型与字段、transclusion、org-ql 这些高级功能可以按需探索——等到你真正遇到某个具体问题（"我想查所有读过但没写评论的书"、"我想在论文里引用某条笔记的原文"）再去学对应的功能，学习效率会比预先通读手册高得多。
 
 如果你只记得住三个键，请记住这三个：
 

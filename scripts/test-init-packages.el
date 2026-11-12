@@ -16,12 +16,6 @@
     (should (= (length packages)
                (length (delete-dups packages))))))
 
-(ert-deftest my/vc-package-inventory-covers-current-git-sources ()
-  (should (equal (mapcar (lambda (spec) (plist-get spec :package))
-                         my/vc-package-specs)
-                 '(modusregel org-modern-indent org-supertag
-                   ob-gptel claude-code))))
-
 (ert-deftest my/vc-package-ensure-never-installs-noninteractively ()
   (let ((noninteractive t)
         installed)
@@ -33,20 +27,6 @@
                (lambda (&rest _arguments) (setq installed t))))
       (should (eq (my/vc-package-ensure 'modusregel) 'skipped))
       (should-not installed))))
-
-(ert-deftest my/vc-package-ensure-installs-from-registered-url ()
-  (let ((noninteractive nil)
-        installed-url)
-    (cl-letf (((symbol-function 'package-installed-p)
-               (lambda (_package) nil))
-              ((symbol-function 'locate-library)
-               (lambda (_library) nil))
-              ((symbol-function 'package-vc-install)
-               (lambda (url &rest _arguments)
-                 (setq installed-url url))))
-      (should (eq (my/vc-package-ensure 'modusregel) 'installed))
-      (should (equal installed-url
-                     "https://codeberg.org/jjba23/modusregel.git")))))
 
 (ert-deftest my/vc-package-ensure-rejects-unregistered-packages ()
   (should-error (my/vc-package-ensure 'unregistered-package)

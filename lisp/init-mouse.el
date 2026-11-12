@@ -81,11 +81,15 @@ Each entry is (ID LABEL COMMAND); COMMAND runs at CLICK's position."
        (daily-node "Append Daily Node"    my/daily-new-node))
      click)
     (my/mouse--add-submenu
-     menu 'my/mouse-org-supertag "Supertag"
-     '((quick  "Quick Action..."  my/supertag-quick-action)
-       (add    "Add Tag..."       org-supertag-tag-add-tag)
-       (edit   "Edit Field..."    org-supertag-node-edit-field)
-       (remove "Remove Tag..."    org-supertag-tag-remove))
+     menu 'my/mouse-org-types "Type & Fields"
+     '((actions   "Node Actions..."       my/node-action)
+       (add       "Add Type..."           my/node-set-type)
+       (field     "Set Field..."          my/node-set-field)
+       (remove    "Remove Type..."        my/node-remove-type)
+       (promote   "Promote to Node"       my/node-promote)
+       (view      "Type Table View..."    my/node-view)
+       (review    "Review Unsorted Notes" my/node-review)
+       (edit      "Edit Org Property..."  org-set-property))
      click))
   menu)
 

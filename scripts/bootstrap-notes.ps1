@@ -14,9 +14,17 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
-$NoteHome = Join-Path $HOME "NoteHQ"
+# The library lives under the Emacs directory (lisp/init-org.el); the same
+# overrides apply here.
+$NoteHome = if ($env:ORG_SEQ_NOTE_HOME) {
+    $env:ORG_SEQ_NOTE_HOME
+} elseif ($env:ORG_SEQ_EMACS_DIR) {
+    Join-Path $env:ORG_SEQ_EMACS_DIR "notes"
+} else {
+    Join-Path (Join-Path $HOME ".emacs.d") "notes"
+}
 
-Write-Host "=== org-seq: Bootstrap NoteHQ Directory Structure ===" -ForegroundColor Cyan
+Write-Host "=== org-seq: Bootstrap note library at $NoteHome ===" -ForegroundColor Cyan
 if ($Update) {
     Write-Host "    Mode: UPDATE - Codex scaffolding will be overwritten" -ForegroundColor Yellow
 }
@@ -178,8 +186,8 @@ if ($Update) {
     Write-Host "=== Next Steps ===" -ForegroundColor Cyan
     Write-Host "  1. Deploy config:  cd org-seq; .\deploy.ps1   (or deploy.sh on Linux/macOS)"
     Write-Host "  2. Start Emacs and run:  M-x org-roam-db-sync"
-    Write-Host "  3. Run:  M-x supertag-sync-full-initialize"
-    Write-Host "  4. Use Codex inside ~/NoteHQ/ — it now has AGENTS.md guidance"
+    Write-Host "  3. Run:  M-x org-roam-db-sync"
+    Write-Host "  4. Use Codex inside $NoteHome/ — it now has AGENTS.md guidance"
     Write-Host ""
     Write-Host "  Refresh scaffolding later:  .\bootstrap-notes.ps1 -Update"
 }
