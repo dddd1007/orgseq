@@ -75,8 +75,8 @@ Each entry is (ID LABEL COMMAND); COMMAND runs at CLICK's position."
      click)
     (my/mouse--add-submenu
      menu 'my/mouse-org-note "Note"
-     '((link       "Insert Note Link..."  org-roam-node-insert)
-       (backlinks  "Toggle Backlinks"     org-roam-buffer-toggle)
+     '((link       "Insert Note Link..."  my/node-insert-link)
+       (backlinks  "Show Backlinks"       my/node-backlinks)
        (transclude "Add Transclusion"     org-transclusion-add)
        (daily-node "Append Daily Node"    my/daily-new-node))
      click)
@@ -165,9 +165,9 @@ Each entry is (ID LABEL COMMAND); COMMAND runs at CLICK's position."
   "NoteHQ workflow menu."
   '("NoteHQ"
     ["Today's Daily" my/daily-workspace-open t]
-    ["New Note..." org-roam-capture t]
-    ["Find Note..." org-roam-node-find t]
-    ["Search Notes..." my/org-roam-rg-search t]
+    ["New Note..." my/note-capture t]
+    ["Find Note..." my/node-find t]
+    ["Search Notes..." my/note-search-text t]
     "---"
     ["GTD Dashboard" my/org-dashboard t]
     ["Today's Tasks" my/org-open-today t]

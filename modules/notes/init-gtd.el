@@ -78,38 +78,29 @@
   :type 'integer :group 'org-seq)
 
 (defun my/org-roam-agenda-files (&optional force)
-  "Return .org files under Roam/, Outputs/ and Practice/.
-Use org-mem when available.  Library/ and Archives/ are excluded.
-With non-nil FORCE (or prefix arg interactively), bypass the cache."
+  "Return the .org files under Roam/, Outputs/ and Practice/.
+The actionable layers are listed directly; Library/ and Archives/ are
+not scanned, so reference material and completed work stay out of GTD
+views.  Hidden directories and sync conflict copies are skipped.  With
+non-nil FORCE (or prefix arg interactively), bypass the cache."
   (interactive "P")
   (let ((now (float-time)))
     (when (or force
               (null my/agenda-cache)
               (> (- now my/agenda-cache-timestamp) my/agenda-cache-ttl))
       (setq my/agenda-cache
-            (cond
-             ;; Fast path: org-mem's async-built file list for Roam/, plus
-             ;; explicit scans of actionable PARA layers not indexed there.
-             ((and (fboundp 'org-mem-all-files)
-                    (bound-and-true-p org-node-cache-mode))
-               (delete-dups
-                (append
-                 (cl-remove-if-not
-                  (lambda (f) (string-suffix-p ".org" f))
-                  (org-mem-all-files))
-                 (let ((dirs (list my/outputs-dir my/practice-dir)))
-                   (cl-mapcan (lambda (d)
-                                (when (file-directory-p d)
-                                  (directory-files-recursively d "\\.org\\'")))
-                              dirs)))))
-             ;; Slow path: scan the actionable NoteHQ layers.  Library/ and
-             ;; Archives/ remain excluded so reference material and completed
-             ;; work do not pollute GTD views.
-             (t (let ((dirs (list my/roam-dir my/outputs-dir my/practice-dir)))
-                  (cl-mapcan (lambda (d)
-                               (when (file-directory-p d)
-                                 (directory-files-recursively d "\\.org\\'")))
-                             dirs))))
+            (cl-mapcan
+             (lambda (dir)
+               (when (file-directory-p dir)
+                 (cl-remove-if
+                  (lambda (file)
+                    (or (string-match-p "\\.conflict[0-9]*\\.org\\'" file)
+                        (string-prefix-p ".#" (file-name-nondirectory file))))
+                  (directory-files-recursively
+                   dir "\\.org\\'" nil
+                   (lambda (sub)
+                     (not (string-prefix-p "." (file-name-nondirectory sub))))))))
+             (list my/roam-dir my/outputs-dir my/practice-dir))
             my/agenda-cache-timestamp now)
       (message "org-seq: agenda cache refreshed (%d files)" (length my/agenda-cache))))
   my/agenda-cache)

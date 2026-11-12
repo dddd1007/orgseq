@@ -1,7 +1,7 @@
 ;;; init-pkm.el --- Transclusion and Org queries -*- lexical-binding: t; -*-
 
 ;; Note-level structure (types, fields, views) lives in init-nodes on top
-;; of org-roam.  This module only adds two general Org tools that the
+;; of the kernel index.  This module only adds two general Org tools that the
 ;; node layer and GTD build on: live transclusion of other nodes and
 ;; org-ql queries.
 

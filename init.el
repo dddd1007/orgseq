@@ -45,7 +45,8 @@
   (expand-file-name "user/" user-emacs-directory)
   "Directory for the user's own configuration.
 modules.el there runs before the modules load (set
-`my/init-disabled-modules'), config.el after them, and custom.el holds
+`my/init-disabled-modules' and `my/init-enabled-optional-modules'),
+config.el after them, and custom.el holds
 Customize settings.  Deployment never writes this directory.")
 
 ;; ---- Platform tuning ----
@@ -335,10 +336,9 @@ Absent optional packages are skipped silently, matching module loading."
 ;; idle time, like VS Code's "Auto Save: afterDelay".  No #autosave# files
 ;; are produced; the visited file itself is written.
 ;;
-;; Side effect 1 (acceptable): each save of a note is picked up by
-;; org-mem's updater (init-roam.el), which re-indexes only the saved file
-;; and refreshes the org-roam database, so the 2s interval does not rescan
-;; NoteHQ.
+;; Side effect 1 (acceptable): each save of a note changes its file time,
+;; and the kernel index (kernel/orgseq-index.el) re-reads only that file
+;; on its next query, so the 2s interval does not rescan NoteHQ.
 ;;
 ;; Side effect 2 (acceptable): saving an emacs-lisp buffer runs
 ;; compile-angel's on-save byte-compilation (init-update.el), so editing
@@ -358,7 +358,7 @@ Absent optional packages are skipped silently, matching module loading."
 
 ;; ---- Load modules ----
 ;; Order: doctor -> packages -> popup -> keymap -> UI -> completion -> pyim -> python
-;; -> markdown -> languages -> org -> roam
+;; -> markdown -> languages -> org -> capture -> roam (optional, off by default)
 ;; -> gtd -> gtd-dashboard -> focus -> pkm -> nodes -> views -> sync
 ;; -> daily -> terminal
 ;; -> ai -> ai-cli -> dashboard -> dired
@@ -384,6 +384,7 @@ Absent optional packages are skipped silently, matching module loading."
     init-markdown
     init-languages
     init-org
+    init-capture
     init-roam
     init-gtd
     init-gtd-dashboard
@@ -417,6 +418,28 @@ Set it in user/modules.el, for example (setq my/init-disabled-modules
 \='(init-pyim init-python)).  Startup warns when an enabled module
 depends on a disabled one.")
 
+(defconst my/init-optional-modules '(init-roam)
+  "Modules in `my/init-modules-default' that load only when enabled.
+They keep their place in the canonical order; see
+`my/init-enabled-optional-modules'.  No module of the default set may
+depend on one of them.")
+
+(defvar my/init-enabled-optional-modules nil
+  "Optional modules (from `my/init-optional-modules') to load.
+Set it in user/modules.el, for example (setq
+my/init-enabled-optional-modules \='(init-roam)) to add org-roam, its
+graph view and consult-org-roam.")
+
+(defun my/init-effective-modules (&optional modules)
+  "Return MODULES (default `my/init-modules') as they are actually loaded.
+Modules in `my/init-disabled-modules' are dropped, and so are optional
+modules that are not in `my/init-enabled-optional-modules'."
+  (cl-remove-if (lambda (module)
+                  (or (memq module my/init-disabled-modules)
+                      (and (memq module my/init-optional-modules)
+                           (not (memq module my/init-enabled-optional-modules)))))
+                (or modules my/init-modules)))
+
 (defun my/load-user-file (name)
   "Load NAME from `my/user-directory' when it exists; report failures.
 Return non-nil when the file was loaded."
@@ -438,18 +461,19 @@ Return non-nil when the file was loaded."
     (init-markdown      . (init-ui))
     (init-languages     . (init-completion init-python))
     (init-org           . (init-packages init-ui))
-    (init-roam          . (init-org))
+    (init-capture       . (init-org))
+    (init-roam          . (init-org init-capture))
     (init-gtd           . (init-org))
     (init-gtd-dashboard . (init-gtd init-ui))
     (init-focus         . (init-org))
-    (init-nodes         . (init-org init-roam))
+    (init-nodes         . (init-org init-capture))
     (init-views         . (init-org init-nodes))
     (init-sync          . (init-org))
-    (init-daily         . (init-roam init-ui))
+    (init-daily         . (init-capture init-ui))
     (init-terminal      . (init-popup init-org))
     (init-ai            . (init-org init-packages init-popup))
     (init-ai-cli        . (init-org init-packages init-terminal))
-    (init-dashboard     . (init-daily init-roam))
+    (init-dashboard     . (init-daily init-capture))
     (init-dired         . (init-org init-ui init-terminal))
     (init-mouse         . (init-org init-gtd init-gtd-dashboard init-daily))
     (init-workspace     . (init-org init-daily init-terminal init-dired init-frame))
@@ -546,9 +570,7 @@ Return non-nil when MODULE loads successfully."
 
 ;; The user's module selection, read before anything is checked or loaded.
 (my/load-user-file "modules.el")
-(setq my/init-modules
-      (cl-remove-if (lambda (module) (memq module my/init-disabled-modules))
-                    my/init-modules))
+(setq my/init-modules (my/init-effective-modules my/init-modules))
 
 ;; Dependency assertion: fail loudly (but non-fatally) when the module list
 ;; violates the declared load-order contract, before any module loads.

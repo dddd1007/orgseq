@@ -2,8 +2,8 @@
 ;;
 ;; Every file or heading with an Org ID is a node and relations are
 ;; [[id:]] links.  The kernel index (kernel/orgseq-index.el) is what this
-;; module reads; org-roam is used only for interactive capture.  The
-;; module adds the Tana/Fibery layer on top:
+;; module reads; new notes are written through init-capture.  The module
+;; adds the Tana/Fibery layer on top:
 ;;
 ;;   Types    Tana supertags / Fibery databases.  Defined as headings in
 ;;            `my/types-file' (.orgseq/types.org).  A type is an Org tag, a
@@ -20,6 +20,9 @@
 ;;            `orgseq-query' dynamic block for dashboards.
 ;;   Actions  One node menu (Tana command line): type, field, link, promote,
 ;;            extract, backlinks.
+;;   Finding  Node find and link insertion over the index (titles and
+;;            ROAM_ALIASES), a backlinks buffer, and id links that open
+;;            through the index before Org's own id lookup.
 ;;
 ;; Org text is the only authority.  Everything here reads Org through the
 ;; kernel index and writes plain tags and properties, so notes stay
@@ -28,19 +31,19 @@
 ;; ┌─────────────────────────────────────────────────────────────────┐
 ;; │                       Table of Contents                          │
 ;; ├─────────────────────────────────────────────────────────────────┤
-;; │ Section 1  Capture templates (user file + generated type ones)   │
+;; │ Section 1  Capture templates generated from the types            │
 ;; │ Section 2  Type registry (.orgseq/types.org)                     │
 ;; │ Section 3  Node at point: position, tags, types, fields          │
 ;; │ Section 4  Commands: set/remove type, set field, promote, capture│
 ;; │ Section 5  Queries over the node index                           │
 ;; │ Section 6  Table views (type view, review)                       │
 ;; │ Section 7  Dashboard dynamic blocks                              │
-;; │ Section 8  Node action menu                                      │
+;; │ Section 8  Node action menu, find, links, backlinks, id links    │
 ;; │ Section 9  Dashboard files, PARA navigation, NoteHQ bootstrap    │
 ;; └─────────────────────────────────────────────────────────────────┘
 
-;; Requires: init-org  (NoteHQ path constants, my/types-file)
-;; Requires: init-roam (my/default-capture-templates)
+;; Requires: init-org     (NoteHQ path constants, my/types-file)
+;; Requires: init-capture (note creation, capture template registry)
 (defvar my/note-home)
 (defvar my/orgseq-dir)
 (defvar my/roam-dir)
@@ -49,12 +52,10 @@
 (defvar my/library-dir)
 (defvar my/archives-dir)
 (defvar my/dashboards-dir)
-(defvar my/capture-templates-file)
 (defvar my/types-file)
-(defvar my/default-capture-templates)
-(defvar org-roam-capture-templates)
-(defvar org-roam-capture-new-node-hook)
-(defvar org-roam-directory)
+(defvar my/capture-template-functions)
+(defvar my/capture-fields-function)
+(defvar my/capture-templates-changed-hook)
 
 (require 'cl-lib)
 (require 'subr-x)
@@ -64,89 +65,37 @@
 
 (declare-function consult-ripgrep "consult")
 (require 'orgseq-index)
+(require 'orgseq-note)
 
-(declare-function org-roam-capture- "org-roam-capture")
-(declare-function org-roam-node-create "org-roam-node")
+(declare-function my/note-capture "init-capture"
+                  (&optional title template fields no-visit))
+(declare-function my/ensure-capture-templates-file "init-capture" ())
+(declare-function evil-normal-state-p "evil-states" (&optional state))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: Capture templates
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
-;; Three sources are merged into `org-roam-capture-templates', in this order:
-;;   1. the built-in default (init-roam.el),
-;;   2. one template per type from types.org (keys "t" + TYPE_KEY),
-;;   3. free-form user templates from .orgseq/capture-templates.el.
-
-(defun my/load-user-file-safely (file description)
-  "Load FILE and report a clear error tagged with DESCRIPTION on failure."
-  (condition-case err
-      (progn
-        (load file nil 'nomessage)
-        t)
-    (error
-     (message "org-seq: failed to load %s from %s: %s" description file err)
-     nil)))
-
-(defvar my/user-capture-templates nil
-  "User-defined org-roam capture templates loaded from
-.orgseq/capture-templates.el.")
-
-(defconst my/capture-templates-template
-  ";;; capture-templates.el --- User capture templates -*- lexical-binding: t; -*-
-;;
-;; Free-form org-roam capture templates.  For notes that belong to a type
-;; (with fields and a view), define the type in types.org instead: org-seq
-;; generates its capture template automatically.
-;;
-;; Each entry follows org-roam-capture-templates format:
-;;   (KEY DESCRIPTION TYPE BODY :target TARGET :unnarrowed t)
-;; Keys starting with \"t\" are reserved for generated type templates.
-;;
-;; Reload after editing:  SPC # C  (my/reload-capture-templates)
-
-(setq my/user-capture-templates
-      '(
-        ;; (\"m\" \"Meeting\" plain
-        ;;  \"* Attendees\\n* Notes\\n%?\\n* Decisions\\n\"
-        ;;  :target (file+head \"capture/%<%Y%m%dT%H%M%S>-${slug}.org\"
-        ;;                     \"#+title: ${title}\\n\")
-        ;;  :unnarrowed t)
-        ))
-
-;;; capture-templates.el ends here
-"
-  "Template content for a new capture-templates.el file.")
-
-(defun my/ensure-capture-templates-file ()
-  "Create .orgseq/capture-templates.el with examples if missing."
-  (unless (file-exists-p my/capture-templates-file)
-    (make-directory (file-name-directory my/capture-templates-file) t)
-    (with-temp-file my/capture-templates-file
-      (insert my/capture-templates-template))
-    (message "org-seq: created %s" my/capture-templates-file)))
+;; init-capture merges three template sources: its built-in default, the
+;; functions on `my/capture-template-functions', and the user's
+;; .orgseq/capture-templates.el.  This module contributes one template per
+;; type from types.org (keys "t" + TYPE_KEY), defined in Section 2, and
+;; names the fields a new note of a type starts with.
 
 (defvar my/node-types)
+(defvar my/node-add-empty-fields)
 
-(defun my/reload-capture-templates ()
-  "Reload user capture templates and merge them with defaults and types."
-  (interactive)
-  (setq my/user-capture-templates nil)
-  (when (file-exists-p my/capture-templates-file)
-    (my/load-user-file-safely my/capture-templates-file "capture templates"))
-  (let ((typed (my/node-type-capture-templates)))
-    (setq org-roam-capture-templates
-          (append my/default-capture-templates typed my/user-capture-templates))
-    (message "org-seq: %d capture templates (%d default, %d typed, %d user)"
-             (length org-roam-capture-templates)
-             (length my/default-capture-templates)
-             (max 0 (1- (length typed)))
-             (length my/user-capture-templates))))
+(defun my/node-capture-fields (tags)
+  "Return the field names of the types among TAGS, for a new note.
+Nil when `my/node-add-empty-fields' is off."
+  (when my/node-add-empty-fields
+    (delete-dups
+     (cl-loop for type in (my/node-types-for-tags tags)
+              append (mapcar (lambda (field) (plist-get field :name))
+                             (my/node-type-fields type))))))
 
-(defun my/edit-capture-templates ()
-  "Open the user capture templates file for editing."
-  (interactive)
-  (my/ensure-capture-templates-file)
-  (find-file my/capture-templates-file))
+(add-hook 'my/capture-template-functions #'my/node-type-capture-templates)
+(setq my/capture-fields-function #'my/node-capture-fields)
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Type registry
@@ -360,8 +309,7 @@ unknown parent or a cycle leaves the type as written."
             (let ((org-inhibit-startup t))
               (delay-mode-hooks (org-mode)))
             (my/node-types-parse-buffer))))
-  (when (featurep 'org-roam)
-    (my/reload-capture-templates))
+  (run-hooks 'my/capture-templates-changed-hook)
   (when (called-interactively-p 'interactive)
     (message "org-seq: %d node types loaded" (length my/node-types)))
   my/node-types)
@@ -400,7 +348,7 @@ unknown parent or a cycle leaves the type as written."
              types :key #'my/node-type-name :test #'equal)))
 
 (defun my/node-type-capture-templates ()
-  "Return org-roam capture templates generated from `my/node-types'."
+  "Return capture templates (org-roam format) generated from `my/node-types'."
   (when my/node-types
     (let ((used (make-hash-table :test 'equal)))
       (cons
@@ -660,40 +608,29 @@ CURRENT is the existing value, offered as the default."
     (kill-new link)
     (message "Copied: %s" link)))
 
-(defun my/node--capture-template-text (text)
-  "Escape TEXT for safe use as an org-capture template body."
-  (replace-regexp-in-string "%" "%%" text t t))
-
 (defun my/node-capture-region-as-note (title)
   "Extract the active region into a new note titled TITLE.
-The region is removed and, when the capture is confirmed (C-c C-c), a link
-to the new note is inserted in its place.  The new note links back to the
-node the text came from."
+The region is replaced by a link to the new note, and the new note links
+back to the node the text came from."
   (interactive
    (progn
      (unless (use-region-p) (user-error "Select a region first"))
      (list (read-string "New note title: "))))
   (my/node--ensure-org)
-  (require 'org-roam)
   (let* ((beg (region-beginning))
          (end (region-end))
          (text (buffer-substring-no-properties beg end))
          (source-id (org-entry-get (my/node-position t) "ID"))
-         (body (concat (my/node--capture-template-text text)
-                       "%?\n\n* Source\n"
-                       (my/node--capture-template-text
-                        (format "[[id:%s]]" source-id))
-                       "\n")))
+         (note (my/note-create
+                :title title
+                :body (concat (string-trim-right text) "\n\n* Source\n"
+                              (format "[[id:%s]]\n" source-id)))))
     (delete-region beg end)
     (goto-char beg)
     (deactivate-mark)
-    (org-roam-capture-
-     :node (org-roam-node-create :title title)
-     :templates `(("x" "Extracted region" plain ,body
-                   :target (file+head "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
-                                      "#+title: ${title}\n")
-                   :unnarrowed t))
-     :props (list :link-description title :finalize 'insert-link))))
+    (insert (format "[[id:%s][%s]]" (plist-get note :id) title))
+    (message "Extracted to %s" (file-relative-name (plist-get note :file) my/note-home))
+    note))
 
 (defun my/node-promote ()
   "Turn the region or current heading into a node.
@@ -715,38 +652,20 @@ in place, as any block can be referenced in Tana."
           (call-interactively #'my/node-set-type)
         (message (if had-id "Already a node" "Heading is now a node"))))))
 
-(defvar my/node--capture-prefill nil
-  "Alist of (FIELD . VALUE) written to the note being captured.
-Bound by `my/node-capture' so a note created from a view starts with the
-values the view filters or groups by.")
+(defun my/node--type-capture-template (type)
+  "Return the generated capture template of TYPE."
+  (or (cl-find (my/node-type-name type)
+               (cdr (my/node-type-capture-templates))
+               :key #'cadr :test #'equal)
+      (user-error "Type %s has no capture template" (my/node-type-name type))))
 
 (defun my/node-capture (type title &optional fields)
-  "Create a new note of TYPE titled TITLE.
-FIELDS is an alist of (FIELD . VALUE) to set on the new note."
+  "Create a new note of TYPE titled TITLE and visit it.
+FIELDS is an alist of (FIELD . VALUE) to set on the new note; a view
+passes the values it filters or groups by."
   (interactive (list (my/node-read-type "New note of type: ")
                      (read-string "Title: ")))
-  (require 'org-roam)
-  (let ((my/node--capture-prefill fields)
-        (template (cl-find (my/node-type-name type)
-                           (cdr (my/node-type-capture-templates))
-                           :key #'cadr :test #'equal)))
-    (org-roam-capture- :node (org-roam-node-create :title title)
-                       :keys (car template)
-                       :templates (list template))))
-
-(defun my/node--fill-fields-on-capture ()
-  "Add empty field slots to a newly captured typed note."
-  (when (and my/node-add-empty-fields (derived-mode-p 'org-mode))
-    (org-with-wide-buffer
-     (dolist (type (my/node-types-for-tags (my/node--file-tags)))
-       (my/node--ensure-fields (point-min) type))))
-  (when (derived-mode-p 'org-mode)
-    (org-with-wide-buffer
-     (pcase-dolist (`(,name . ,value) my/node--capture-prefill)
-       (org-entry-put (point-min) (upcase name) value)))))
-
-(with-eval-after-load 'org-roam-capture
-  (add-hook 'org-roam-capture-new-node-hook #'my/node--fill-fields-on-capture))
+  (my/note-capture title (my/node--type-capture-template type) fields))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 5: Queries
@@ -765,30 +684,57 @@ FIELDS is an alist of (FIELD . VALUE) to set on the new note."
   "Return the value of FIELD on record NODE as a string (empty when unset)."
   (or (cdr (assoc field (plist-get node :props))) ""))
 
-(defun my/node-read (&optional prompt)
-  "Read a node with completion and return its record.
-PROMPT defaults to \"Node: \".  Nodes sharing a title are told apart by
-their file name."
-  (let* ((records (my/index-records))
-         (seen (make-hash-table :test 'equal))
-         (table (make-hash-table :test 'equal)))
+(defun my/node-aliases (record)
+  "Return the ROAM_ALIASES values of RECORD as a list of strings."
+  (let ((value (cdr (assoc "ROAM_ALIASES" (plist-get record :props)))))
+    (and value (not (string-empty-p value))
+         (split-string-and-unquote value))))
+
+(defun my/node-candidates (records &optional aliases)
+  "Return a hash table from completion label to record for RECORDS.
+Nodes sharing a title are told apart by their file name.  With ALIASES,
+each ROAM_ALIASES value is an extra label, shown as \"ALIAS -> TITLE\"."
+  (let ((seen (make-hash-table :test 'equal))
+        (table (make-hash-table :test 'equal)))
     (dolist (record records)
       (puthash (plist-get record :title)
                (1+ (gethash (plist-get record :title) seen 0)) seen))
-    (dolist (record records)
-      (let* ((title (plist-get record :title))
-             (label (if (> (gethash title seen) 1)
-                        (format "%s  (%s)" title
-                                (file-name-base (plist-get record :file)))
-                      title))
-             (n 1)
-             (key label))
-        (while (gethash key table)
-          (setq n (1+ n) key (format "%s <%d>" label n)))
-        (puthash key record table)))
+    (cl-flet ((add (label record)
+                (let ((n 1)
+                      (key label))
+                  (while (gethash key table)
+                    (setq n (1+ n) key (format "%s <%d>" label n)))
+                  (puthash key record table))))
+      (dolist (record records)
+        (let ((title (plist-get record :title)))
+          (add (if (> (gethash title seen) 1)
+                   (format "%s  (%s)" title (file-name-base (plist-get record :file)))
+                 title)
+               record)))
+      (when aliases
+        (dolist (record records)
+          (dolist (alias (my/node-aliases record))
+            (add (format "%s -> %s" alias (plist-get record :title)) record)))))
+    table))
+
+(defun my/node-read (&optional prompt)
+  "Read a node with completion and return its record.
+PROMPT defaults to \"Node: \".  Aliases are offered as well."
+  (let ((table (my/node-candidates (my/index-records) t)))
     (unless (> (hash-table-count table) 0)
       (user-error "The library has no nodes yet"))
     (gethash (completing-read (or prompt "Node: ") table nil t) table)))
+
+(defun my/node--read-or-new (prompt)
+  "Read a node with PROMPT; return its record, or the typed text when new.
+The text is returned as a string so the caller can offer to create a
+note with that title."
+  (let* ((table (my/node-candidates (my/index-records) t))
+         (input (string-trim (completing-read prompt table nil nil))))
+    (cond
+     ((string-empty-p input) (user-error "No node given"))
+     ((gethash input table))
+     (t input))))
 
 (defun my/node-visit (node &optional other-window)
   "Visit record NODE (or the node with that id) at its heading.
@@ -1016,7 +962,7 @@ on their own."
   (or (member "daily" (plist-get node :tags))
       (let ((file (plist-get node :file)))
         (and file (file-in-directory-p
-                   file (expand-file-name "daily/" my/roam-dir))))))
+                   file (my/daily-dir))))))
 
 (defun my/node-review ()
   "Review recent notes that have no type or no links yet.
@@ -1222,10 +1168,10 @@ Supports (tag T), (property K V), (recent-days N) and (and ...)."
                      (cons (format "View all %s nodes" (my/node-type-name type))
                            (lambda () (interactive) (my/node-view type))))
                    types)
-           '(("Insert link to another node" . org-roam-node-insert)
-             ("Toggle backlinks panel" . org-roam-buffer-toggle)
+           '(("Insert link to another node" . my/node-insert-link)
+             ("Show backlinks" . my/node-backlinks)
              ("Copy node link" . my/node-copy-id-link)
-             ("Add alias" . org-roam-alias-add)
+             ("Add alias" . my/node-add-alias)
              ("Edit any Org property" . org-set-property)
              ("New note of a type" . my/node-capture)
              ("Review unsorted notes" . my/node-review))))
@@ -1236,6 +1182,185 @@ Supports (tag T), (property K V), (recent-days N) and (and ...)."
                     "Node: ")
                   (mapcar #'car actions) nil t)))
     (call-interactively (cdr (assoc choice actions)))))
+
+;; ---- Find, insert link, alias ----
+
+(defun my/node-find ()
+  "Visit a node chosen by title or alias.
+Text that names no node offers to capture a new note with that title."
+  (interactive)
+  (let ((choice (my/node--read-or-new "Find node: ")))
+    (if (stringp choice)
+        (when (y-or-n-p (format "No node \"%s\".  Create it? " choice))
+          (my/note-capture choice))
+      (my/node-visit choice))))
+
+(defun my/node--insert-position ()
+  "In Evil normal state, move after the character at point before inserting.
+That is where a link typed with `a' would land."
+  (when (and (bound-and-true-p evil-local-mode)
+             (fboundp 'evil-normal-state-p)
+             (evil-normal-state-p)
+             (not (eolp)))
+    (forward-char)))
+
+(defun my/node-insert-link ()
+  "Insert an id link to a node chosen by title or alias.
+With an active region, the region becomes the link description.  Text
+that names no node offers to create a note with that title (the note is
+written without leaving the current buffer)."
+  (interactive)
+  (let* ((region (and (use-region-p)
+                      (cons (region-beginning) (region-end))))
+         (description (and region (buffer-substring-no-properties
+                                   (car region) (cdr region))))
+         (choice (my/node--read-or-new "Link to node: "))
+         (target (if (stringp choice)
+                     (if (y-or-n-p (format "No node \"%s\".  Create it? " choice))
+                         (save-window-excursion
+                           (save-excursion (my/note-capture choice nil nil t)))
+                       (user-error "Nothing inserted"))
+                   choice))
+         (link (format "[[id:%s][%s]]" (plist-get target :id)
+                       (or description (plist-get target :title)))))
+    (if region
+        (progn (delete-region (car region) (cdr region))
+               (goto-char (car region))
+               (deactivate-mark))
+      (my/node--insert-position))
+    (insert link)
+    link))
+
+(defun my/node-add-alias (alias)
+  "Add ALIAS to the ROAM_ALIASES of the node at point.
+Node find offers aliases next to titles."
+  (interactive (list (read-string "Alias: ")))
+  (let* ((pos (my/node-position t))
+         (current (org-entry-get pos "ROAM_ALIASES"))
+         (aliases (and current (split-string-and-unquote current))))
+    (when (string-empty-p (string-trim alias))
+      (user-error "Empty alias"))
+    (unless (member alias aliases)
+      (org-entry-put pos "ROAM_ALIASES"
+                     (combine-and-quote-strings (append aliases (list alias)))))
+    (message "Aliases: %s" (org-entry-get pos "ROAM_ALIASES"))))
+
+;; ---- Backlinks ----
+
+(defun my/node-backlink-records (id)
+  "Return the records of nodes that link to node ID, sorted by title.
+Each node appears once, however many links it has."
+  (let ((sources nil))
+    (pcase-dolist (`(,source ,dest) (my/index-links))
+      (when (and (equal dest id) (not (equal source id)))
+        (cl-pushnew source sources :test #'equal)))
+    (sort (delq nil (mapcar #'my/index-node sources))
+          (lambda (a b) (string< (plist-get a :title) (plist-get b :title))))))
+
+(defconst my/node-backlinks-buffer-name "*Backlinks*"
+  "Buffer name of the backlinks list.")
+
+(defvar-local my/node-backlinks--id nil
+  "Id of the node whose backlinks the current buffer lists.")
+
+(defvar-keymap my/node-backlinks-mode-map
+  :parent special-mode-map
+  "RET" #'my/node-backlinks-visit
+  "o"   #'my/node-backlinks-visit-other-window
+  "g"   #'my/node-backlinks-refresh)
+
+(define-derived-mode my/node-backlinks-mode special-mode "Backlinks"
+  "List of nodes that link to one node.
+\\{my/node-backlinks-mode-map}"
+  (setq-local truncate-lines t))
+
+(defun my/node-backlinks-refresh ()
+  "Redraw the backlinks list from the index."
+  (interactive)
+  (let* ((id my/node-backlinks--id)
+         (node (my/index-node id))
+         (records (my/node-backlink-records id))
+         (inhibit-read-only t))
+    (erase-buffer)
+    (insert (propertize (format "Links to %s" (if node (plist-get node :title) id))
+                        'face 'bold)
+            (format "  (%d)\n\n" (length records)))
+    (if (null records)
+        (insert "No node links here yet.\n")
+      (dolist (record records)
+        (insert (propertize
+                 (concat "  " (plist-get record :title)
+                         (propertize
+                          (format "  %s" (file-relative-name (plist-get record :file)
+                                                             my/note-home))
+                          'face 'shadow))
+                 'my/node-id (plist-get record :id)
+                 'mouse-face 'highlight)
+                "\n")))
+    (goto-char (point-min))
+    (forward-line 2)))
+
+(defun my/node-backlinks (&optional id)
+  "List the nodes that link to node ID (default: the node at point).
+RET visits the node on the line."
+  (interactive)
+  (let* ((id (or id
+                 (and (derived-mode-p 'org-mode)
+                      (when-let* ((pos (my/node-position)))
+                        (org-entry-get pos "ID")))
+                 (user-error "Not inside a node")))
+         (buffer (get-buffer-create my/node-backlinks-buffer-name)))
+    (with-current-buffer buffer
+      (my/node-backlinks-mode)
+      (setq my/node-backlinks--id id)
+      (my/node-backlinks-refresh))
+    (display-buffer buffer)
+    buffer))
+
+(defun my/node-backlinks--id-at-point ()
+  "Return the id of the node on the current backlinks line."
+  (or (get-text-property (line-beginning-position) 'my/node-id)
+      (get-text-property (point) 'my/node-id)
+      (user-error "No node on this line")))
+
+(defun my/node-backlinks-visit ()
+  "Visit the node on the current line."
+  (interactive)
+  (my/node-visit (my/node-backlinks--id-at-point)))
+
+(defun my/node-backlinks-visit-other-window ()
+  "Visit the node on the current line in another window."
+  (interactive)
+  (my/node-visit (my/node-backlinks--id-at-point) t))
+
+;; ---- Following id links ----
+;;
+;; An [[id:]] link resolves through the kernel index first, which knows
+;; every node in the library without Org's id-locations file, then falls
+;; back to Org's own lookup (ids in files outside the index, or created a
+;; moment ago in a buffer that was not saved yet).
+
+(declare-function org-id-open "org-id" (id _))
+
+(defun my/node-id-open (link &optional arg)
+  "Open id LINK (ID or ID::SEARCH).  ARG is passed on to Org's id lookup."
+  (let* ((parts (split-string link "::"))
+         (id (car parts))
+         (search (cadr parts))
+         (record (ignore-errors (my/index-node id))))
+    (if (and record (file-exists-p (plist-get record :file)))
+        (progn
+          (org-mark-ring-push)
+          (my/node-visit record)
+          (when search (org-link-search search)))
+      (org-id-open link arg))))
+
+(defun my/node-install-id-link-handler ()
+  "Make [[id:]] links open through `my/node-id-open'."
+  (org-link-set-parameters "id" :follow #'my/node-id-open))
+
+(with-eval-after-load 'org-id
+  (my/node-install-id-link-handler))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 9: Dashboard files, PARA navigation, NoteHQ bootstrap
@@ -1314,8 +1439,8 @@ Supports (tag T), (property K V), (recent-days N) and (and ...)."
 (defun my/ensure-notehq-structure ()
   "Create NoteHQ directory skeleton if missing.  Idempotent."
   (dolist (dir (list my/roam-dir
-                     (expand-file-name "daily/"   my/roam-dir)
-                     (expand-file-name "capture/" my/roam-dir)
+                     (my/daily-dir)
+                     (my/note-capture-dir)
                      my/dashboards-dir
                      my/outputs-dir
                      my/practice-dir
@@ -1327,16 +1452,22 @@ Supports (tag T), (property K V), (recent-days N) and (and ...)."
           (lambda ()
             (run-with-idle-timer 0.5 nil #'my/ensure-notehq-structure)))
 
-;; Types are read at startup (cheap: one small file) so views and queries
-;; work before org-roam loads; capture templates are merged once it does.
+;; Types are read at startup (cheap: one small file) so views, queries and
+;; capture work at once.  The starter types and template files are created
+;; on the same idle pass as the directory skeleton.
 (unless noninteractive
   (my/node-types-reload))
 
-(with-eval-after-load 'org-roam
-  (my/ensure-capture-templates-file)
+(defun my/node--ensure-library-files ()
+  "Create the starter type registry and capture template file if missing."
   (my/node-types-ensure-file)
-  (unless my/node-types (my/node-types-reload))
-  (my/reload-capture-templates))
+  (when (fboundp 'my/ensure-capture-templates-file)
+    (my/ensure-capture-templates-file))
+  (unless my/node-types (my/node-types-reload)))
+
+(add-hook 'after-init-hook
+          (lambda ()
+            (run-with-idle-timer 0.6 nil #'my/node--ensure-library-files)))
 
 (provide 'init-nodes)
 ;;; init-nodes.el ends here

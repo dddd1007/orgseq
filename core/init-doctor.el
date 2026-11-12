@@ -390,7 +390,10 @@ nil when the source or the constant cannot be found."
 
 (defun my/doctor--check-active-packages ()
   "Check representative packages required by active core workflows."
-  (let* ((libraries '("general" "evil" "org-roam" "org-ql" "org-node"))
+  (let* ((libraries (append '("general" "evil" "org-ql")
+                            ;; org-roam is optional; check it only when enabled.
+                            (and (memq 'init-roam (bound-and-true-p my/init-modules))
+                                 '("org-roam" "org-node"))))
          (missing (cl-remove-if #'locate-library libraries)))
     (if missing
         (my/doctor--payload

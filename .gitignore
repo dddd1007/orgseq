@@ -78,4 +78,4 @@ scripts/EmacsServerTrayLauncher/obj/
 .\#*
 
 # org-seq note library (lives under the Emacs directory)
-notes/
+/notes/

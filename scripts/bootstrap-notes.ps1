@@ -185,9 +185,8 @@ if ($Update) {
 } else {
     Write-Host "=== Next Steps ===" -ForegroundColor Cyan
     Write-Host "  1. Deploy config:  cd org-seq; .\deploy.ps1   (or deploy.sh on Linux/macOS)"
-    Write-Host "  2. Start Emacs and run:  M-x org-roam-db-sync"
-    Write-Host "  3. Run:  M-x org-roam-db-sync"
-    Write-Host "  4. Use Codex inside $NoteHome/ — it now has AGENTS.md guidance"
+    Write-Host "  2. Start Emacs and run:  M-x my/index-rebuild"
+    Write-Host "  3. Use Codex inside $NoteHome/ — it now has AGENTS.md guidance"
     Write-Host ""
     Write-Host "  Refresh scaffolding later:  .\bootstrap-notes.ps1 -Update"
 }

@@ -1,6 +1,6 @@
 ;;; init-daily.el --- Daily-first workspace and navigation -*- lexical-binding: t; -*-
 
-;; Requires: init-roam (my/roam-dir, dailies path helpers)
+;; Requires: init-capture (Daily file helpers, my/daily-open-date)
 ;; Requires: init-ui (surface, accent, and hint faces)
 
 (require 'calendar)
@@ -9,12 +9,11 @@
 (require 'org)
 (require 'org-id)
 (require 'subr-x)
+(require 'orgseq-note)
 
 (defvar my/roam-dir)
-(defvar org-roam-dailies-directory)
 
-(declare-function my/org-roam-dailies--file-for-date "init-roam" (time))
-(declare-function my/org-roam-dailies-open-date "init-roam" (time))
+(declare-function my/daily-open-date "init-capture" (time))
 (declare-function my/workspace-close-treemacs "init-workspace" ())
 
 (defcustom my/daily-sidebar-days 14
@@ -33,19 +32,12 @@
   :group 'org-seq)
 
 (defun my/daily--directory ()
-  "Return the configured org-roam dailies directory."
-  (file-name-as-directory
-   (expand-file-name (or (and (boundp 'org-roam-dailies-directory)
-                              org-roam-dailies-directory)
-                         "daily/")
-                     my/roam-dir)))
+  "Return the Daily directory (see `my/daily-dir')."
+  (my/daily-dir))
 
 (defun my/daily--file-for-time (time)
   "Return the Daily file path for TIME without creating it."
-  (if (fboundp 'my/org-roam-dailies--file-for-date)
-      (my/org-roam-dailies--file-for-date time)
-    (expand-file-name (format-time-string "%Y-%m-%d.org" time)
-                      (my/daily--directory))))
+  (my/daily-file-for-date time))
 
 (defun my/daily--gregorian-for-time (time)
   "Return Gregorian (MONTH DAY YEAR) for TIME."
@@ -152,8 +144,8 @@
     (save-buffer)
     marker))
 
-;; Marks Daily buffers.  Indexing needs no hook here: org-mem's updater
-;; (init-roam) re-indexes every saved Org file under the roam directory.
+;; Marks Daily buffers.  Indexing needs no hook here: the kernel index
+;; re-reads every changed Org file the next time it is queried.
 (define-minor-mode my/daily-note-mode
   "Minor mode for org-seq Daily Notes."
   :lighter " Daily")
@@ -337,13 +329,13 @@ OFFSET is the number of days between RECORD and today."
       (selected-window)))
 
 (defun my/daily--visit-date (time)
-  "Visit TIME through the existing org-roam dailies boundary."
+  "Visit the Daily note of TIME through `my/daily-open-date'."
   (let ((file (my/daily--file-for-time time)))
     (when (and (not (file-exists-p file))
                (file-exists-p my/roam-dir)
                (not (file-writable-p my/roam-dir)))
       (user-error "Roam directory is not writable: %s" my/roam-dir))
-    (my/org-roam-dailies-open-date time)
+    (my/daily-open-date time)
     (my/daily-note-mode 1)
     (current-buffer)))
 

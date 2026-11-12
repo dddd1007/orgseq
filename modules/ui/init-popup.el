@@ -14,8 +14,8 @@
     (:id diagnostics
      :matcher "\\`\\*org-seq \\(?:doctor\\|init report\\|init errors\\|keymap audit\\|package audit\\)\\*\\'"
      :side bottom :slot 0 :height 0.33 :select t)
-    (:id org-roam
-     :matcher "\\`\\*org-roam\\*\\'"
+    (:id backlinks
+     :matcher "\\`\\*\\(?:org-roam\\|Backlinks\\)\\*\\'"
      :side right :slot 0 :width 0.33 :select nil)
     (:id compilation
      :matcher "\\`\\*\\(?:compilation\\|Compile-Log\\)\\*\\'"
