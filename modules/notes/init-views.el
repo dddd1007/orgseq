@@ -39,21 +39,9 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'org)
+(require 'orgseq-index)
 
 (declare-function evil-set-initial-state "evil-core" (mode state))
-(declare-function org-roam-node-list "org-roam-node")
-(declare-function org-roam-node-id "org-roam-node" (node))
-(declare-function org-roam-node-title "org-roam-node" (node))
-(declare-function org-roam-node-tags "org-roam-node" (node))
-(declare-function org-roam-node-file "org-roam-node" (node))
-(declare-function org-roam-node-file-mtime "org-roam-node" (node))
-(declare-function org-roam-node-properties "org-roam-node" (node))
-(declare-function org-roam-node-todo "org-roam-node" (node))
-(declare-function org-roam-node-level "org-roam-node" (node))
-(declare-function org-roam-node-olp "org-roam-node" (node))
-(declare-function org-roam-node-from-id "org-roam-node" (id))
-(declare-function org-roam-node-visit "org-roam-node")
-(declare-function org-roam-db-query "org-roam-db" (sql &rest args))
 (declare-function my/node-type-by-tag "init-nodes" (tag))
 (declare-function my/node-type-family-tags "init-nodes" (tag))
 (declare-function my/node-type-name "init-nodes" (type))
@@ -64,6 +52,7 @@
 (declare-function my/node-read-type "init-nodes" (&optional prompt types))
 (declare-function my/node-capture "init-nodes" (type title &optional fields))
 (declare-function my/node-call-at-id "init-nodes" (id fn))
+(declare-function my/node-visit "init-nodes" (node &optional other-window))
 (declare-function my/node-set-field-at "init-nodes" (pos))
 (declare-function my/node-set-field-by-id "init-nodes" (id name value))
 (declare-function my/node-position "init-nodes" (&optional create))
@@ -77,7 +66,7 @@
 ;; Section 1: Records and query context
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
-;; Views work on plain plists ("records") copied out of org-roam once per
+;; Views work on plain plists ("records") copied out of the node index once per
 ;; refresh, so filtering, sorting and rendering are ordinary list code that
 ;; can be tested without a database.
 
@@ -88,19 +77,8 @@ A plist: :records (all records), :by-id (hash id -> record), :current
 INCOMING . OUTGOING, id -> list of ids; computed on first use).")
 
 (defun my/view--records ()
-  "Return every org-roam node as a record plist."
-  (require 'org-roam)
-  (mapcar (lambda (node)
-            (list :id (org-roam-node-id node)
-                  :title (or (org-roam-node-title node) "")
-                  :tags (org-roam-node-tags node)
-                  :file (org-roam-node-file node)
-                  :mtime (org-roam-node-file-mtime node)
-                  :props (org-roam-node-properties node)
-                  :todo (org-roam-node-todo node)
-                  :level (or (org-roam-node-level node) 0)
-                  :olp (org-roam-node-olp node)))
-          (org-roam-node-list)))
+  "Return every node as a record plist from the kernel index."
+  (my/index-records))
 
 (defun my/view--make-ctx (records &optional current links)
   "Return a query context for RECORDS.
@@ -115,10 +93,7 @@ CURRENT is the id of the enclosing node; LINKS presets the link tables."
   (or (plist-get my/view--ctx :links)
       (let ((in (make-hash-table :test 'equal))
             (out (make-hash-table :test 'equal)))
-        (pcase-dolist (`(,source ,dest)
-                       (org-roam-db-query
-                        [:select [source dest] :from links
-                         :where (= type "id")]))
+        (pcase-dolist (`(,source ,dest) (my/index-links))
           (push source (gethash dest in))
           (push dest (gethash source out)))
         (setq my/view--ctx
@@ -986,20 +961,20 @@ CURRENT is the id of the node that `current' refers to in its filter."
       (user-error "No node here")))
 
 (defun my/view--node-at-point ()
-  "Return the org-roam node on the current row or card."
+  "Return the record of the node on the current row or card."
   (let ((id (my/view--id-at-point)))
-    (or (org-roam-node-from-id id)
+    (or (my/index-node id)
         (user-error "Node %s is no longer in the index; press g" id))))
 
 (defun my/view-visit ()
   "Open the node at point."
   (interactive)
-  (org-roam-node-visit (my/view--node-at-point)))
+  (my/node-visit (my/view--node-at-point)))
 
 (defun my/view-visit-other-window ()
   "Open the node at point in another window."
   (interactive)
-  (org-roam-node-visit (my/view--node-at-point) t))
+  (my/node-visit (my/view--node-at-point) t))
 
 (defun my/view--update (&rest changes)
   "Apply plist CHANGES to this buffer's view and redraw."
@@ -1129,9 +1104,9 @@ computed column, the field is chosen from a prompt."
           (list (cons (format "%s" name) value))))
     (`(field ,name = current)
      (when-let* ((id my/view--current)
-                 (node (org-roam-node-from-id id)))
+                 (node (my/index-node id)))
        (list (cons (format "%s" name)
-                   (format "[[id:%s][%s]]" id (org-roam-node-title node))))))
+                   (format "[[id:%s][%s]]" id (plist-get node :title))))))
     (_ nil)))
 
 (defun my/view-new ()

@@ -6,6 +6,7 @@
 (defvar my/orgseq-dir)  ; forward-declare from init-org
 (defvar my/roam-dir)    ; forward-declare from init-org
 
+(declare-function my/index-records "orgseq-index" ())
 (declare-function my/popup-display-buffer "init-popup" (buffer &optional overrides))
 (declare-function my/vc-package-ensure "init-packages" (package))
 
@@ -22,10 +23,6 @@
 
 (declare-function org-end-of-subtree "org" (&optional invisible-ok to-heading))
 (declare-function org-entry-properties "org" (&optional pom which))
-(declare-function org-roam-node-file "org-roam-node" (node))
-(declare-function org-roam-node-list "org-roam-node" ())
-(declare-function org-roam-node-tags "org-roam-node" (node))
-(declare-function org-roam-node-title "org-roam-node" (node))
 
 ;; ---- API key retrieval via auth-source ----
 ;; Store your key in ~/.authinfo (or ~/.authinfo.gpg for encryption):
@@ -433,24 +430,24 @@ same language. Use org-mode list format.")
 ;; entire knowledge base, identifying themes, gaps, and recent activity.
 
 (defun my/ai--roam-stats ()
-  "Collect org-roam statistics for overview generation.
+  "Collect node statistics from the kernel index for overview generation.
 Returns a plist with :total-nodes, :recent-nodes,
 :tag-distribution and :recent-titles."
-  (let* ((all-nodes (org-roam-node-list))
+  (let* ((all-nodes (my/index-records))
          (total (length all-nodes))
          ;; Get titles of 10 most recently created nodes
          (recent (seq-take
                   (sort all-nodes
                         (lambda (a b)
-                          (string> (org-roam-node-file a)
-                                   (org-roam-node-file b))))
+                          (string> (plist-get a :file)
+                                   (plist-get b :file))))
                   10))
-         (recent-titles (mapcar #'org-roam-node-title recent))
+         (recent-titles (mapcar (lambda (node) (plist-get node :title)) recent))
          ;; Collect filetags
          (tag-counts (make-hash-table :test #'equal)))
     ;; Count tags from all files
     (dolist (node all-nodes)
-      (let ((tags (org-roam-node-tags node)))
+      (let ((tags (plist-get node :tags)))
         (dolist (tag tags)
           (puthash tag (1+ (gethash tag tag-counts 0)) tag-counts))))
     ;; Sort tags by frequency, take top 15

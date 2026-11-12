@@ -15,17 +15,17 @@
 ;; (`my/node-call-at-id', plain Org files), so Org text stays the only
 ;; authority.
 ;;
-;; The batch process keeps its own node index (`my/cli-index-file').  The
-;; interactive session's org-roam database is maintained by org-mem with a
-;; wider scan than org-roam's own sync; sharing that file would let the
-;; two writers undo each other.  The index is rebuilt from the Org files
-;; on demand, so it needs no backup and no sync.
+;; The batch process reads the kernel node index (kernel/orgseq-index.el),
+;; the same file the interactive session uses.  It is derived from the Org
+;; files and refreshed on demand, so it needs no backup and no sync, and
+;; org-roam is not loaded for any command here.
 
 (require 'cl-lib)
 (require 'subr-x)
 (require 'json)
 (require 'org)
 (require 'org-id)
+(require 'orgseq-index)
 
 (defvar my/note-home)
 (defvar my/roam-dir)
@@ -38,16 +38,7 @@
 (defvar my/sync-remote)
 (defvar my/view--ctx)
 (defvar my/--init-errors)
-(defvar org-roam-directory)
-(defvar org-roam-db-location)
-(defvar org-roam-file-exclude-regexp)
 
-(declare-function org-roam-db-sync "org-roam-db" (&optional force))
-(declare-function org-roam-db-update-file "org-roam-db" (&optional file-path no-require))
-(declare-function org-roam-node-from-id "org-roam-node" (id))
-(declare-function org-roam-node-file "org-roam-node" (node))
-(declare-function org-roam-node-point "org-roam-node" (node))
-(declare-function org-roam-node-level "org-roam-node" (node))
 (declare-function my/org-roam-dailies--file-for-date "init-roam" (time))
 (declare-function my/node-types-reload "init-nodes" ())
 (declare-function my/node-type-by-tag "init-nodes" (tag))
@@ -70,6 +61,7 @@
 (declare-function my/view-from-params "init-views" (params))
 (declare-function my/views-load "init-views" ())
 (declare-function my/view--format-sort "init-views" (sort))
+(declare-function my/node-types-ensure-file "init-nodes" ())
 (declare-function my/sync-run "init-sync" (&optional dry-run callback synchronous))
 (declare-function my/sync-status "init-sync" ())
 (declare-function my/sync-conflict-files "init-sync" ())
@@ -84,37 +76,21 @@
 ;; Section 1: Index
 ;; ═══════════════════════════════════════════════════════════════════════════
 
-(defvar my/cli-index-file
-  (expand-file-name ".cache/cli-index.db" user-emacs-directory)
-  "Node index used by the command line and the MCP server.")
-
 (defvar my/api--prepared nil
-  "Non-nil once the batch index has been set up in this process.")
-
-(defun my/api--relative-dir-regexp (dir)
-  "Return a regexp matching files under DIR, relative to `my/note-home'."
-  (concat "\\`" (regexp-quote (file-relative-name dir my/note-home))))
+  "Non-nil once the type registry has been loaded in this process.")
 
 (defun my/api-refresh ()
-  "Bring the batch index in line with the Org files.
-The index covers the layers the interactive session indexes: everything
-in the library except the reference library, the archives and .orgseq/."
+  "Bring the node index in line with the Org files.
+The command line reads the same kernel index as the interactive session
+\(kernel/orgseq-index.el); a refresh re-reads only files that changed."
   (unless my/api--prepared
-    (unless (require 'org-roam nil t)
-      (error "org-roam is not installed; start Emacs once to install packages"))
     (make-directory my/note-home t)
-    (make-directory (file-name-directory my/cli-index-file) t)
-    (setq org-roam-directory (file-truename my/note-home)
-          org-roam-db-location my/cli-index-file
-          org-roam-file-exclude-regexp
-          (list (my/api--relative-dir-regexp my/library-dir)
-                (my/api--relative-dir-regexp my/archives-dir)
-                (my/api--relative-dir-regexp my/orgseq-dir)
-                "\\.conflict[0-9]*\\'"))
+    ;; A library first touched from the command line gets the same
+    ;; starter types as one first opened in the interactive session.
+    (my/node-types-ensure-file)
     (my/node-types-reload)
     (setq my/api--prepared t))
-  (let ((inhibit-message t))
-    (org-roam-db-sync)))
+  (my/index-sync 'check))
 
 (defmacro my/api--with-ctx (&rest body)
   "Run BODY with a fresh index and a view context over all nodes."
@@ -156,10 +132,20 @@ from ripgrep), each limited to LIMIT entries (default 20)."
   (let ((limit (or limit 20))
         (needle (downcase query)))
     (my/api--with-ctx
-      (let* ((nodes (cl-remove-if-not
-                     (lambda (record)
-                       (string-search needle (downcase (plist-get record :title))))
-                     (plist-get my/view--ctx :records)))
+      (let* ((titled (cl-remove-if-not
+                      (lambda (record)
+                        (string-search needle (downcase (plist-get record :title))))
+                      (plist-get my/view--ctx :records)))
+             ;; Title matches first, then nodes whose own text matches
+             ;; (full-text index; substrings in any script).
+             (nodes (append
+                     titled
+                     (delq nil
+                           (mapcar
+                            (lambda (hit)
+                              (let ((record (my/view--record (car hit))))
+                                (and record (not (memq record titled)) record)))
+                            (my/index-search query (* 2 limit))))))
              (lines (and (executable-find "rg")
                          (process-lines-ignore-status
                           "rg" "--line-number" "--no-heading" "--fixed-strings"
@@ -181,13 +167,14 @@ from ripgrep), each limited to LIMIT entries (default 20)."
                                                     (match-string 3 line))))))))))))
 
 (defun my/api--node-text (node)
-  "Return the Org text of NODE: its file, or its subtree for a heading."
+  "Return the Org text of record NODE: its file, or its subtree for a heading."
   (with-temp-buffer
-    (insert-file-contents (org-roam-node-file node))
-    (if (= 0 (org-roam-node-level node))
+    (insert-file-contents (plist-get node :file))
+    (if (= 0 (plist-get node :level))
         (buffer-string)
       (let ((org-inhibit-startup t)) (delay-mode-hooks (org-mode)))
-      (goto-char (org-roam-node-point node))
+      (goto-char (or (org-find-property "ID" (plist-get node :id))
+                     (plist-get node :pos)))
       (buffer-substring-no-properties
        (point) (save-excursion (org-end-of-subtree t t) (point))))))
 
@@ -216,7 +203,7 @@ from ripgrep), each limited to LIMIT entries (default 20)."
                        (make-hash-table)))
              (cons 'links_to (funcall titles (gethash id (cdr links))))
              (cons 'linked_from (funcall titles (gethash id (car links))))
-             (cons 'content (my/api--node-text (org-roam-node-from-id id))))))))
+             (cons 'content (my/api--node-text record)))))))
 
 (defun my/api--slug (title)
   "Return a file-name slug for TITLE."
@@ -240,7 +227,7 @@ alist with the new node's id and file."
          (id (let ((new (org-id-new)))
                ;; Timestamp ids have one-second resolution; scripts and
                ;; MCP clients can create several notes within a second.
-               (while (org-roam-node-from-id new)
+               (while (my/index-node new)
                  (setq new (format "%s-%04x" (org-id-new) (random 65536))))
                new))
          (dir (expand-file-name "capture/" my/roam-dir))
@@ -281,7 +268,7 @@ alist with the new node's id and file."
         (insert (format "#+filetags: :%s:\n" (string-join all-tags ":"))))
       (insert "\n" text)
       (unless (bolp) (insert "\n")))
-    (org-roam-db-update-file file)
+    (my/index-update-file file)
     (list (cons 'id id) (cons 'title title) (cons 'file (my/api--relative file)))))
 
 (defun my/api-append-daily (text)
@@ -334,7 +321,14 @@ alist with the new node's id and file."
 PARAMS takes :view (a saved view), :type, :filter (a filter form), :group,
 :columns (list), :sort (string) and :limit."
   (my/api--with-ctx
-    (let* ((view (my/view-from-params params))
+    (let* ((type (plist-get params :type))
+           ;; Accept a type by name as well as by tag, as `my/api-create' does.
+           (params (if-let* ((found (and type (my/node-types--find
+                                               type my/node-types))))
+                       (plist-put (copy-sequence params)
+                                  :type (my/node-type-tag found))
+                     params))
+           (view (my/view-from-params params))
            (result (my/view-run view))
            (columns (plist-get result :columns)))
       (list
@@ -742,8 +736,7 @@ SPEC is an alist of (\"--name\" . KIND), KIND one of `flag', `value' or
        0)
       ("reindex"
        (my/api-refresh)
-       (let ((inhibit-message t)) (org-roam-db-sync 'force))
-       (my/cli--print "Index rebuilt")
+       (my/cli--print (format "Index rebuilt from %d files" (my/index-rebuild)))
        0)
       ("info"
        (funcall emit (my/api-info)

@@ -1,9 +1,9 @@
-;;; init-nodes.el --- Node types, fields, views, and actions on org-roam -*- lexical-binding: t; -*-
+;;; init-nodes.el --- Node types, fields, views, and actions -*- lexical-binding: t; -*-
 ;;
-;; The note ecosystem is org-roam: every file or heading with an Org ID is a
-;; node, relations are [[id:]] links, and the org-roam database is the index.
-;; This module adds the Tana/Fibery layer on top of it without a second
-;; database:
+;; Every file or heading with an Org ID is a node and relations are
+;; [[id:]] links.  The kernel index (kernel/orgseq-index.el) is what this
+;; module reads; org-roam is used only for interactive capture.  The
+;; module adds the Tana/Fibery layer on top:
 ;;
 ;;   Types    Tana supertags / Fibery databases.  Defined as headings in
 ;;            `my/types-file' (.orgseq/types.org).  A type is an Org tag, a
@@ -22,8 +22,8 @@
 ;;            extract, backlinks.
 ;;
 ;; Org text is the only authority.  Everything here reads Org through the
-;; org-roam database and writes plain tags and properties, so notes stay
-;; readable by any Org tool and the database can always be rebuilt.
+;; kernel index and writes plain tags and properties, so notes stay
+;; readable by any Org tool and the index can always be rebuilt.
 ;;
 ;; ┌─────────────────────────────────────────────────────────────────┐
 ;; │                       Table of Contents                          │
@@ -32,7 +32,7 @@
 ;; │ Section 2  Type registry (.orgseq/types.org)                     │
 ;; │ Section 3  Node at point: position, tags, types, fields          │
 ;; │ Section 4  Commands: set/remove type, set field, promote, capture│
-;; │ Section 5  Queries over the org-roam database                    │
+;; │ Section 5  Queries over the node index                           │
 ;; │ Section 6  Table views (type view, review)                       │
 ;; │ Section 7  Dashboard dynamic blocks                              │
 ;; │ Section 8  Node action menu                                      │
@@ -63,20 +63,10 @@
 (require 'tabulated-list)
 
 (declare-function consult-ripgrep "consult")
+(require 'orgseq-index)
+
 (declare-function org-roam-capture- "org-roam-capture")
 (declare-function org-roam-node-create "org-roam-node")
-(declare-function org-roam-node-list "org-roam-node")
-(declare-function org-roam-node-read "org-roam-node")
-(declare-function org-roam-node-from-id "org-roam-node" (id))
-(declare-function org-roam-node-visit "org-roam-node")
-(declare-function org-roam-node-id "org-roam-node" (node))
-(declare-function org-roam-node-title "org-roam-node" (node))
-(declare-function org-roam-node-tags "org-roam-node" (node))
-(declare-function org-roam-node-file "org-roam-node" (node))
-(declare-function org-roam-node-file-mtime "org-roam-node" (node))
-(declare-function org-roam-node-properties "org-roam-node" (node))
-(declare-function org-roam-db-query "org-roam-db" (sql &rest args))
-(declare-function org-roam-db-update-file "org-roam-db" (&optional file-path no-require))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: Capture templates
@@ -540,14 +530,12 @@ heading) an ID when no enclosing node exists."
 
 (defun my/node--existing-values (field)
   "Return distinct values of property FIELD used anywhere in the library."
-  (when (require 'org-roam nil t)
-    (let ((values nil))
-      (dolist (row (ignore-errors
-                     (org-roam-db-query [:select properties :from nodes])))
-        (when-let* ((value (cdr (assoc field (car row)))))
-          (unless (or (string-empty-p value) (member value values))
-            (push value values))))
-      (sort values #'string<))))
+  (let ((values nil))
+    (dolist (record (ignore-errors (my/index-records)))
+      (when-let* ((value (cdr (assoc field (plist-get record :props)))))
+        (unless (or (string-empty-p value) (member value values))
+          (push value values))))
+    (sort values #'string<)))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 4: Commands on the node at point
@@ -611,10 +599,9 @@ set and the session is interactive."
 CURRENT is the existing value, offered as the default."
   (pcase (plist-get spec :kind)
     ('node
-     (let ((node (org-roam-node-read nil nil nil t
-                                     (format "%s (node): " field-name))))
-       (format "[[id:%s][%s]]" (org-roam-node-id node)
-               (org-roam-node-title node))))
+     (let ((node (my/node-read (format "%s (node): " field-name))))
+       (format "[[id:%s][%s]]" (plist-get node :id)
+               (plist-get node :title))))
     ('date
      (org-read-date nil nil nil (format "%s (date): " field-name)))
     ('number
@@ -771,33 +758,71 @@ FIELDS is an alist of (FIELD . VALUE) to set on the new note."
   :group 'org-seq)
 
 (defun my/node--nodes ()
-  "Return all org-roam nodes."
-  (require 'org-roam)
-  (org-roam-node-list))
+  "Return every node as a record from the kernel index (see orgseq-index)."
+  (my/index-records))
 
 (defun my/node-field (node field)
-  "Return the value of FIELD on NODE as a string (empty when unset)."
-  (or (cdr (assoc field (org-roam-node-properties node))) ""))
+  "Return the value of FIELD on record NODE as a string (empty when unset)."
+  (or (cdr (assoc field (plist-get node :props))) ""))
+
+(defun my/node-read (&optional prompt)
+  "Read a node with completion and return its record.
+PROMPT defaults to \"Node: \".  Nodes sharing a title are told apart by
+their file name."
+  (let* ((records (my/index-records))
+         (seen (make-hash-table :test 'equal))
+         (table (make-hash-table :test 'equal)))
+    (dolist (record records)
+      (puthash (plist-get record :title)
+               (1+ (gethash (plist-get record :title) seen 0)) seen))
+    (dolist (record records)
+      (let* ((title (plist-get record :title))
+             (label (if (> (gethash title seen) 1)
+                        (format "%s  (%s)" title
+                                (file-name-base (plist-get record :file)))
+                      title))
+             (n 1)
+             (key label))
+        (while (gethash key table)
+          (setq n (1+ n) key (format "%s <%d>" label n)))
+        (puthash key record table)))
+    (unless (> (hash-table-count table) 0)
+      (user-error "The library has no nodes yet"))
+    (gethash (completing-read (or prompt "Node: ") table nil t) table)))
+
+(defun my/node-visit (node &optional other-window)
+  "Visit record NODE (or the node with that id) at its heading.
+OTHER-WINDOW shows it in another window."
+  (let* ((record (if (stringp node)
+                     (or (my/index-node node)
+                         (user-error "Node %s is not in the index" node))
+                   node))
+         (file (plist-get record :file)))
+    (unless (and file (file-exists-p file))
+      (user-error "The file of node %s is gone; refresh the view" (plist-get record :id)))
+    (if other-window (find-file-other-window file) (find-file file))
+    (let ((pos (if (eql 0 (plist-get record :level))
+                   (point-min)
+                 (or (org-find-property "ID" (plist-get record :id))
+                     (plist-get record :pos)))))
+      (unless (<= (point-min) pos (point-max)) (widen))
+      (goto-char pos)
+      (when (and (derived-mode-p 'org-mode) (org-at-heading-p))
+        (org-fold-show-context 'link-search)))
+    record))
 
 (defun my/node--link-counts ()
   "Return a cons (INCOMING . OUTGOING) of hash tables: node id -> id links."
   (let ((in (make-hash-table :test 'equal))
         (out (make-hash-table :test 'equal)))
-    (pcase-dolist (`(,dest ,n)
-                   (org-roam-db-query
-                    [:select [dest (funcall count source)] :from links
-                     :where (= type "id") :group-by dest]))
-      (puthash dest n in))
-    (pcase-dolist (`(,source ,n)
-                   (org-roam-db-query
-                    [:select [source (funcall count dest)] :from links
-                     :where (= type "id") :group-by source]))
-      (puthash source n out))
+    (pcase-dolist (`(,source ,dest) (my/index-links))
+      (puthash dest (1+ (gethash dest in 0)) in)
+      (puthash source (1+ (gethash source out 0)) out))
     (cons in out)))
 
 (defun my/node--mtime-days (node)
   "Return the age in days of NODE's file."
-  (let ((mtime (org-roam-node-file-mtime node)))
+  (let ((mtime (plist-get node :mtime)))
     (if mtime
         (/ (float-time (time-subtract nil mtime)) 86400.0)
       most-positive-fixnum)))
@@ -825,7 +850,7 @@ FIELDS is an alist of (FIELD . VALUE) to set on the new note."
           (cl-remove-if-not
            (lambda (node)
              (and (or (null family)
-                      (cl-intersection family (org-roam-node-tags node)
+                      (cl-intersection family (plist-get node :tags)
                                        :test #'equal))
                   (cl-every (lambda (pair)
                               (equal (my/node-field node (format "%s" (car pair)))
@@ -836,10 +861,10 @@ FIELDS is an alist of (FIELD . VALUE) to set on the new note."
                   (or (null recent) (<= (my/node--mtime-days node) recent))))
            (my/node--nodes)))
          (key-fn (pcase (downcase sort-key)
-                   ("title" #'org-roam-node-title)
+                   ("title" (lambda (n) (plist-get n :title)))
                    ("modified" (lambda (n) (format-time-string
                                             "%Y%m%d%H%M%S"
-                                            (org-roam-node-file-mtime n))))
+                                            (plist-get n :mtime))))
                    (_ (lambda (n) (my/node-field n (upcase sort-key))))))
          (sorted (sort nodes (lambda (a b)
                                (my/node--value< (funcall key-fn a)
@@ -882,7 +907,7 @@ FIELDS is an alist of (FIELD . VALUE) to set on the new note."
   "g"   #'revert-buffer)
 
 (define-derived-mode my/node-view-mode tabulated-list-mode "Nodes"
-  "Table of org-roam nodes.
+  "Table of nodes.
 \\{my/node-view-mode-map}"
   (setq-local tabulated-list-padding 2)
   (add-hook 'tabulated-list-revert-hook #'my/node-view--refresh nil t))
@@ -945,7 +970,6 @@ FIELDS is an alist of (FIELD . VALUE) to set on the new note."
 
 (defun my/node-view--show (name spec)
   "Display a node view buffer called NAME for SPEC."
-  (require 'org-roam)
   (let ((buffer (get-buffer-create (format "*%s*" name))))
     (with-current-buffer buffer
       (my/node-view-mode)
@@ -978,19 +1002,19 @@ board); otherwise it falls back to the plain table below."
            :rows-fn
            (lambda ()
              (mapcar (lambda (node)
-                       (append (list (org-roam-node-id node)
-                                     (org-roam-node-title node))
+                       (append (list (plist-get node :id)
+                                     (plist-get node :title))
                                (mapcar (lambda (f) (my/node-field node f)) fields)
                                (list (format-time-string
-                                      "%Y-%m-%d" (org-roam-node-file-mtime node)))))
+                                      "%Y-%m-%d" (plist-get node :mtime)))))
                      (my/node-query :type tag :sort "modified" :order 'desc)))))))
 
 (defun my/node--daily-p (node)
   "Return non-nil when NODE lives in a Daily note.
 Daily files are the running log; the review covers notes meant to stand
 on their own."
-  (or (member "daily" (org-roam-node-tags node))
-      (let ((file (org-roam-node-file node)))
+  (or (member "daily" (plist-get node :tags))
+      (let ((file (plist-get node :file)))
         (and file (file-in-directory-p
                    file (expand-file-name "daily/" my/roam-dir))))))
 
@@ -1010,47 +1034,46 @@ link it, or leave it as a deliberate fragment."
              (delq nil
                    (mapcar
                     (lambda (node)
-                      (let* ((id (org-roam-node-id node))
+                      (let* ((id (plist-get node :id))
                              (in (gethash id (car counts) 0))
                              (out (gethash id (cdr counts) 0))
-                             (types (cl-intersection (org-roam-node-tags node)
+                             (types (cl-intersection (plist-get node :tags)
                                                      type-tags :test #'equal)))
                         (when (and (or (null types) (= 0 (+ in out)))
                                    (not (my/node--daily-p node)))
-                          (list id (org-roam-node-title node)
+                          (list id (plist-get node :title)
                                 (string-join types " ")
                                 (number-to-string in) (number-to-string out)
                                 (format-time-string
-                                 "%Y-%m-%d" (org-roam-node-file-mtime node))))))
+                                 "%Y-%m-%d" (plist-get node :mtime))))))
                     (my/node-query :recent-days my/node-review-days
                                    :sort "modified" :order 'desc))))))))
 
 (defun my/node-view--node ()
-  "Return the org-roam node on the current row."
+  "Return the record of the node on the current row."
   (let ((id (tabulated-list-get-id)))
     (unless id (user-error "No node on this line"))
-    (or (org-roam-node-from-id id)
+    (or (my/index-node id)
         (user-error "Node %s is no longer in the index; press g" id))))
 
 (defun my/node-view-open ()
   "Open the node on the current row."
   (interactive)
-  (org-roam-node-visit (my/node-view--node)))
+  (my/node-visit (my/node-view--node)))
 
 (defun my/node-view-open-other-window ()
   "Open the node on the current row in another window."
   (interactive)
-  (org-roam-node-visit (my/node-view--node) t))
+  (my/node-visit (my/node-view--node) t))
 
 (defun my/node-call-at-id (id fn)
   "Call FN with the buffer position of node ID, then save and re-index.
 FN runs in the node's file buffer with the buffer widened.  This is the
 single write path for views, the command line and MCP tools: the change
 lands in the Org file and the index follows."
-  (require 'org-roam)
-  (let* ((node (or (org-roam-node-from-id id)
+  (let* ((node (or (my/index-node id)
                    (user-error "Node %s is not in the index" id)))
-         (file (org-roam-node-file node))
+         (file (plist-get node :file))
          result)
     (with-current-buffer (find-file-noselect file)
       (let ((pos (org-find-property "ID" id)))
@@ -1058,7 +1081,7 @@ lands in the Org file and the index follows."
         (org-with-wide-buffer
          (setq result (funcall fn pos)))
         (save-buffer)))
-    (org-roam-db-update-file file)
+    (my/index-update-file file)
     result))
 
 (defun my/node-set-field-by-id (id name value)
@@ -1074,7 +1097,7 @@ lands in the Org file and the index follows."
   (interactive)
   (let* ((node (my/node-view--node))
          (line (line-number-at-pos)))
-    (my/node-call-at-id (org-roam-node-id node) #'my/node-set-field-at)
+    (my/node-call-at-id (plist-get node :id) #'my/node-set-field-at)
     (revert-buffer)
     (goto-char (point-min))
     (forward-line (1- line))))
@@ -1129,8 +1152,8 @@ lands in the Org file and the index follows."
       (dolist (node nodes)
         (insert "| "
                 (my/node--table-cell
-                 (format "[[id:%s][%s]]" (org-roam-node-id node)
-                         (org-roam-node-title node)))
+                 (format "[[id:%s][%s]]" (plist-get node :id)
+                         (plist-get node :title)))
                 " | "
                 (mapconcat (lambda (c) (my/node--table-cell (my/node-field node c)))
                            columns " | ")
@@ -1140,7 +1163,6 @@ lands in the Org file and the index follows."
 
 (defun org-dblock-write:orgseq-query (params)
   "Write an `orgseq-query' dynamic block from PARAMS."
-  (require 'org-roam)
   (my/node-insert-query-table params))
 
 (defun my/node--translate-supertag-query (form)
@@ -1161,8 +1183,7 @@ Supports (tag T), (property K V), (recent-days N) and (and ...)."
     (_ (user-error "Unsupported supertag query form: %S" form))))
 
 (defun org-dblock-write:supertag-query (params)
-  "Render a retired supertag-query block from PARAMS with org-roam data."
-  (require 'org-roam)
+  "Render a retired supertag-query block from PARAMS with index data."
   (let* ((query (plist-get params :query))
          (form (if (stringp query) (car (read-from-string query)) query))
          (translated (condition-case err

@@ -89,6 +89,21 @@ node layer as subcommands and as MCP tools (`orgseq mcp`, stdio transport).
 Both call the `my/api-*` functions in `core/orgseq-cli.el`, which write Org
 files through the same path as the interactive commands.
 
+### Kernel index
+
+`kernel/` holds the UI-free note kernel. `orgseq-paths.el` defines every
+library path. `orgseq-index.el` is the one index of nodes: a SQLite file under
+`.cache/` (Emacs' built-in SQLite, no emacsql), filled by a plain-text scan of
+the Org files, with an FTS5 trigram table for substring search in any script.
+A refresh re-reads only files whose time or size changed, so nothing watches
+the file system and edits made by sync or other programs are picked up. The
+interactive session, the daemon and `bin/orgseq` share the file. Records are
+plists (`:id :title :tags :file :mtime :props :todo :priority :level :olp
+:pos`); views, node tables, dashboard blocks, the command line and MCP all
+read them through `my/index-records`, `my/index-node`, `my/index-links` and
+`my/index-search`. org-roam remains only for interactive capture, node
+find/insert, the backlinks buffer and the Daily commands.
+
 ### Views
 
 `modules/notes/init-views.el` turns a query plus a layout into a view (table, list,
@@ -98,17 +113,17 @@ the enclosing node.
 
 ### Node layer
 
-Notes are org-roam nodes: files and headings with an Org ID. `modules/notes/init-nodes.el`
+Notes are nodes: files and headings with an Org ID. `modules/notes/init-nodes.el`
 adds node types, fields, table views, the review list, `orgseq-query`
-dashboard blocks, and the node action menu on top of org-roam. It keeps no
-database of its own:
+dashboard blocks, and the node action menu on top of the kernel index. It
+keeps no database of its own:
 
 - Types are defined in `.orgseq/types.org` under NoteHQ (`my/types-file`). A
   type is an Org tag, a field list, and a capture template.
 - Applying a type adds its tag; fields are ordinary Org properties; relations
   are `[[id:]]` links.
-- Views and dashboard blocks read the org-roam database, which org-mem writes
-  and which `M-x org-roam-db-sync` can rebuild from Org at any time.
+- Views and dashboard blocks read the kernel index, which
+  `M-x my/index-rebuild` can recreate from Org at any time.
 
 Supertag and its `textui` dependency were removed on 2026-10-22. `init-pkm`
 now configures only org-transclusion and org-ql. Old `supertag-query`

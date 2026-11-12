@@ -46,14 +46,14 @@ These rules apply to `early-init.el`, `init.el`, root helper `.el` files, and th
 
 - Use forward slashes in Elisp paths.
 - Use `file-truename` for paths that feed org-roam or org-mem.
-- Central path constants belong in `modules/notes/init-org.el`.
+- Central path constants belong in `kernel/orgseq-paths.el`.
   - This includes `my/note-home`, `my/orgseq-dir`, `my/roam-dir`, PARA layer paths, dashboard paths, and user capture-template paths.
   - Other modules should consume these variables via `defvar`, not rebuild `00_Roam/`, `10_Outputs/`, or `20_Practice/` by string.
 - The note library (`my/note-home`) defaults to `notes/` under `user-emacs-directory`; the name NoteHQ in docs and identifiers refers to that library. Do not reintroduce a required user-chosen directory. `ORG_SEQ_NOTE_HOME` remains as an override and is what validation uses to isolate writes. The old `~/NoteHQ/` location is only read by `my/storage-import` in `modules/notes/init-sync.el` and is never modified.
 - The Emacs directory has four owners; keep them apart (see `doc/DESIGN.md`): distribution files (`early-init.el`, `init.el`, `ec`, `core/`, `kernel/`, `modules/`, `packages/`, `bin/`; the only things deployment writes), user settings (`user/`), the library (`notes/`), and rebuildable device state (`.cache/`, `elpa/`, `eln-cache/`).
 - Device-local state (sync baseline, legacy notice, the command-line index) lives under `.cache/` in the Emacs directory, never inside the library, because the library is synced between devices.
 - Content crosses the library boundary only through import, export, snapshots and sync in `modules/notes/init-sync.el`. Each copies and never modifies its source; import never overwrites. Do not add startup prompts about storage; report state through `my/storage-info` instead.
-- Snapshots live in `my/snapshot-dir` (defined in `modules/notes/init-org.el`), outside the Emacs directory and outside the library. When `ORG_SEQ_NOTE_HOME` is set the default follows it to a sibling `.snapshots` directory, so validation never writes to the real data directory.
+- Snapshots live in `my/snapshot-dir` (defined in `kernel/orgseq-paths.el`), outside the Emacs directory and outside the library. When `ORG_SEQ_NOTE_HOME` is set the default follows it to a sibling `.snapshots` directory, so validation never writes to the real data directory.
 - Keep Windows-specific notes in plain ASCII comments such as `NOTE(win): ...`.
 - Remember that Windows uses `server-use-tcp t` and the named server `org-seq`.
 
@@ -99,13 +99,15 @@ Startup failure visibility:
 - Register Git-hosted package source, owner, and purpose metadata in `core/init-packages.el`; keep feature configuration in the owning module.
 - Use `my/vc-package-ensure` for registered Git packages; do not add split Emacs-29/30 bootstrap branches or batch-time network installation.
 - Record copied or closely adapted upstream fragments in `THIRD_PARTY.md` before committing them.
-- Notes are org-roam nodes: any file or heading with an Org ID. The node layer (`modules/notes/init-nodes.el`) adds types, fields, table views, and dashboard queries on top of org-roam; do not add a second note database or a package that keeps its own copy of note data.
-- Node types are defined only in `.orgseq/types.org` under NoteHQ (`my/types-file`, defined in `modules/notes/init-org.el`). A type is an Org tag, a list of fields, and a capture template. Do not hard-code types in Elisp.
-- Org text is the only authority. Types are tags, fields are ordinary Org properties, relations are `[[id:]]` links. The org-roam database is an index that can always be rebuilt with `M-x org-roam-db-sync`.
-- Views (`modules/notes/init-views.el`) are a query plus a layout (table, list, board) over org-roam nodes. Saved views are headings in `.orgseq/views.org` (`my/views-file`); they hold no note data. Edits made in a view go through `my/node-call-at-id` into the node's Org file. Add new layouts and filter forms there instead of building a separate view store.
+- A note is a node: any file or heading with an Org ID. The kernel index (`kernel/orgseq-index.el`) is the one index of nodes: built-in SQLite, a plain-text scan of the Org files, FTS5 trigram search, refreshed incrementally from file time and size. Everything that reads nodes (views, node tables, dashboard blocks, the command line, MCP, AI overview) gets records from `my/index-records`, `my/index-node`, `my/index-links` or `my/index-search`. Do not read the org-roam database from org-seq code, and do not add a second index or a package that keeps its own copy of note data.
+- org-roam is optional infrastructure, not the data model. It is still used for interactive capture, node find/insert, the backlinks buffer and the Daily commands; new code must not add dependencies on it, and those remaining uses are to be replaced by kernel-backed commands (see `doc/DESIGN.md`).
+- The node layer (`modules/notes/init-nodes.el`) adds types, fields, table views, and dashboard queries on top of the kernel index.
+- Node types are defined only in `.orgseq/types.org` under NoteHQ (`my/types-file`, defined in `kernel/orgseq-paths.el`). A type is an Org tag, a list of fields, and a capture template. Do not hard-code types in Elisp.
+- Org text is the only authority. Types are tags, fields are ordinary Org properties, relations are `[[id:]]` links. The index is disposable: `M-x my/index-rebuild` or `orgseq reindex` recreates it from the Org files.
+- Views (`modules/notes/init-views.el`) are a query plus a layout (table, list, board) over node records. Saved views are headings in `.orgseq/views.org` (`my/views-file`); they hold no note data. Edits made in a view go through `my/node-call-at-id` into the node's Org file. Add new layouts and filter forms there instead of building a separate view store.
 - A type may extend one parent type (`TYPE_EXTENDS`). `my/node-single-type` makes a node an instance of one type by default; notes carrying several type tags must keep working.
 - Library sync (`modules/notes/init-sync.el`) uses rclone bisync so one engine covers WebDAV, OneDrive and Google Drive. Credentials stay in rclone's config; never store them in the repo, `custom.el`, or the library. The org-roam database is a local index and is excluded from sync.
-- The command line and the MCP tools (`core/orgseq-cli.el`) call the same `my/api-*` functions and the same write path as the interactive commands. They keep their own index (`.cache/cli-index.db`) instead of writing the interactive session's org-roam database. Standard output of `orgseq mcp` carries protocol messages only.
+- The command line and the MCP tools (`core/orgseq-cli.el`) call the same `my/api-*` functions and the same write path as the interactive commands. They read the same kernel index as the interactive session (`.cache/index-<hash>.db`, one file per library path) and do not load org-roam. Standard output of `orgseq mcp` carries protocol messages only.
 - Keep dashboards in `00_Roam/dashboards/` query-only. Write new dashboard tables as `orgseq-query` dynamic blocks; the `supertag-query` renderer exists only so dashboards written before Supertag was removed (2026-10-22) keep working.
 - Preserve org-roam capture, Daily, PARA, and GTD.
 
@@ -202,7 +204,7 @@ For `.org` files anywhere in the repo:
 - `startup-check`: run `emacs --batch -Q -l init.el`.
 - `add-package`: follow the package-placement rules in this file and `packages/AGENTS.md`.
 - `cli-check`: from a source checkout run `ORG_SEQ_PACKAGE_DIR=~/.emacs.d/elpa ORG_SEQ_NOTE_HOME=<temp dir> bin/orgseq doctor`; never point a test run at the real library.
-- `centralize-paths`: define shared NoteHQ/PARA paths in `modules/notes/init-org.el`, then consume them elsewhere with `defvar`.
+- `centralize-paths`: define shared NoteHQ/PARA paths in `kernel/orgseq-paths.el`, then consume them elsewhere with `defvar`.
 - `review-and-commit`: review `git diff`, stage only intended tracked files, leave local pi/session/untracked state alone unless asked, commit with the existing style, then push.
 - `deploy-config`: prefer `deploy.ps1` or `deploy.sh`.
 - `check-windows-deps`: use the prerequisite checks already implemented in `deploy.ps1`.

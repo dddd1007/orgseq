@@ -720,4 +720,4 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 
 `bin/orgseq` 不打开 Emacs 界面即可操作同一个笔记库：`add`、`daily`、`search`、`show`、`set`、`retype`、`append`、`types`、`views`、`query`、`sync`、`doctor`、`update`、`reindex`、`info`，加 `--json` 输出 JSON。`orgseq mcp` 以标准输入输出提供 MCP 服务，工具与命令行共用同一组 `my/api-*` 函数和同一条写入路径。
 
-命令行使用自己的节点索引（Emacs 目录下 `.cache/cli-index.db`），由 Org 文件重建，不写交互会话的 org-roam 数据库。
+命令行和图形界面读同一个内核索引（Emacs 目录下 `.cache/index-<哈希>.db`，每个笔记库路径一个文件），由 Org 文件增量刷新，`orgseq reindex` 可整体重建。命令行不再加载 org-roam。
