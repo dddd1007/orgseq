@@ -15,12 +15,17 @@
 ;;            so views are Org text and travel with the library.
 ;;   Embeds   The `orgseq-view' dynamic block renders a view inside any
 ;;            note; `current' in its filter means the enclosing node.
+;;   Types    Every type is a database: `my/view-show-type' opens the saved
+;;            view named after it, else `my/view-type-default'.
+;;   Computed Rollup columns such as count(<-reading) and the type's
+;;            FORMULA_NAME columns are evaluated from the index while a
+;;            view runs; they are never written to Org files.
 ;;
 ;; ┌─────────────────────────────────────────────────────────────────┐
 ;; │                       Table of Contents                          │
 ;; ├─────────────────────────────────────────────────────────────────┤
 ;; │ Section 1  Records and query context                             │
-;; │ Section 2  Column values                                         │
+;; │ Section 2  Column values, rollups, formulas                      │
 ;; │ Section 3  Filter expressions                                    │
 ;; │ Section 4  Sorting, grouping, running a view                     │
 ;; │ Section 5  Saved views (.orgseq/views.org)                       │
@@ -39,6 +44,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'org)
+(require 'time-date)
 (require 'orgseq-index)
 
 (declare-function evil-set-initial-state "evil-core" (mode state))
@@ -48,9 +54,15 @@
 (declare-function my/node-type-tag "init-nodes" (type))
 (declare-function my/node-type-fields "init-nodes" (type))
 (declare-function my/node-type-choices "init-nodes" (type))
+(declare-function my/node-type-formulas "init-nodes" (type))
+(declare-function my/node-type-view "init-nodes" (type))
+(declare-function my/node-type-column-names "init-nodes" (type))
+(declare-function my/node-types-for-tags "init-nodes" (tags))
+(declare-function my/node-split-multi "init-nodes" (value))
 (declare-function my/node-types-at "init-nodes" (pos))
 (declare-function my/node-read-type "init-nodes" (&optional prompt types))
-(declare-function my/node-capture "init-nodes" (type title &optional fields))
+(declare-function my/node-capture "init-nodes"
+                  (type title &optional fields template))
 (declare-function my/node-call-at-id "init-nodes" (id fn))
 (declare-function my/node-visit "init-nodes" (node &optional other-window))
 (declare-function my/node-set-field-at "init-nodes" (pos))
@@ -74,7 +86,9 @@
   "Query context while a view runs.
 A plist: :records (all records), :by-id (hash id -> record), :current
 \(id of the node a view is embedded in), :links (cons of hash tables
-INCOMING . OUTGOING, id -> list of ids; computed on first use).")
+INCOMING . OUTGOING, id -> list of ids; computed on first use), :memo
+\(hash of values computed during this run: type families, field specs,
+rollup and formula cells).")
 
 (defun my/view--records ()
   "Return every node as a record plist from the kernel index."
@@ -86,7 +100,25 @@ CURRENT is the id of the enclosing node; LINKS presets the link tables."
   (let ((by-id (make-hash-table :test 'equal)))
     (dolist (record records)
       (puthash (plist-get record :id) record by-id))
-    (list :records records :by-id by-id :current current :links links)))
+    (list :records records :by-id by-id :current current :links links
+          :memo (make-hash-table :test 'equal))))
+
+(defun my/view--memo (key fn)
+  "Return the value cached under KEY in this run, computing it with FN.
+Without a context FN is simply called.  The cache lives as long as the
+context, so every lookup table and computed cell is built once per run."
+  (let ((table (plist-get my/view--ctx :memo)))
+    (if (null table)
+        (funcall fn)
+      (let ((hit (gethash key table 'my/view--none)))
+        (if (eq hit 'my/view--none)
+            (puthash key (funcall fn) table)
+          hit)))))
+
+(defun my/view--family (tag)
+  "Return TAG and the tags of its subtypes, once per run."
+  (my/view--memo (cons 'family tag)
+                 (lambda () (my/node-type-family-tags tag))))
 
 (defun my/view--links ()
   "Return (INCOMING . OUTGOING) id-link tables, loading them on first use."
@@ -117,17 +149,461 @@ CURRENT is the id of the enclosing node; LINKS presets the link tables."
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
 ;; A column is a string:
-;;   NAME        the field (Org property) NAME
+;;   NAME        the field (Org property) NAME, or the formula NAME when
+;;               one of the node's types defines FORMULA_NAME
 ;;   A.B         follow the node links in field A, read B on each target
 ;;               (multi-hop path; B may itself be a path)
 ;;   <-TAG       titles of TAG nodes that link to this node (the reverse
 ;;               side of a relation field)
+;;   <-TAG.B     B read on each of those nodes
+;;   FN(PATH)    a rollup over the values of PATH, which is any of the
+;;               forms above: count sum avg min max earliest latest list,
+;;               e.g. count(<-reading), sum(<-task.HOURS), count(TOPIC)
 ;;   @title @todo @tags @modified @created @file @in @out
 ;;               built-in values; @in/@out count id links
+;;
+;; A path has several values when it crosses a relation (one per linked
+;; node), a NAME:multi field (one per value) or a field with several id
+;; links.  A plain column shows them joined with ", "; a rollup reduces
+;; them to one value.
 
 (defun my/view--raw (record name)
   "Return the raw value of property NAME on RECORD, or nil."
   (cdr (assoc (upcase name) (plist-get record :props))))
+
+(defun my/view--field-spec (record name)
+  "Return the field or formula spec NAME among RECORD's types, or nil.
+A formula wins over a field of the same name."
+  (gethash (upcase name)
+           (my/view--memo
+            (cons 'specs (plist-get record :tags))
+            (lambda ()
+              (let ((table (make-hash-table :test 'equal)))
+                (dolist (type (my/node-types-for-tags (plist-get record :tags)))
+                  (dolist (spec (my/node-type-fields type))
+                    (unless (gethash (plist-get spec :name) table)
+                      (puthash (plist-get spec :name) spec table))))
+                (dolist (type (my/node-types-for-tags (plist-get record :tags)))
+                  (dolist (spec (my/node-type-formulas type))
+                    (unless (eq 'formula (plist-get (gethash (plist-get spec :name)
+                                                             table)
+                                                    :kind))
+                      (puthash (plist-get spec :name) spec table))))
+                table)))))
+
+(defun my/view--link-titles (value)
+  "Return one label per id link in VALUE: its description, else the title."
+  (let ((start 0) titles)
+    (while (string-match "\\[\\[id:\\([^]]+\\)\\]\\(?:\\[\\([^]]*\\)\\]\\)?\\]"
+                         value start)
+      (let ((id (match-string 1 value))
+            (description (match-string 2 value)))
+        (setq start (match-end 0))
+        (push (cond
+               ((and description (not (string-empty-p description))) description)
+               ((plist-get (my/view--record id) :title))
+               (t id))
+              titles)))
+    (nreverse titles)))
+
+(defun my/view--url-target (value)
+  "Return the address in VALUE, a plain URL or an Org link to one."
+  (cond
+   ((null value) "")
+   ((string-match "\\`[ \t]*\\[\\[\\([^]]+\\)\\]" value) (match-string 1 value))
+   (t (string-trim value))))
+
+(defun my/view--field-items (record name &optional spec)
+  "Return the values of field NAME on RECORD as a list of strings.
+SPEC is the field's spec (looked up when nil).  A field with id links
+gives one label per link, a NAME:multi field one entry per value, a
+formula its result; empty fields give nil."
+  (let ((spec (or spec (my/view--field-spec record name))))
+    (if (eq (plist-get spec :kind) 'formula)
+        (my/view--nonempty (my/view-value record name))
+      (let ((raw (my/view--raw record name)))
+        (cond
+         ((or (null raw) (string-blank-p raw)) nil)
+         ((my/view--link-ids raw) (my/view--link-titles raw))
+         ((eq (plist-get spec :kind) 'multi) (my/node-split-multi raw))
+         ((eq (plist-get spec :kind) 'url) (list (my/view--url-target raw)))
+         (t (list (my/node--display-value raw))))))))
+
+(defun my/view--field-value (record name)
+  "Return the display string of field or formula NAME on RECORD."
+  (let* ((spec (my/view--field-spec record name))
+         (kind (plist-get spec :kind)))
+    (pcase kind
+      ('formula
+       (my/view--memo (list 'cell (plist-get record :id) (plist-get spec :name))
+                      (lambda () (my/view--formula-value record spec))))
+      ('url (my/view--url-target (my/view--raw record name)))
+      ((or 'multi 'nodes 'node)
+       (let ((raw (my/view--raw record name)))
+         (if (or (eq kind 'multi)
+                 (cdr (my/view--link-ids raw)))
+             (string-join (my/view--field-items record name spec) ", ")
+           (my/node--display-value raw))))
+      (_ (my/node--display-value (my/view--raw record name))))))
+
+(defun my/view--nonempty (value)
+  "Return (VALUE) unless VALUE is empty, else nil."
+  (and value (not (string-empty-p value)) (list value)))
+
+(defun my/view--reverse (record tag)
+  "Return the records of type TAG (or a subtype) that link to RECORD."
+  (let ((family (my/view--family tag)))
+    (cl-remove-if-not
+     (lambda (source)
+       (and source
+            (cl-intersection family (plist-get source :tags) :test #'equal)))
+     (mapcar #'my/view--record
+             (delete-dups
+              (copy-sequence
+               (gethash (plist-get record :id) (car (my/view--links)))))))))
+
+(defun my/view--values (record path)
+  "Return the values of column PATH on RECORD as a list of non-empty strings."
+  (cond
+   ((my/view--rollup-parse path)
+    (my/view--nonempty (my/view-value record path)))
+   ((string-prefix-p "<-" path)
+    (let* ((spec (substring path 2))
+           (dot (string-search "." spec))
+           (sources (my/view--reverse record (if dot (substring spec 0 dot) spec))))
+      (if dot
+          (let ((rest (substring spec (1+ dot))))
+            (apply #'append
+                   (mapcar (lambda (source) (my/view--values source rest)) sources)))
+        (mapcar (lambda (source) (plist-get source :title)) sources))))
+   ((string-prefix-p "@" path)
+    (my/view--nonempty (my/view-value record path)))
+   ((string-match "\\`\\([^.]+\\)\\.\\(.+\\)\\'" path)
+    (let ((field (match-string 1 path))
+          (rest (match-string 2 path)))
+      (apply #'append
+             (mapcar (lambda (id)
+                       (when-let* ((target (my/view--record id)))
+                         (my/view--values target rest)))
+                     (my/view--link-ids (my/view--raw record field))))))
+   (t (my/view--field-items record path))))
+
+;; ---- Rollups ----
+
+(defconst my/view-rollup-functions
+  '("count" "sum" "avg" "min" "max" "earliest" "latest" "list")
+  "Aggregates usable as FN(PATH) columns and as (FN PATH) in formulas.")
+
+(defun my/view--rollup-parse (column)
+  "Return (FN . PATH) when COLUMN is a rollup column FN(PATH), else nil."
+  (and (string-match "\\`\\([a-z]+\\)(\\([^()]+\\))\\'" column)
+       (member (match-string 1 column) my/view-rollup-functions)
+       (cons (match-string 1 column) (string-trim (match-string 2 column)))))
+
+(defun my/view--as-number (value)
+  "Return VALUE as a number when it is one or a numeric string, else nil."
+  (cond
+   ((numberp value) value)
+   ((and (stringp value)
+         (string-match-p
+          "\\`[ \t]*[-+]?\\(?:[0-9]+\\.?[0-9]*\\|\\.[0-9]+\\)\\(?:e[-+]?[0-9]+\\)?[ \t]*\\'"
+          value))
+    (string-to-number value))))
+
+(defun my/view--format-number (number)
+  "Return NUMBER as text: integers plainly, others with up to two decimals."
+  (cond
+   ((integerp number) (number-to-string number))
+   ((or (isnan number) (= (abs number) 1.0e+INF)) (format "%s" number))
+   ((and (= number (ffloor number)) (< (abs number) 1e15))
+    (number-to-string (truncate number)))
+   (t (let ((text (format "%.2f" number)))
+        (replace-regexp-in-string "\\.?0+\\'" "" text)))))
+
+(defun my/view--date-string (value)
+  "Return the YYYY-MM-DD date found in VALUE, or nil."
+  (and (stringp value)
+       (string-match "\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\)" value)
+       (match-string 1 value)))
+
+(defun my/view--rollup (fn values)
+  "Reduce VALUES, a list of strings, with the rollup FN (a string).
+Numeric rollups skip values that are not numbers; date rollups skip
+values without a date.  An empty set counts and sums to 0 and gives an
+empty cell for the others."
+  (let ((numbers (delq nil (mapcar #'my/view--as-number values))))
+    (pcase fn
+      ("count" (number-to-string (length values)))
+      ("sum" (my/view--format-number (apply #'+ 0 numbers)))
+      ("avg" (if numbers
+                 (my/view--format-number
+                  (/ (float (apply #'+ numbers)) (length numbers)))
+               ""))
+      ((or "min" "max")
+       (cond
+        ((null values) "")
+        ((= (length numbers) (length values))
+         (my/view--format-number
+          (apply (if (equal fn "min") #'min #'max) numbers)))
+        (t (car (sort (copy-sequence values)
+                      (if (equal fn "min") #'string< (lambda (a b) (string< b a))))))))
+      ((or "earliest" "latest")
+       (let ((dates (sort (delq nil (mapcar #'my/view--date-string values))
+                          #'string<)))
+         (cond ((null dates) "")
+               ((equal fn "earliest") (car dates))
+               (t (car (last dates))))))
+      ("list" (string-join (delete-dups (copy-sequence values)) ", "))
+      (_ (signal 'my/view-formula-error
+                 (list (format "unknown rollup %s" fn)))))))
+
+;; ---- Formulas ----
+;;
+;; A type heading declares a formula column with a property:
+;;
+;;   :FORMULA_LEFT:   (- PAGES PAGES_READ)
+;;   :FORMULA_STATE:  (if (> (count <-task) 0) "active" "idle")
+;;
+;; The expression is an s-expression read with `read' (never evaluated as
+;; Lisp) and interpreted by `my/view--eval' over a fixed set of operators:
+;;
+;;   literals     numbers, "strings", t
+;;   NAME         any column of Section 2: a field, @created, TOPIC.AREA,
+;;                <-task.HOURS, another formula
+;;   arithmetic   (+ a b ...) (- a b ...) (* a b ...) (/ a b ...) (round a [digits]) (abs a)
+;;   comparison   (= a b) (!= a b) (< a b) (> a b) (<= a b) (>= a b)
+;;   logic        (if test then [else]) (and ...) (or ...) (not a) (empty a)
+;;   text         (concat a b ...) (contains a b)
+;;   dates        (today) (days a b): days from date b to date a
+;;   rollups      (count PATH) (sum PATH) (avg PATH) (min PATH) (max PATH)
+;;                (earliest PATH) (latest PATH) (list PATH)
+;;
+;; Empty values are nil: arithmetic and dates over an empty value give an
+;; empty cell, (or HOURS 0) supplies a default.  A failing formula shows
+;; "#ERR: reason" in its cell and never stops the view.
+
+(define-error 'my/view-formula-error "Formula error")
+
+(defconst my/view-formula-error-prefix "#ERR: "
+  "Prefix of the cell text shown for a formula that failed.")
+
+(defvar my/view--formula-forms (make-hash-table :test 'equal)
+  "Parsed formula expressions, keyed by their text.")
+
+(defvar my/view--formula-stack nil
+  "Cells (ID . NAME) whose formulas are being evaluated, innermost first.")
+
+(defun my/view--formula-error (format-string &rest args)
+  "Signal a formula error with a message from FORMAT-STRING and ARGS."
+  (signal 'my/view-formula-error (list (apply #'format format-string args))))
+
+(defun my/view--formula-form (expr)
+  "Return the parsed form of formula text EXPR (cached by text)."
+  (let ((hit (gethash expr my/view--formula-forms)))
+    (unless hit
+      (setq hit
+            (condition-case err
+                (let ((read (read-from-string expr)))
+                  (unless (string-blank-p (substring expr (cdr read)))
+                    (error "unexpected text after the expression: %s"
+                           (string-trim (substring expr (cdr read)))))
+                  (cons 'ok (car read)))
+              (error (cons 'error (format "cannot read the formula (%s)"
+                                          (error-message-string err))))))
+      (puthash expr hit my/view--formula-forms))
+    (if (eq (car hit) 'ok)
+        (cdr hit)
+      (signal 'my/view-formula-error (list (cdr hit))))))
+
+(defun my/view--empty-p (value)
+  "Return non-nil when formula VALUE is empty (nil or blank text)."
+  (or (null value) (and (stringp value) (string-blank-p value))))
+
+(defun my/view--truthy (value)
+  "Return non-nil when formula VALUE counts as true."
+  (cond
+   ((memq value '(nil :false)) nil)
+   ((numberp value) (/= value 0))
+   ((stringp value)
+    (not (member (downcase (string-trim value)) '("" "no" "false" "0"))))
+   (t t)))
+
+(defun my/view--bool (value)
+  "Return the formula boolean for Lisp VALUE."
+  (if value t :false))
+
+(defun my/view--formula-display (value)
+  "Return formula VALUE as cell text."
+  (cond
+   ((null value) "")
+   ((eq value t) "yes")
+   ((eq value :false) "no")
+   ((numberp value) (my/view--format-number value))
+   ((stringp value) value)
+   (t (format "%s" value))))
+
+(defun my/view--number-arg (value)
+  "Return formula VALUE as a number, nil when empty; signal when not numeric."
+  (cond
+   ((my/view--empty-p value) nil)
+   ((my/view--as-number value))
+   (t (my/view--formula-error "not a number: %s" (my/view--formula-display value)))))
+
+(defun my/view--arith (fn args)
+  "Apply FN to ARGS as numbers; an empty argument gives an empty result."
+  (let ((numbers (mapcar #'my/view--number-arg args)))
+    (unless (memq nil numbers)
+      (apply fn numbers))))
+
+(defun my/view--divide (&rest args)
+  "Divide the first of ARGS by the others; signal on division by zero."
+  (my/view--arith (lambda (first &rest rest)
+                    (dolist (divisor rest)
+                      (when (zerop divisor)
+                        (my/view--formula-error "division by zero"))
+                      (setq first (/ (float first) divisor)))
+                    first)
+                  args))
+
+(defun my/view--day-number (value)
+  "Return the day number of the date in formula VALUE; nil when empty."
+  (cond
+   ((my/view--empty-p value) nil)
+   ((let ((date (my/view--date-string
+                 (if (stringp value) value (my/view--formula-display value)))))
+      (and date
+           (time-to-days
+            (encode-time
+             (list 0 0 12
+                   (string-to-number (substring date 8 10))
+                   (string-to-number (substring date 5 7))
+                   (string-to-number (substring date 0 4))
+                   nil -1 nil))))))
+   (t (my/view--formula-error "not a date: %s" (my/view--formula-display value)))))
+
+(defun my/view--compare-values (op a b)
+  "Compare formula values A and B with OP; numerically when both are numbers."
+  (let ((na (my/view--as-number a))
+        (nb (my/view--as-number b))
+        (sa (my/view--formula-display a))
+        (sb (my/view--formula-display b)))
+    (my/view--bool
+     (if (and na nb)
+         (pcase op
+           ('= (= na nb)) ('!= (/= na nb)) ('< (< na nb))
+           ('> (> na nb)) ('<= (<= na nb)) ('>= (>= na nb)))
+       (pcase op
+         ('= (string= sa sb)) ('!= (not (string= sa sb)))
+         ('< (string< sa sb)) ('> (string< sb sa))
+         ('<= (not (string< sb sa))) ('>= (not (string< sa sb))))))))
+
+(defconst my/view-formula-functions
+  (list
+   (cons '+ (lambda (&rest args) (my/view--arith #'+ args)))
+   (cons '- (lambda (&rest args) (my/view--arith #'- args)))
+   (cons '* (lambda (&rest args) (my/view--arith #'* args)))
+   (cons '/ #'my/view--divide)
+   (cons 'round (lambda (value &optional digits)
+                  (let ((number (my/view--number-arg value))
+                        (scale (expt 10 (or (my/view--number-arg digits) 0))))
+                    (and number
+                         (if (= scale 1)
+                             (round number)
+                           (/ (fround (* number scale)) scale))))))
+   (cons 'abs (lambda (value) (my/view--arith #'abs (list value))))
+   (cons '= (lambda (a b) (my/view--compare-values '= a b)))
+   (cons '!= (lambda (a b) (my/view--compare-values '!= a b)))
+   (cons '< (lambda (a b) (my/view--compare-values '< a b)))
+   (cons '> (lambda (a b) (my/view--compare-values '> a b)))
+   (cons '<= (lambda (a b) (my/view--compare-values '<= a b)))
+   (cons '>= (lambda (a b) (my/view--compare-values '>= a b)))
+   (cons 'not (lambda (value) (my/view--bool (not (my/view--truthy value)))))
+   (cons 'empty (lambda (value) (my/view--bool (my/view--empty-p value))))
+   (cons 'concat (lambda (&rest args)
+                   (mapconcat #'my/view--formula-display args "")))
+   (cons 'contains (lambda (text part)
+                     (my/view--bool
+                      (string-search (downcase (my/view--formula-display part))
+                                     (downcase (my/view--formula-display text))))))
+   (cons 'today (lambda () (format-time-string "%Y-%m-%d")))
+   (cons 'days (lambda (a b)
+                 (let ((da (my/view--day-number a))
+                       (db (my/view--day-number b)))
+                   (and da db (- da db))))))
+  "Operators a formula may call, as (SYMBOL . FUNCTION).
+The functions receive evaluated arguments; `if', `and', `or' and the
+rollups are handled by `my/view--eval' itself.")
+
+(defun my/view--formula-ref (record name)
+  "Return column NAME of RECORD as a formula value (nil when empty)."
+  (let ((value (my/view-value record name)))
+    (cond
+     ((string-prefix-p my/view-formula-error-prefix value)
+      (my/view--formula-error "%s: %s" name
+                              (substring value (length my/view-formula-error-prefix))))
+     ((string-empty-p value) nil)
+     (t value))))
+
+(defun my/view--eval (form record)
+  "Evaluate formula FORM for RECORD with the operators of this section."
+  (cond
+   ((or (numberp form) (stringp form) (memq form '(nil t))) form)
+   ((keywordp form) (my/view--formula-error "unknown name %s" form))
+   ((symbolp form) (my/view--formula-ref record (symbol-name form)))
+   ((and (consp form) (symbolp (car form)) (proper-list-p form))
+    (let ((op (car form))
+          (args (cdr form)))
+      (cl-flet ((ev (arg) (my/view--eval arg record)))
+        (cond
+         ((eq op 'if)
+          (unless (<= 2 (length args) 3)
+            (my/view--formula-error "if takes a test, a value and an optional else"))
+          (if (my/view--truthy (ev (car args)))
+              (ev (nth 1 args))
+            (and (nth 2 args) (ev (nth 2 args)))))
+         ((eq op 'and)
+          (let ((value t))
+            (while (and args (my/view--truthy value))
+              (setq value (ev (pop args))))
+            (if (my/view--truthy value) value :false)))
+         ((eq op 'or)
+          (let (value)
+            (while (and args (not (my/view--truthy value)))
+              (setq value (ev (pop args))))
+            value))
+         ((member (symbol-name op) my/view-rollup-functions)
+          (unless (and (= 1 (length args))
+                       (or (symbolp (car args)) (stringp (car args))))
+            (my/view--formula-error "%s takes one column, as in (%s <-task)" op op))
+          (let ((path (format "%s" (car args))))
+            (my/view--memo (list 'rollup (plist-get record :id) (symbol-name op) path)
+                           (lambda ()
+                             (my/view--rollup (symbol-name op)
+                                              (my/view--values record path))))))
+         (t
+          (let ((fn (or (alist-get op my/view-formula-functions)
+                        (my/view--formula-error "unknown function %s" op))))
+            (condition-case nil
+                (apply fn (mapcar #'ev args))
+              (wrong-number-of-arguments
+               (my/view--formula-error "wrong number of arguments to %s" op)))))))))
+   (t (my/view--formula-error "cannot evaluate %S" form))))
+
+(defun my/view--formula-value (record spec)
+  "Return the cell text of formula SPEC for RECORD.
+Errors become an inline \"#ERR: ...\" marker; a formula that refers back
+to itself is reported as an error too."
+  (let ((key (cons (plist-get record :id) (plist-get spec :name))))
+    (if (member key my/view--formula-stack)
+        (my/view--formula-error "%s refers to itself" (plist-get spec :name))
+      (let ((my/view--formula-stack (cons key my/view--formula-stack)))
+        (condition-case err
+            (my/view--formula-display
+             (my/view--eval (my/view--formula-form (plist-get spec :expr)) record))
+          (my/view-formula-error
+           (concat my/view-formula-error-prefix (cadr err)))
+          (error
+           (concat my/view-formula-error-prefix (error-message-string err))))))))
 
 (defun my/view--link-ids (value)
   "Return the node ids of all id links in VALUE."
@@ -181,19 +657,16 @@ Read from the CREATED property, else from a timestamp-style ID."
       ("@out" (number-to-string
                (length (gethash (plist-get record :id) (cdr (my/view--links))))))
       (_ "")))
+   ((my/view--rollup-parse column)
+    (pcase-let ((`(,fn . ,path) (my/view--rollup-parse column)))
+      (my/view--memo (list 'cell (plist-get record :id) column)
+                     (lambda ()
+                       (condition-case err
+                           (my/view--rollup fn (my/view--values record path))
+                         (error (concat my/view-formula-error-prefix
+                                        (error-message-string err))))))))
    ((string-prefix-p "<-" column)
-    (let ((family (my/node-type-family-tags (substring column 2))))
-      (mapconcat
-       (lambda (record) (plist-get record :title))
-       (cl-remove-if-not
-        (lambda (source)
-          (and source
-               (cl-intersection family (plist-get source :tags) :test #'equal)))
-        (mapcar #'my/view--record
-                (delete-dups
-                 (copy-sequence
-                  (gethash (plist-get record :id) (car (my/view--links)))))))
-       ", ")))
+    (string-join (my/view--values record column) ", "))
    ((string-match "\\`\\([^.]+\\)\\.\\(.+\\)\\'" column)
     (let ((rest (match-string 2 column))
           (ids (my/view--link-ids (my/view--raw record (match-string 1 column)))))
@@ -206,7 +679,7 @@ Read from the CREATED property, else from a timestamp-style ID."
                     ""))
                 ids))
        ", ")))
-   (t (my/node--display-value (my/view--raw record column)))))
+   (t (my/view--field-value record column))))
 
 (defun my/view--column-label (column)
   "Return the header label of COLUMN."
@@ -214,12 +687,37 @@ Read from the CREATED property, else from a timestamp-style ID."
    ((string-prefix-p "@" column) (capitalize (substring column 1)))
    (t column)))
 
+(defun my/view--formula-name-p (column)
+  "Return non-nil when some type defines a formula called COLUMN."
+  (let ((name (upcase column)))
+    (cl-some (lambda (type)
+               (cl-find name (my/node-type-formulas type)
+                        :key (lambda (spec) (plist-get spec :name))
+                        :test #'equal))
+             my/node-types)))
+
+(defun my/view--computed-p (column)
+  "Return non-nil when COLUMN is a rollup or a formula, never stored."
+  (and column
+       (or (my/view--rollup-parse column)
+           (my/view--formula-name-p column))
+       t))
+
+(defun my/view--read-only-reason (column)
+  "Return why COLUMN, a computed column, cannot be edited."
+  (if (my/view--rollup-parse column)
+      (format "%s is a rollup computed from related nodes when the view runs; edit those nodes instead"
+              column)
+    (format "%s is a formula (FORMULA_%s in types.org) computed when the view runs and never stored; edit its inputs or the formula"
+            column (upcase column))))
+
 (defun my/view--plain-field-p (column)
   "Return non-nil when COLUMN is an editable field, not a computed value."
   (and column
        (not (string-prefix-p "@" column))
        (not (string-prefix-p "<-" column))
-       (not (string-match-p "\\." column))))
+       (not (string-match-p "\\." column))
+       (not (my/view--computed-p column))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 3: Filter expressions
@@ -228,8 +726,10 @@ Read from the CREATED property, else from a timestamp-style ID."
 ;;   (type "reading")              has the type, or a type extending it
 ;;   (tag "draft")                 has the tag
 ;;   (todo) (todo "NEXT" "TODO")   has a TODO state / one of these states
-;;   (field "YEAR" > 2020)         ops: = != < > <= >= contains
+;;   (field "YEAR" > 2020)         ops: = != < > <= >= contains has
 ;;   (field "STATUS" "read")       short for =
+;;   (field "LABELS" has "x")      one of the values is x (NAME:multi,
+;;                                 NAME:nodes by title or id, <-TAG ...)
 ;;   (field "TOPIC" = current)     relation field links to the enclosing node
 ;;   (field "TOPIC" empty|set)     value absent / present
 ;;   (modified-within 7)           file changed in the last 7 days
@@ -240,8 +740,9 @@ Read from the CREATED property, else from a timestamp-style ID."
 ;;   (title "str") (text "str")    title contains / file text contains
 ;;   (and ...) (or ...) (not ...)
 ;;
-;; Field names accept every column form of Section 2, so (field "@in" = 0)
-;; and (field "TOPIC.AREA" contains "stats") work as well.
+;; Field names accept every column form of Section 2, so (field "@in" = 0),
+;; (field "TOPIC.AREA" contains "stats"), (field "count(<-reading)" > 2)
+;; and formula names work as well.
 
 (defun my/view--text-files (string)
   "Return a hash set of files under `my/note-home' containing STRING."
@@ -281,6 +782,12 @@ Read from the CREATED property, else from a timestamp-style ID."
         (lambda (record)
           (let ((hit (string-search needle (or (my/view--raw record name) ""))))
             (if (eq op '!=) (not hit) hit)))))
+     ((eq op 'has)
+      (let ((value (format "%s" value)))
+        (lambda (record)
+          (or (cl-some (lambda (item) (string-equal-ignore-case item value))
+                       (my/view--values record name))
+              (member value (my/view--link-ids (my/view--raw record name)))))))
      (t
       (let ((value (format "%s" value)))
         (lambda (record)
@@ -303,7 +810,7 @@ Read from the CREATED property, else from a timestamp-style ID."
      (let ((tag (format "%s" tag)))
        (lambda (record) (member tag (plist-get record :tags)))))
     (`(type ,tag)
-     (let ((family (my/node-type-family-tags (format "%s" tag))))
+     (let ((family (my/view--family (format "%s" tag))))
        (lambda (record)
          (cl-intersection family (plist-get record :tags) :test #'equal))))
     (`(todo . ,keywords)
@@ -463,12 +970,11 @@ records without a value come last under the empty string."
      (t filter))))
 
 (defun my/view--columns (view)
-  "Return VIEW's columns, defaulting to the fields of its type."
+  "Return VIEW's columns, defaulting to the fields and formulas of its type."
   (or (plist-get view :columns)
       (when-let* ((tag (plist-get view :type))
                   (type (my/node-type-by-tag tag)))
-        (mapcar (lambda (field) (plist-get field :name))
-                (my/node-type-fields type)))))
+        (my/node-type-column-names type))))
 
 (defun my/view-run (view)
   "Run VIEW in the current `my/view--ctx'.
@@ -576,6 +1082,49 @@ Return a plist :groups ((VALUE . RECORDS) ...) :columns :count."
   (cl-find name (my/views-load)
            :key (lambda (view) (plist-get view :name)) :test #'equal))
 
+;; ---- The view of a type ----
+;;
+;; A type is a database: it always has a view without the user defining
+;; one.  The default is a table of the type's nodes (subtypes included)
+;; with its fields and formulas as columns, newest first.  The type
+;; heading may change it with TYPE_VIEW_LAYOUT, TYPE_VIEW_GROUP,
+;; TYPE_VIEW_SORT, TYPE_VIEW_COLUMNS, TYPE_VIEW_FILTER and TYPE_VIEW_LIMIT,
+;; written like the VIEW_* properties above.  A saved view whose name is
+;; the type's name replaces the default entirely, which is also what
+;; saving the default view with `w' produces.
+
+(defun my/view-type-default (type)
+  "Return the default view plist of TYPE, from its TYPE_VIEW_* settings."
+  (let* ((settings (my/node-type-view type))
+         (get (lambda (key) (cdr (assoc key settings))))
+         (layout (funcall get "LAYOUT"))
+         (filter (funcall get "FILTER"))
+         (columns (funcall get "COLUMNS"))
+         (limit (funcall get "LIMIT")))
+    (list :name (my/node-type-name type)
+          :type (my/node-type-tag type)
+          :layout (if (and layout (memq (intern layout) my/view-layouts))
+                      (intern layout)
+                    'table)
+          :filter (and filter
+                       (condition-case nil
+                           (car (read-from-string filter))
+                         (error
+                          (message "org-seq: TYPE_VIEW_FILTER of %s is not a form; ignored"
+                                   (my/node-type-name type))
+                          nil)))
+          :sort (my/view--parse-sort (funcall get "SORT"))
+          :group (funcall get "GROUP")
+          :columns (and columns (split-string-and-unquote columns))
+          :limit (and limit (string-to-number limit)))))
+
+(defun my/view-for-type (type &optional views)
+  "Return the view of TYPE: the saved view named after it, else the default.
+VIEWS is the list of saved views (default: read `my/views-file')."
+  (or (cl-find (my/node-type-name type) (or views (my/views-load))
+               :key (lambda (view) (plist-get view :name)) :test #'equal)
+      (my/view-type-default type)))
+
 (defun my/view-save-definition (view)
   "Write VIEW to `my/views-file', replacing a view of the same name."
   (my/views-ensure-file)
@@ -644,6 +1193,31 @@ Return a plist :groups ((VALUE . RECORDS) ...) :columns :count."
   "Return STRING truncated or padded to display WIDTH."
   (truncate-string-to-width (or string "") width nil ?\s "…"))
 
+(defun my/view-open-url (&optional event)
+  "Open the URL of the view cell clicked with EVENT, or at point."
+  (interactive (list last-nonmenu-event))
+  (let ((pos (if (mouse-event-p event) (posn-point (event-end event)) (point))))
+    (browse-url (or (get-text-property pos 'my/view-url)
+                    (user-error "No URL here")))))
+
+(defvar-keymap my/view-url-map
+  :doc "Keys on a URL cell of a view buffer."
+  "<mouse-1>" #'my/view-open-url
+  "<mouse-2>" #'my/view-open-url
+  "C-c C-o"   #'my/view-open-url)
+
+(defun my/view--cell (record column)
+  "Return the text of COLUMN for RECORD in a view buffer.
+The value of a NAME:url field is clickable (mouse-1 or C-c C-o)."
+  (let ((value (my/view-value record column)))
+    (if (and (not (string-empty-p value))
+             (my/view--plain-field-p column)
+             (eq 'url (plist-get (my/view--field-spec record column) :kind)))
+        (propertize value 'face 'link 'mouse-face 'highlight
+                    'help-echo "mouse-1, C-c C-o: open this URL"
+                    'keymap my/view-url-map 'my/view-url value)
+      value)))
+
 (defun my/view--group-label (value)
   "Return the heading text for group VALUE."
   (if (string-empty-p value) "(none)" value))
@@ -663,7 +1237,7 @@ Return a plist :groups ((VALUE . RECORDS) ...) :columns :count."
                                 (lambda (record)
                                   (cons record
                                         (mapcar (lambda (column)
-                                                  (my/view-value record column))
+                                                  (my/view--cell record column))
                                                 columns)))
                                 (cdr group))))
          (widths (cl-loop for column in columns
@@ -723,7 +1297,7 @@ Return a plist :groups ((VALUE . RECORDS) ...) :columns :count."
         (let ((start (point))
               (details (cl-remove-if
                         #'string-empty-p
-                        (mapcar (lambda (column) (my/view-value record column))
+                        (mapcar (lambda (column) (my/view--cell record column))
                                 columns))))
           (insert (if (car group) "  - " "- ")
                   (my/view--todo-prefix record)
@@ -760,7 +1334,7 @@ width.  Each cell carries the node id (when on a card) and group value."
         (let ((id (plist-get record :id))
               (details (cl-remove-if
                         #'string-empty-p
-                        (mapcar (lambda (column) (my/view-value record column))
+                        (mapcar (lambda (column) (my/view--cell record column))
                                 columns))))
           (cell (concat (my/view--todo-prefix record)
                         (propertize (plist-get record :title) 'face 'bold))
@@ -921,21 +1495,27 @@ CURRENT is the id of the node that `current' refers to in its filter."
   (my/view-show (or (my/view-by-name name)
                     (user-error "No saved view called %s" name))))
 
-(defun my/view-show-type (type)
-  "Open the saved view of TYPE, or a default table of its nodes."
-  (let* ((tag (my/node-type-tag type))
-         (views (cl-remove-if-not
-                 (lambda (view) (equal (plist-get view :type) tag))
-                 (my/views-load))))
+(defun my/view-show-type (type &optional choose)
+  "Open the view of TYPE (see `my/view-for-type').
+With CHOOSE, pick among it and the other saved views of TYPE first."
+  (let* ((views (my/views-load))
+         (main (my/view-for-type type views))
+         (others (cl-remove-if-not
+                  (lambda (view)
+                    (and (equal (plist-get view :type) (my/node-type-tag type))
+                         (not (equal (plist-get view :name) (plist-get main :name)))))
+                  views)))
     (my/view-show
-     (cond
-      ((null views)
-       (list :name (my/node-type-name type) :type tag :layout 'table))
-      ((null (cdr views)) (car views))
-      (t (my/view-by-name
-          (completing-read
-           (format "%s view: " (my/node-type-name type))
-           (mapcar (lambda (view) (plist-get view :name)) views) nil t)))))))
+     (if (and choose others)
+         (let ((name (completing-read
+                      (format "%s view: " (my/node-type-name type))
+                      (cons (plist-get main :name)
+                            (mapcar (lambda (view) (plist-get view :name)) others))
+                      nil t nil nil (plist-get main :name))))
+           (or (cl-find name others :key (lambda (view) (plist-get view :name))
+                        :test #'equal)
+               main))
+       main))))
 
 (defun my/view-new-view (name)
   "Create a view called NAME: pick a type and layout, then refine it."
@@ -996,8 +1576,7 @@ CURRENT is the id of the node that `current' refers to in its filter."
   (delete-dups
    (append (my/view--columns my/view--view)
            (cl-loop for type in my/node-types
-                    append (mapcar (lambda (field) (plist-get field :name))
-                                   (my/node-type-fields type)))
+                    append (my/node-type-column-names type))
            '("@todo" "@tags" "@modified" "@created" "@in" "@out" "@file"))))
 
 (defun my/view-set-group (field)
@@ -1054,10 +1633,13 @@ CURRENT is the id of the node that `current' refers to in its filter."
 (defun my/view-edit-field ()
   "Edit a field of the node at point.
 In a table the field under the cursor is edited; elsewhere, or on a
-computed column, the field is chosen from a prompt."
+path or built-in column, the field is chosen from a prompt.  Rollup and
+formula columns are read-only: they are computed, not stored."
   (interactive)
   (let ((id (my/view--id-at-point))
         (field (get-text-property (point) 'my/view-field)))
+    (when (my/view--computed-p field)
+      (user-error "%s" (my/view--read-only-reason field)))
     (my/node-call-at-id
      id
      (lambda (pos)
