@@ -150,7 +150,7 @@ function Get-OrgSeqElispFiles {
     $files = [System.Collections.Generic.List[string]]::new()
     Get-ChildItem -LiteralPath $RepoRoot -Filter '*.el' -File |
         ForEach-Object { $files.Add($_.FullName) }
-    foreach ($directory in @('lisp', 'packages')) {
+    foreach ($directory in @('core', 'kernel', 'modules', 'packages')) {
         $path = Join-Path $RepoRoot $directory
         if (Test-Path -LiteralPath $path -PathType Container) {
             Get-ChildItem -LiteralPath $path -Filter '*.el' -File -Recurse -ErrorAction SilentlyContinue |
@@ -278,7 +278,16 @@ if ($PackageUserDir) {
 }
 
 $repoForElisp = ($RepoRoot -replace '\\', '/') + '/'
-$loadArguments = @('-L', $RepoRoot, '-L', (Join-Path $RepoRoot 'lisp'))
+# NOTE: source directories changed from lisp/ on Linux; this script has not
+# been run on Windows since (Windows is a P1 platform; see doc/DESIGN.md).
+$loadArguments = @('-L', $RepoRoot)
+foreach ($sourceRoot in @('core', 'kernel', 'modules')) {
+    $sourcePath = Join-Path $RepoRoot $sourceRoot
+    $loadArguments += @('-L', $sourcePath)
+    foreach ($directory in (Get-ChildItem -LiteralPath $sourcePath -Directory -Recurse -ErrorAction SilentlyContinue)) {
+        $loadArguments += @('-L', $directory.FullName)
+    }
+}
 $packageDirectories = Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'packages') -Directory -ErrorAction SilentlyContinue
 foreach ($directory in $packageDirectories) {
     $loadArguments += @('-L', $directory.FullName)
@@ -454,7 +463,7 @@ try {
             foreach ($entry in @('early-init.el', 'init.el')) {
                 Copy-Item -LiteralPath (Join-Path $RepoRoot $entry) -Destination $staged -Force
             }
-            foreach ($entry in @('lisp', 'packages')) {
+            foreach ($entry in @('core', 'kernel', 'modules', 'packages')) {
                 $source = Join-Path $RepoRoot $entry
                 if (Test-Path -LiteralPath $source -PathType Container) {
                     Copy-Item -LiteralPath $source -Destination $staged -Recurse -Force
@@ -466,12 +475,21 @@ try {
             $stagedFiles = @(
                 Get-ChildItem -LiteralPath $staged -Filter '*.el' -File |
                     ForEach-Object { $_.FullName }
-                Get-ChildItem -LiteralPath (Join-Path $staged 'lisp') -Filter '*.el' -File -ErrorAction SilentlyContinue |
-                    ForEach-Object { $_.FullName }
+                foreach ($sourceRoot in @('core', 'kernel', 'modules')) {
+                    Get-ChildItem -LiteralPath (Join-Path $staged $sourceRoot) -Filter '*.el' -File -Recurse -ErrorAction SilentlyContinue |
+                        ForEach-Object { $_.FullName }
+                }
                 Get-ChildItem -LiteralPath (Join-Path $staged 'packages') -Filter '*.el' -File -Recurse -ErrorAction SilentlyContinue |
                     ForEach-Object { $_.FullName }
             )
-            $stagedLoad = @('-L', $staged, '-L', (Join-Path $staged 'lisp'))
+            $stagedLoad = @('-L', $staged)
+            foreach ($sourceRoot in @('core', 'kernel', 'modules')) {
+                $stagedSource = Join-Path $staged $sourceRoot
+                $stagedLoad += @('-L', $stagedSource)
+                foreach ($directory in (Get-ChildItem -LiteralPath $stagedSource -Directory -Recurse -ErrorAction SilentlyContinue)) {
+                    $stagedLoad += @('-L', $directory.FullName)
+                }
+            }
             foreach ($directory in (Get-ChildItem -LiteralPath (Join-Path $staged 'packages') -Directory -ErrorAction SilentlyContinue)) {
                 $stagedLoad += @('-L', $directory.FullName)
             }

@@ -9,7 +9,7 @@
   (current-buffer))
 
 (load-file
- (expand-file-name "../lisp/init-workspace.el"
+ (expand-file-name "../modules/ui/init-workspace.el"
                    (file-name-directory load-file-name)))
 
 (ert-deftest my/workspace-startup-preserves-requested-historical-daily-buffer ()

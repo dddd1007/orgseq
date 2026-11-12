@@ -28,8 +28,25 @@
 ;; Large process output buffer — benefits LSP, ripgrep, etc. (Doom/Purcell/Centaur)
 (setq read-process-output-max (* 4 1024 1024))  ; 4MB
 
-;; ---- Module load path ----
-(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+;; ---- Source layout ----
+;; core/      distribution core: platform, packages, doctor, update, CLI
+;; kernel/    note kernel: no UI, usable from a batch Emacs
+;; modules/   feature modules grouped by area
+;; user/      the user's own files; a deployment never writes there
+(defconst my/init-source-directories
+  '("core" "kernel"
+    "modules/ui" "modules/editor" "modules/notes" "modules/tools" "modules/lang")
+  "Directories under `user-emacs-directory' holding org-seq Elisp.")
+
+(dolist (dir my/init-source-directories)
+  (add-to-list 'load-path (expand-file-name dir user-emacs-directory)))
+
+(defconst my/user-directory
+  (expand-file-name "user/" user-emacs-directory)
+  "Directory for the user's own configuration.
+modules.el there runs before the modules load (set
+`my/init-disabled-modules'), config.el after them, and custom.el holds
+Customize settings.  Deployment never writes this directory.")
 
 ;; ---- Platform tuning ----
 ;; Bootstrap-phase module: repairs `exec-path' and owns the ELPA signature
@@ -49,7 +66,7 @@
 (setq package-install-upgrade-built-in t)
 
 ;; Windows needs a working gpg before any package is fetched; see
-;; `my/platform-resolve-package-signature' in lisp/init-platform.el.
+;; `my/platform-resolve-package-signature' in core/init-platform.el.
 (my/platform-resolve-package-signature)
 
 (package-initialize)
@@ -195,7 +212,15 @@ Absent optional packages are skipped silently, matching module loading."
 (setq evil-want-keybinding nil)
 
 ;; ---- Separate custom file ----
-(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+;; Customize settings live in user/custom.el.  A custom.el left at the top
+;; of the Emacs directory by an earlier version keeps working until the
+;; deploy script moves it.
+(setq custom-file
+      (let ((current (expand-file-name "custom.el" my/user-directory))
+            (legacy (expand-file-name "custom.el" user-emacs-directory)))
+        (if (and (not (file-exists-p current)) (file-exists-p legacy))
+            legacy
+          current)))
 
 (defun my/load-custom-file ()
   "Load `custom-file' as explicit user overrides, reporting failures clearly."
@@ -386,6 +411,28 @@ order while overriding the effective load list.")
 (defvar my/init-modules my/init-modules-default
   "Modules loaded by org-seq in dependency order.")
 
+(defvar my/init-disabled-modules nil
+  "Modules from `my/init-modules' that are not loaded.
+Set it in user/modules.el, for example (setq my/init-disabled-modules
+\='(init-pyim init-python)).  Startup warns when an enabled module
+depends on a disabled one.")
+
+(defun my/load-user-file (name)
+  "Load NAME from `my/user-directory' when it exists; report failures.
+Return non-nil when the file was loaded."
+  (let ((file (expand-file-name name my/user-directory)))
+    (when (file-exists-p file)
+      (condition-case err
+          (progn (load file nil 'nomessage) t)
+        (error
+         (push (cons (intern (concat "user/" name)) err) my/--init-errors)
+         (display-warning
+          'org-seq
+          (format "Failed to load %s: %s (inspect with M-x my/init-errors)"
+                  file (error-message-string err))
+          :error)
+         nil)))))
+
 (defconst my/init-module-requires
   '((init-ui            . (init-packages))
     (init-markdown      . (init-ui))
@@ -497,6 +544,12 @@ Return non-nil when MODULE loads successfully."
 (setq my/--init-errors nil
       my/--init-results nil)
 
+;; The user's module selection, read before anything is checked or loaded.
+(my/load-user-file "modules.el")
+(setq my/init-modules
+      (cl-remove-if (lambda (module) (memq module my/init-disabled-modules))
+                    my/init-modules))
+
 ;; Dependency assertion: fail loudly (but non-fatally) when the module list
 ;; violates the declared load-order contract, before any module loads.
 (dolist (violation (my/init-check-module-order))
@@ -507,6 +560,9 @@ Return non-nil when MODULE loads successfully."
 
 (dolist (module my/init-modules)
   (my/--require-module module))
+
+;; The user's own configuration, after every module is in place.
+(my/load-user-file "config.el")
 
 ;; Deferred packages: interactive sessions wait for the first event; batch
 ;; and daemon sessions have none, so load everything now.

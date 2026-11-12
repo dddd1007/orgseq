@@ -46,7 +46,7 @@ The target experience combines three ideas:
 
 ## Module Architecture
 
-Add `lisp/init-daily.el` after `init-supertag` in the guarded module order.
+Add `modules/notes/init-daily.el` after `init-supertag` in the guarded module order.
 The module owns Daily-specific orchestration and no lower-level package
 internals.
 

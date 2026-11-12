@@ -8,7 +8,7 @@
 (defvar my/node-types)
 
 (load-file
- (expand-file-name "../lisp/init-nodes.el"
+ (expand-file-name "../modules/notes/init-nodes.el"
                    (file-name-directory load-file-name)))
 
 (defconst my/test-nodes--types

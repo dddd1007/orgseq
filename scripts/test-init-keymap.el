@@ -4,7 +4,7 @@
 (require 'ert)
 
 (load-file
- (expand-file-name "../lisp/init-keymap.el"
+ (expand-file-name "../modules/editor/init-keymap.el"
                    (file-name-directory load-file-name)))
 
 (ert-deftest my/keymap-prefix-and-critical-keys-are-unique ()

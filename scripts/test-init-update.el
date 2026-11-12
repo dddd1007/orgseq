@@ -6,7 +6,7 @@
 (require 'use-package)
 
 (load-file
- (expand-file-name "../lisp/init-update.el"
+ (expand-file-name "../core/init-update.el"
                    (file-name-directory load-file-name)))
 
 (ert-deftest my/package-update-failure-is-not-recorded-as-success ()

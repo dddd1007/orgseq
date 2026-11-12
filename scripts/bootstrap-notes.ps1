@@ -14,7 +14,7 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
-# The library lives under the Emacs directory (lisp/init-org.el); the same
+# The library lives under the Emacs directory (modules/notes/init-org.el); the same
 # overrides apply here.
 $NoteHome = if ($env:ORG_SEQ_NOTE_HOME) {
     $env:ORG_SEQ_NOTE_HOME

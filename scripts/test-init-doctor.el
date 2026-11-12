@@ -4,7 +4,7 @@
 (require 'ert)
 
 (load-file
- (expand-file-name "../lisp/init-doctor.el"
+ (expand-file-name "../core/init-doctor.el"
                    (file-name-directory load-file-name)))
 
 (ert-deftest my/doctor-forward-declaration-does-not-prebind-note-home ()

@@ -270,7 +270,7 @@ org-mem 确保图谱始终与实际文件同步：它写入 org-roam 的 SQLite 
 
 ### 先写 Org，再整理
 
-org-roam 中每个带 Org ID 的文件或标题都是节点。类型和字段是写完之后再加的结构，不是记录时必须填写的表单。Supertag 包已于 2026-10-22 移除，现在由 `lisp/init-nodes.el` 在 org-roam 上提供这一层。
+org-roam 中每个带 Org ID 的文件或标题都是节点。类型和字段是写完之后再加的结构，不是记录时必须填写的表单。Supertag 包已于 2026-10-22 移除，现在由 `modules/notes/init-nodes.el` 在 org-roam 上提供这一层。
 
 ### 定义类型：`types.org`
 
@@ -888,4 +888,4 @@ emacsclient -s org-seq -c    ← 连接 daemon，今日 Daily Workspace 出现
 
 ---
 
-*本教程对应 org-seq 部署版本，键位从 `lisp/init-evil.el` 直接提取，与实际代码一致。配置修改参见 `M-x customize-group RET org-seq`。*
+*本教程对应 org-seq 部署版本，键位从 `modules/editor/init-evil.el` 直接提取，与实际代码一致。配置修改参见 `M-x customize-group RET org-seq`。*

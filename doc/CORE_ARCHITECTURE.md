@@ -12,7 +12,7 @@ later modules from being attempted.
 
 The load-order contract is machine-checkable: `my/init-module-requires`
 declares each module's dependencies (mirroring the `;; Requires:` headers in
-`lisp/*.el`), `my/init-check-module-order` returns violations, startup emits
+`core/` and `modules/`), `my/init-check-module-order` returns violations, startup emits
 an error-level warning for each violation before loading modules, and
 `scripts/test-init-loader.el` fails when the declarations, the headers, or
 the order disagree.
@@ -41,8 +41,8 @@ refuse a filesystem root, the user's home directory, or any path overlapping
 the source tree. PowerShell exposes `SupportsShouldProcess`, so `-WhatIf` is
 the canonical dry run. Existing targets are backed up unless the user explicitly
 disables that step. A deployment writes only the distribution files
-(`early-init.el`, `init.el`, `ec`, `lisp/`, `packages/`, `bin/`); the note
-library, `custom.el` and installed packages are never written. `deploy.sh`
+(`early-init.el`, `init.el`, `ec`, `core/`, `kernel/`, `modules/`, `packages/`,
+`bin/`); the note library, `user/` and installed packages are never written. `deploy.sh`
 therefore backs up the replaced files plus `custom.el` (`--full-backup` copies
 the whole target); `deploy.ps1` still copies the whole target. Byte-compilation is a completion gate: missing Emacs or a nonzero compile
 result aborts the deployer before it prints the completion summary. The
@@ -51,7 +51,7 @@ restoring that backup.
 
 ## Git Package Governance
 
-`lisp/init-packages.el` is the single source inventory for packages installed
+`core/init-packages.el` is the single source inventory for packages installed
 from Git. Each record declares the package symbol, loadable library, source
 URL, owner module, and purpose.
 
@@ -71,13 +71,13 @@ The doctor reports missing or failed records without installing them.
 The note library is `notes/` under the Emacs directory (`my/note-home`), so
 org-seq owns its storage and no folder has to be chosen. Startup never asks
 a storage question. Copies cross the library boundary through four commands
-in `lisp/init-sync.el`, none of which modifies its source: import
+in `modules/notes/init-sync.el`, none of which modifies its source: import
 (`my/storage-import`, copies missing files only), export
 (`my/storage-export`), snapshots (`my/storage-snapshot`, dated copies in
 `my/snapshot-dir` outside the Emacs directory, taken daily when the library
 changed and before imports and full comparisons) and sync.
 `my/storage-info` is the read-only status used by `my/storage-status`, the
-doctor and `orgseq info`. See [DESIGN.md](DESIGN.md) for the layer model. `lisp/init-sync.el`
+doctor and `orgseq info`. See [DESIGN.md](DESIGN.md) for the layer model. `modules/notes/init-sync.el`
 syncs it with a cloud remote through rclone bisync (WebDAV, OneDrive, Google
 Drive): whole Org files are the sync unit, the newer side wins a conflict and
 the other version is kept as a `.conflict` copy, and the org-roam database is
@@ -86,19 +86,19 @@ excluded because it is a rebuildable local index. Device-local state lives in
 
 `bin/orgseq` runs a batch Emacs with the same configuration and exposes the
 node layer as subcommands and as MCP tools (`orgseq mcp`, stdio transport).
-Both call the `my/api-*` functions in `lisp/orgseq-cli.el`, which write Org
+Both call the `my/api-*` functions in `core/orgseq-cli.el`, which write Org
 files through the same path as the interactive commands.
 
 ### Views
 
-`lisp/init-views.el` turns a query plus a layout into a view (table, list,
+`modules/notes/init-views.el` turns a query plus a layout into a view (table, list,
 board). Saved views are headings in `.orgseq/views.org`. The `orgseq-view`
 dynamic block embeds a view in any note; `current` in its filter refers to
 the enclosing node.
 
 ### Node layer
 
-Notes are org-roam nodes: files and headings with an Org ID. `lisp/init-nodes.el`
+Notes are org-roam nodes: files and headings with an Org ID. `modules/notes/init-nodes.el`
 adds node types, fields, table views, the review list, `orgseq-query`
 dashboard blocks, and the node action menu on top of org-roam. It keeps no
 database of its own:
@@ -119,7 +119,7 @@ See [the node model](NOTES_ARCHITECTURE.md#四节点模型与权威边界).
 
 ## Popup Policy
 
-`lisp/init-popup.el` owns org-seq popup metadata. Each rule has a stable ID,
+`modules/ui/init-popup.el` owns org-seq popup metadata. Each rule has a stable ID,
 buffer matcher, side, slot, size, selection behavior, and optional dedication.
 The module translates these plists into normal `display-buffer-alist` entries.
 
@@ -134,7 +134,7 @@ placement, not terminal process management.
 
 ## Persistent Daily Sidebar
 
-`lisp/init-daily.el` owns the persistent left sidebar used by the Daily
+`modules/notes/init-daily.el` owns the persistent left sidebar used by the Daily
 Workspace. It is a `special-mode` navigation buffer, not a popup rule:
 rendering computes 14 calendar-date records without creating files, and opening
 a missing date is the explicit mutation boundary. Each Daily file remains a
@@ -150,7 +150,7 @@ for bottom/side popup placement and does not register the Daily sidebar.
 
 ## Leader-Key Contract
 
-`lisp/init-keymap.el` contains two data sets:
+`modules/editor/init-keymap.el` contains two data sets:
 
 - `my/leader-prefixes` records every top-level SPC namespace and description.
 - `my/leader-critical-bindings` records a focused cross-section of terminal,

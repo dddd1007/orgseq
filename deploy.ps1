@@ -280,12 +280,41 @@ function Deploy-Config {
         Write-Pass $f
     }
 
-    $lispSrc = Join-Path $ScriptDir "lisp"
-    $lispDst = Join-Path $Target "lisp"
-    if (Test-Path $lispDst) { Remove-Item -Recurse -Force $lispDst }
-    Copy-Item -Recurse -Force $lispSrc $lispDst
-    $moduleCount = (Get-ChildItem "$lispDst/*.el" | Measure-Object).Count
-    Write-Pass "lisp/ ($moduleCount modules)"
+    # NOTE: the layout below was changed on Linux and has not been run on
+    # Windows yet (Windows is a P1 platform; see doc/DESIGN.md).
+    $moduleCount = 0
+    foreach ($dir in @("core", "kernel", "modules")) {
+        $dirSrc = Join-Path $ScriptDir $dir
+        $dirDst = Join-Path $Target $dir
+        if (-not (Test-Path $dirSrc)) { Write-Fail "Missing source: $dirSrc"; exit 1 }
+        if (Test-Path $dirDst) { Remove-Item -Recurse -Force $dirDst }
+        Copy-Item -Recurse -Force $dirSrc $dirDst
+        $moduleCount += (Get-ChildItem $dirDst -Recurse -Filter "*.el" | Measure-Object).Count
+    }
+    Write-Pass "core/ kernel/ modules/ ($moduleCount Elisp files)"
+
+    # The flat lisp/ directory of earlier versions is no longer on load-path.
+    $obsoleteLisp = Join-Path $Target "lisp"
+    if (Test-Path $obsoleteLisp) {
+        Remove-Item -Recurse -Force $obsoleteLisp
+        Write-Pass "removed obsolete lisp/"
+    }
+
+    # The user's layer: created once, never overwritten.
+    $userDir = Join-Path $Target "user"
+    if (-not (Test-Path $userDir)) { $null = New-Item -ItemType Directory -Path $userDir -Force }
+    if ((Test-Path "$Target/custom.el") -and (-not (Test-Path "$userDir/custom.el"))) {
+        Move-Item -Force "$Target/custom.el" "$userDir/custom.el"
+        Remove-Item -Force "$Target/custom.elc" -ErrorAction SilentlyContinue
+        Write-Pass "custom.el moved to user/custom.el"
+    }
+    foreach ($example in @("modules.el", "config.el")) {
+        $exampleSrc = Join-Path $ScriptDir "user.example/$example"
+        if ((Test-Path $exampleSrc) -and (-not (Test-Path "$userDir/$example"))) {
+            Copy-Item $exampleSrc "$userDir/$example"
+            Write-Pass "user/$example created"
+        }
+    }
 
     # Bundled subprojects live under packages/ (currently just
     # org-focus-timer).  Copy the whole tree so init-focus.el can find
@@ -299,7 +328,7 @@ function Deploy-Config {
         Write-Pass "packages/ ($pkgCount elisp files)"
     }
 
-    # Command line and MCP launcher (bin/orgseq); loads lisp/orgseq-cli.el.
+    # Command line and MCP launcher (bin/orgseq); loads core/orgseq-cli.el.
     $binSrc = Join-Path $ScriptDir "bin"
     $binDst = Join-Path $Target "bin"
     if (Test-Path $binSrc) {
@@ -339,9 +368,14 @@ function Deploy-Config {
 
     # Restore custom.el if it was in the target before
     $backups = Get-ChildItem "$Target.backup-*" -Directory -ErrorAction SilentlyContinue | Sort-Object -Descending | Select-Object -First 1
-    if ($backups -and (Test-Path "$($backups.FullName)/custom.el") -and (-not (Test-Path "$Target/custom.el"))) {
-        Copy-Item "$($backups.FullName)/custom.el" "$Target/custom.el"
-        Write-Pass "custom.el restored from backup"
+    if ($backups -and (-not (Test-Path "$Target/user/custom.el"))) {
+        $saved = $null
+        if (Test-Path "$($backups.FullName)/user/custom.el") { $saved = "$($backups.FullName)/user/custom.el" }
+        elseif (Test-Path "$($backups.FullName)/custom.el") { $saved = "$($backups.FullName)/custom.el" }
+        if ($saved) {
+            Copy-Item $saved "$Target/user/custom.el"
+            Write-Pass "user/custom.el restored from backup"
+        }
     }
 
     $version = "unknown"
@@ -492,9 +526,15 @@ function Install-StartMenuShortcuts {
 function Test-Deployment {
     Write-Section "Verifying deployment"
 
-    $elFiles = Get-ChildItem "$Target/lisp/*.el" | ForEach-Object { $_.FullName }
+    $elFiles = @()
     $pkgFiles = @()
     $extraLoadPaths = @()
+    foreach ($dir in @("core", "kernel", "modules")) {
+        $dirPath = Join-Path $Target $dir
+        $elFiles += Get-ChildItem $dirPath -Recurse -Filter "*.el" | ForEach-Object { $_.FullName }
+        $extraLoadPaths += $dirPath
+        $extraLoadPaths += Get-ChildItem $dirPath -Recurse -Directory | ForEach-Object { $_.FullName }
+    }
     if (Test-Path "$Target/packages") {
         $extraLoadPaths += Get-ChildItem "$Target/packages" -Directory | ForEach-Object { $_.FullName }
         $pkgFiles = Get-ChildItem "$Target/packages" -Recurse -Filter "*.el" |
@@ -511,7 +551,6 @@ function Test-Deployment {
         throw "Emacs not found; deployment cannot be verified."
     }
 
-    $lispDir = Join-Path $Target "lisp"
     $targetForElisp = $Target.Replace('\', '/')
     $packageInitFile = Join-Path $env:TEMP "org-seq-deploy-package-init.el"
     @"
@@ -521,7 +560,7 @@ function Test-Deployment {
 (setq package-user-dir (expand-file-name "elpa" user-emacs-directory))
 (package-initialize)
 "@ | Set-Content -Path $packageInitFile -Encoding UTF8
-    $emacsArgs = @("--batch", "-Q", "-L", $Target, "-L", $lispDir)
+    $emacsArgs = @("--batch", "-Q", "-L", $Target)
     foreach ($loadPath in $extraLoadPaths) {
         $emacsArgs += @("-L", $loadPath)
     }

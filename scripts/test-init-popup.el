@@ -4,7 +4,7 @@
 (require 'ert)
 
 (load-file
- (expand-file-name "../lisp/init-popup.el"
+ (expand-file-name "../modules/ui/init-popup.el"
                    (file-name-directory load-file-name)))
 
 (ert-deftest my/popup-register-rules-preserves-user-rules-and-is-idempotent ()

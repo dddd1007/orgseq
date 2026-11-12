@@ -18,8 +18,8 @@ emacs --batch -Q -l init.el
 Run byte-compile on changed files after editing `.el` files. On Unix-like shells:
 
 ```bash
-lps=("-L" "." "-L" "lisp")
-for d in packages/*; do [ -d "$d" ] && lps+=("-L" "$d"); done
+lps=(-L .)
+while IFS= read -r d; do lps+=(-L "$d"); done < <(find core kernel modules packages -type d)
 emacs --batch -Q "${lps[@]}" -f batch-byte-compile path/to/file.el
 rm -f path/to/file.elc
 ```
@@ -27,9 +27,9 @@ rm -f path/to/file.elc
 For full-repo validation:
 
 ```bash
-lps=("-L" "." "-L" "lisp")
-for d in packages/*; do [ -d "$d" ] && lps+=("-L" "$d"); done
-files=(early-init.el init.el lisp/*.el packages/*/*.el)
+lps=(-L .)
+while IFS= read -r d; do lps+=(-L "$d"); done < <(find core kernel modules packages -type d)
+files=(early-init.el init.el $(find core kernel modules -name "*.el") packages/*/*.el)
 for f in "${files[@]}"; do
   [ -f "$f" ] || continue
   emacs --batch -Q "${lps[@]}" -f batch-byte-compile "$f"

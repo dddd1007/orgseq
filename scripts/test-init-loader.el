@@ -101,10 +101,14 @@
 
 (defun my/test-loader--declared-requires (module)
   "Return modules named on \"Requires:\" comment lines of MODULE's source."
-  (let ((file (expand-file-name (format "lisp/%s.el" module)
-                                my/test-loader--root))
+  (let ((file (car (mapcan
+                    (lambda (dir)
+                      (directory-files-recursively
+                       (expand-file-name dir my/test-loader--root)
+                       (format "\\`%s\\.el\\'" module)))
+                    '("core" "modules"))))
         (found nil))
-    (when (file-exists-p file)
+    (when file
       (with-temp-buffer
         (insert-file-contents file)
         (goto-char (point-min))

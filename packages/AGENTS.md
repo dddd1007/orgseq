@@ -62,7 +62,7 @@ Also run the repo-wide compile pass from the root `AGENTS.md` after integration 
 
 ## Integration Boundary
 
-Org-seq-specific behavior belongs in `lisp/init-<name>.el`, not inside the package directory.
+Org-seq-specific behavior belongs in `modules/<area>/init-<name>.el`, not inside the package directory.
 
 - package source defines the reusable API
 - integration module sets org-seq paths, bindings, and defaults

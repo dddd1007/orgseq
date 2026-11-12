@@ -59,9 +59,9 @@ org-seq is already strongly aligned with the article:
 
 | Article pattern | Existing org-seq evidence | Consequence |
 |---|---|---|
-| Compose small capabilities | `lisp/init-markdown.el` combines Emacs with Pandoc; `lisp/init-dired.el` combines Dired, Yazi, Ghostel, and chooser files | Extend through narrow adapters, not replacement applications |
-| Treat programs as services | `lisp/init-terminal.el` and `lisp/init-ai-cli.el` expose CLI workflows inside Emacs | Keep process invocation and UI lifecycle separately owned |
-| Build inspectable seams | `lisp/init-popup.el`, `lisp/init-packages.el`, and `lisp/init-doctor.el` use small registries and result data | Reuse these contracts for new workflows |
+| Compose small capabilities | `modules/lang/init-markdown.el` combines Emacs with Pandoc; `modules/tools/init-dired.el` combines Dired, Yazi, Ghostel, and chooser files | Extend through narrow adapters, not replacement applications |
+| Treat programs as services | `modules/tools/init-terminal.el` and `modules/tools/init-ai-cli.el` expose CLI workflows inside Emacs | Keep process invocation and UI lifecycle separately owned |
+| Build inspectable seams | `modules/ui/init-popup.el`, `core/init-packages.el`, and `core/init-doctor.el` use small registries and result data | Reuse these contracts for new workflows |
 | Iterate in the live system | The bundled focus package is documented as editable with `M-x eval-buffer` | Prototype live, then byte-compile and test before committing |
 | Bound the product | `doc/CORE_ARCHITECTURE.md` explicitly favors small owned interfaces over a general framework | Reject a new universal malleability layer |
 | Preserve user agency | `custom.el`, `defcustom`, command menus, and explicit diagnostics expose final behavior | Keep results inspectable and overrides explicit |

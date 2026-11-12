@@ -10,8 +10,8 @@
 (defvar my/view--ctx)
 
 (let ((dir (file-name-directory load-file-name)))
-  (load-file (expand-file-name "../lisp/init-nodes.el" dir))
-  (load-file (expand-file-name "../lisp/init-views.el" dir)))
+  (load-file (expand-file-name "../modules/notes/init-nodes.el" dir))
+  (load-file (expand-file-name "../modules/notes/init-views.el" dir)))
 
 (defconst my/test-views--types
   "* Work

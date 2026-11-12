@@ -21,7 +21,10 @@ SKIP_CHECKS=0
 # What a deployment replaces.  Everything else in the target belongs to the
 # user (notes/, custom.el) or is rebuildable device state (elpa/, .cache/)
 # and is never written.  custom.el is backed up but not replaced.
-DEPLOYED_ITEMS=(early-init.el init.el ec lisp packages bin .org-seq-version)
+SOURCE_DIRS=(core kernel modules)
+DEPLOYED_ITEMS=(early-init.el init.el ec "${SOURCE_DIRS[@]}" packages bin .org-seq-version)
+# Layout of earlier versions; removed from the target after a backup.
+OBSOLETE_ITEMS=(lisp)
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -159,12 +162,12 @@ backup_existing() {
     # copying them would only cost time and disk space.
     mkdir -p "$backup_dir"
     local item
-    for item in "${DEPLOYED_ITEMS[@]}" custom.el; do
+    for item in "${DEPLOYED_ITEMS[@]}" "${OBSOLETE_ITEMS[@]}" custom.el user; do
         if [[ -e "$TARGET/$item" ]]; then
             cp -a "$TARGET/$item" "$backup_dir/"
         fi
     done
-    pass "Backup complete (replaced files and custom.el; notes/ and elpa/ are not touched by deployment)"
+    pass "Backup complete (replaced files, custom.el and user/; notes/ and elpa/ are not touched by deployment)"
 }
 
 # ── Deploy ──
@@ -181,11 +184,41 @@ deploy_config() {
         pass "$f"
     done
 
-    if [[ -d "$TARGET/lisp" ]]; then rm -rf "$TARGET/lisp"; fi
-    cp -r "$SCRIPT_DIR/lisp" "$TARGET/lisp"
-    local module_count
-    module_count="$(find "$TARGET/lisp" -name '*.el' | wc -l)"
-    pass "lisp/ ($module_count modules)"
+    local dir
+    local module_count=0
+    for dir in "${SOURCE_DIRS[@]}"; do
+        if [[ ! -d "$SCRIPT_DIR/$dir" ]]; then fail "Missing source: $SCRIPT_DIR/$dir"; exit 1; fi
+        if [[ -d "$TARGET/$dir" ]]; then rm -rf "$TARGET/$dir"; fi
+        cp -r "$SCRIPT_DIR/$dir" "$TARGET/$dir"
+        module_count=$((module_count + $(find "$TARGET/$dir" -name '*.el' | wc -l)))
+    done
+    pass "core/ kernel/ modules/ ($module_count Elisp files)"
+
+    # Directories of the earlier flat layout would shadow nothing (they are
+    # no longer on load-path) but would mislead; the backup above has them.
+    local obsolete
+    for obsolete in "${OBSOLETE_ITEMS[@]}"; do
+        if [[ -d "$TARGET/$obsolete" ]]; then
+            rm -rf "$TARGET/$obsolete"
+            pass "removed obsolete $obsolete/"
+        fi
+    done
+
+    # The user's layer: created once, never overwritten.  A custom.el from
+    # an earlier version moves into it.
+    mkdir -p "$TARGET/user"
+    if [[ -f "$TARGET/custom.el" && ! -f "$TARGET/user/custom.el" ]]; then
+        mv "$TARGET/custom.el" "$TARGET/user/custom.el"
+        rm -f "$TARGET/custom.elc"
+        pass "custom.el moved to user/custom.el"
+    fi
+    local example
+    for example in modules.el config.el; do
+        if [[ ! -f "$TARGET/user/$example" && -f "$SCRIPT_DIR/user.example/$example" ]]; then
+            cp "$SCRIPT_DIR/user.example/$example" "$TARGET/user/$example"
+            pass "user/$example created"
+        fi
+    done
 
     # Bundled subprojects live under packages/ — currently just
     # org-focus-timer.  Copy the whole tree so init-focus.el can find it
@@ -198,7 +231,7 @@ deploy_config() {
         pass "packages/ ($pkg_count elisp files)"
     fi
 
-    # Command line and MCP launcher (bin/orgseq); loads lisp/orgseq-cli.el.
+    # Command line and MCP launcher (bin/orgseq); loads core/orgseq-cli.el.
     if [[ -d "$SCRIPT_DIR/bin" ]]; then
         mkdir -p "$TARGET/bin"
         cp -f "$SCRIPT_DIR/bin/"* "$TARGET/bin/"
@@ -215,9 +248,14 @@ deploy_config() {
     # Restore custom.el from latest backup if needed
     local latest_backup
     latest_backup="$(ls -dt "${TARGET}.backup-"* 2>/dev/null | head -1)"
-    if [[ -n "$latest_backup" && -f "$latest_backup/custom.el" && ! -f "$TARGET/custom.el" ]]; then
-        cp "$latest_backup/custom.el" "$TARGET/custom.el"
-        pass "custom.el restored from backup"
+    if [[ -n "$latest_backup" && ! -f "$TARGET/user/custom.el" ]]; then
+        local saved=""
+        if [[ -f "$latest_backup/user/custom.el" ]]; then saved="$latest_backup/user/custom.el"
+        elif [[ -f "$latest_backup/custom.el" ]]; then saved="$latest_backup/custom.el"; fi
+        if [[ -n "$saved" ]]; then
+            cp "$saved" "$TARGET/user/custom.el"
+            pass "user/custom.el restored from backup"
+        fi
     fi
 
     local version="unknown"
@@ -238,15 +276,18 @@ verify_deployment() {
         return 1
     fi
 
-    local lisp_dir="$TARGET/lisp"
     local pkg_dir="$TARGET/packages"
     local files=("$TARGET/early-init.el" "$TARGET/init.el")
-    while IFS= read -r f; do files+=("$f"); done < <(find "$lisp_dir" -name '*.el')
+    local load_paths=("-L" "$TARGET")
+    local dir
+    for dir in "${SOURCE_DIRS[@]}"; do
+        while IFS= read -r f; do files+=("$f"); done < <(find "$TARGET/$dir" -name '*.el')
+        while IFS= read -r d; do load_paths+=("-L" "$d"); done < <(find "$TARGET/$dir" -type d)
+    done
     if [[ -d "$pkg_dir" ]]; then
         while IFS= read -r f; do files+=("$f"); done < <(find "$pkg_dir" -name '*.el')
     fi
 
-    local load_paths=("-L" "$TARGET" "-L" "$lisp_dir")
     if [[ -d "$pkg_dir" ]]; then
         while IFS= read -r d; do load_paths+=("-L" "$d"); done \
             < <(find "$pkg_dir" -mindepth 1 -maxdepth 1 -type d)

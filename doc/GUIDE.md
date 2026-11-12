@@ -126,7 +126,7 @@ cd ~/CodeProject/org-seq
 # ./scripts/bootstrap-notes.sh
 ```
 
-部署脚本做的事情不算神秘：检查前置条件是否齐全、把已有的 Emacs 配置备份一份（带时间戳，便于回滚）、然后把仓库里的 `early-init.el` / `init.el` / `lisp/` 拷贝到 `~/.emacs.d/` 去。如果你明确不想备份，Windows 使用 `.\deploy.ps1 -NoBackup`，Linux/macOS 使用 `./deploy.sh --no-backup`。Bootstrap 脚本则负责建出 NoteHQ 的完整骨架——Roam 原子笔记层加上 PARA 四层，并同步放入 `AGENTS.md` 这份 NoteHQ/Codex 工作约定。这两个脚本都是幂等的，可以安全地重复运行。
+部署脚本做的事情不算神秘：检查前置条件是否齐全、把已有的 Emacs 配置备份一份（带时间戳，便于回滚）、然后把仓库里的 `early-init.el` / `init.el` / `core/` / `kernel/` / `modules/` 拷贝到 `~/.emacs.d/` 去。如果你明确不想备份，Windows 使用 `.\deploy.ps1 -NoBackup`，Linux/macOS 使用 `./deploy.sh --no-backup`。Bootstrap 脚本则负责建出 NoteHQ 的完整骨架——Roam 原子笔记层加上 PARA 四层，并同步放入 `AGENTS.md` 这份 NoteHQ/Codex 工作约定。这两个脚本都是幂等的，可以安全地重复运行。
 
 NoteHQ 默认在 `~/NoteHQ/`。如果你想让 Windows、WSL 和 Linux 指向同一个同步目录，请在启动 Emacs 前设置 `ORG_SEQ_NOTE_HOME`：
 
@@ -682,7 +682,7 @@ Daily capture 有三种模板：
 
 ### 8.8 节点类型与字段（先记录，后整理）
 
-org-roam 中每个带 Org ID 的文件或标题都是一个节点。org-seq 在此之上提供类型和字段（`lisp/init-nodes.el`），做法参照 Tana 的 supertag 和 Fibery 的数据库，但所有数据都写在 Org 文本里，不另建数据库。2026-10-22 之前使用的 Supertag 包已移除。
+org-roam 中每个带 Org ID 的文件或标题都是一个节点。org-seq 在此之上提供类型和字段（`modules/notes/init-nodes.el`），做法参照 Tana 的 supertag 和 Fibery 的数据库，但所有数据都写在 Org 文本里，不另建数据库。2026-10-22 之前使用的 Supertag 包已移除。
 
 **类型**定义在 `~/NoteHQ/.orgseq/types.org`，每个一级标题是一个类型：
 
@@ -1285,13 +1285,13 @@ q              → 退出
 
 ### 13.6 为什么它有自己的目录
 
-如果你翻一下 org-seq 的代码，会发现 `org-focus-timer` 不像其他功能那样住在 `lisp/init-*.el` 里，而是独占一个子目录：`packages/org-focus-timer/`。旁边只有一个薄薄的 `lisp/init-focus.el`（大约 60 行）负责引用它。
+如果你翻一下 org-seq 的代码，会发现 `org-focus-timer` 不像其他功能那样住在 `modules/` 下的 `init-*.el` 里，而是独占一个子目录：`packages/org-focus-timer/`。旁边只有一个薄薄的 `modules/notes/init-focus.el`（大约 60 行）负责引用它。
 
 这个结构是有意为之的过渡形态。这个计时器对任何用 org-mode 的人都有价值——它不依赖 org-roam、不依赖节点类型层、不依赖 org-seq 的任何路径约定，核心是纯粹的 elisp + 时间计算 + 文件读写。等到 API 和日志格式稳定下来之后，它会**毕业**成一个独立的 GitHub 项目，那时候 `init-focus.el` 会从当前的 `:load-path` 引用改成 `:vc` 引用，`packages/org-focus-timer/` 这个目录会被移出 org-seq。
 
 在那之前，把源代码放在 org-seq 内部带来一个实用的好处：**迭代闭环更短**。你想改 `org-focus-timer.el` 的某段逻辑？直接编辑 `packages/org-focus-timer/org-focus-timer.el`，保存，`M-x eval-buffer`——下一次 `SPC t f` 就用上了新代码，不需要重新 deploy，不需要切换仓库。对于一个尚在打磨的功能，这种零摩擦的改动环境比"干净的包边界"更重要。
 
-包和集成层之间有一条明确的分工：**所有 org-seq 特有的默认值**（日志文件指向 `~/NoteHQ/.orgseq/`、默认用 10/30/15 的 Vitamin-R 参数、键位绑定到 `SPC t f`）都住在 `lisp/init-focus.el` 里；**包本身**（`packages/org-focus-timer/`）只提供纯粹的函数和 defcustom，不知道 org-seq 的存在。这意味着等到它毕业的那天，你直接 `git mv packages/org-focus-timer/ ../org-focus-timer/` 就能把它剥离出来而不需要改任何一行代码。
+包和集成层之间有一条明确的分工：**所有 org-seq 特有的默认值**（日志文件指向 `~/NoteHQ/.orgseq/`、默认用 10/30/15 的 Vitamin-R 参数、键位绑定到 `SPC t f`）都住在 `modules/notes/init-focus.el` 里；**包本身**（`packages/org-focus-timer/`）只提供纯粹的函数和 defcustom，不知道 org-seq 的存在。这意味着等到它毕业的那天，你直接 `git mv packages/org-focus-timer/ ../org-focus-timer/` 就能把它剥离出来而不需要改任何一行代码。
 
 如果你把 org-seq clone 到另一台机器并发现 `packages/` 没跟着复制过去，`M-x customize-group RET org-seq` 里有一个 `my/focus-timer-path` 可以指向你实际保存 `org-focus-timer.el` 的位置。
 
@@ -1502,7 +1502,7 @@ M-x customize-group RET org-seq RET
 
 ### 16.6 配置热重载
 
-修改 `lisp/init-*.el` 任何一个模块后，你不必重启 Emacs。两种热重载方式：
+修改 `modules/` 下任何一个 `init-*.el` 模块后，你不必重启 Emacs。两种热重载方式：
 
 - **单文件**：`M-x eval-buffer` 在你正在编辑的 `init-*.el` 里执行
 - **全部模块**：`M-x load-file` 选择要重新加载的文件

@@ -4,7 +4,7 @@
 (require 'ert)
 
 (load-file
- (expand-file-name "../lisp/init-packages.el"
+ (expand-file-name "../core/init-packages.el"
                    (file-name-directory load-file-name)))
 
 (ert-deftest my/vc-package-specs-have-unique-complete-records ()

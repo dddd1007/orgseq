@@ -46,12 +46,12 @@
 (when (file-directory-p my/orgseq-dir)
   (delete-directory my/orgseq-dir t))
 
-(load-file (expand-file-name "../lisp/init-packages.el" (file-name-directory load-file-name)))
-(load-file (expand-file-name "../lisp/init-popup.el" (file-name-directory load-file-name)))
-(load-file (expand-file-name "../lisp/init-terminal.el" (file-name-directory load-file-name)))
-(load-file (expand-file-name "../lisp/init-ai.el" (file-name-directory load-file-name)))
-(load-file (expand-file-name "../lisp/init-ai-cli.el" (file-name-directory load-file-name)))
-(load-file (expand-file-name "../lisp/init-dired.el" (file-name-directory load-file-name)))
+(load-file (expand-file-name "../core/init-packages.el" (file-name-directory load-file-name)))
+(load-file (expand-file-name "../modules/ui/init-popup.el" (file-name-directory load-file-name)))
+(load-file (expand-file-name "../modules/tools/init-terminal.el" (file-name-directory load-file-name)))
+(load-file (expand-file-name "../modules/tools/init-ai.el" (file-name-directory load-file-name)))
+(load-file (expand-file-name "../modules/tools/init-ai-cli.el" (file-name-directory load-file-name)))
+(load-file (expand-file-name "../modules/tools/init-dired.el" (file-name-directory load-file-name)))
 
 ;; Tests stub Ghostel's public functions and do not need its native module.
 (unless (featurep 'ghostel)

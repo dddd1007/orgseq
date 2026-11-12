@@ -4,20 +4,20 @@
 
 > **这是一份设计规范文档，不是实现参考。**
 >
-> **2026-11-11 起，笔记库不再读取用户指定的本地目录。** 笔记库自动保存在 Emacs 目录下的 `notes/`（例如 `~/.emacs.d/notes/`，变量 `my/note-home`），多设备之间通过 `lisp/init-sync.el` 用 rclone 与 WebDAV、OneDrive 或 Google Drive 同步。本文档其余部分写作 `~/NoteHQ/` 的地方，均指这个笔记库；旧的 `~/NoteHQ/` 目录只在首次启动时被询问是否复制进来，不会被修改。存储、同步、视图、命令行与 MCP 见第十二节。
+> **2026-11-11 起，笔记库不再读取用户指定的本地目录。** 笔记库自动保存在 Emacs 目录下的 `notes/`（例如 `~/.emacs.d/notes/`，变量 `my/note-home`），多设备之间通过 `modules/notes/init-sync.el` 用 rclone 与 WebDAV、OneDrive 或 Google Drive 同步。本文档其余部分写作 `~/NoteHQ/` 的地方，均指这个笔记库；旧的 `~/NoteHQ/` 目录只在首次启动时被询问是否复制进来，不会被修改。存储、同步、视图、命令行与 MCP 见第十二节。
 >
 > 本文档记录 `~/NoteHQ/` 笔记库的**物理结构、tag 体系思路、capture 模板、dashboard 设计原则**与**生长原则**。这些内容是长期稳定的设计决策。
 >
 > **实现层面的事实**（函数名、加载顺序、键位、安装方式）请以下列源文件为准，因为它们随项目迭代而变化：
-> - `lisp/init-org.el` — 路径常量 `my/note-home` / `my/roam-dir` / `my/orgseq-dir` / `my/types-file`（defcustom，属于 `org-seq` customize group）
-> - `lisp/init-roam.el` — org-roam + org-node/org-mem + capture templates
-> - `lisp/init-views.el` — 保存的视图（表格、列表、看板）、筛选语言、`orgseq-view` 动态块
-> - `lisp/init-sync.el` — 笔记库的设备本地状态、旧库导入、rclone 同步
-> - `lisp/orgseq-cli.el` 与 `bin/orgseq` — 命令行与 MCP 服务
-> - `lisp/init-nodes.el` — 节点类型、字段、表格视图、review、dashboard 查询块、capture 模板合并、PARA 导航（函数前缀统一为 `my/`）
+> - `modules/notes/init-org.el` — 路径常量 `my/note-home` / `my/roam-dir` / `my/orgseq-dir` / `my/types-file`（defcustom，属于 `org-seq` customize group）
+> - `modules/notes/init-roam.el` — org-roam + org-node/org-mem + capture templates
+> - `modules/notes/init-views.el` — 保存的视图（表格、列表、看板）、筛选语言、`orgseq-view` 动态块
+> - `modules/notes/init-sync.el` — 笔记库的设备本地状态、旧库导入、rclone 同步
+> - `core/orgseq-cli.el` 与 `bin/orgseq` — 命令行与 MCP 服务
+> - `modules/notes/init-nodes.el` — 节点类型、字段、表格视图、review、dashboard 查询块、capture 模板合并、PARA 导航（函数前缀统一为 `my/`）
 > - `~/NoteHQ/.orgseq/types.org` — 节点类型定义（用户数据，路径变量 `my/types-file`）
-> - `lisp/init-dired.el` — dired + dirvish（文件管理与侧边栏）
-> - `lisp/init-evil.el` — 所有 `SPC` leader key 绑定的唯一真相源
+> - `modules/tools/init-dired.el` — dired + dirvish（文件管理与侧边栏）
+> - `modules/editor/init-evil.el` — 所有 `SPC` leader key 绑定的唯一真相源
 > - `scripts/bootstrap-notes.{sh,ps1}` — 笔记目录初始化与 NoteHQ/Codex 脚手架部署脚本（支持 `--update` 增量刷新）
 > - `AGENTS.md` — 项目开发指南（模块加载顺序、设计决策、验证流程）
 >
@@ -148,7 +148,7 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 ### 关键 elisp 配置
 
-所有 NoteHQ 相关的路径都是 `lisp/init-org.el` 中 defcustom 形式的变量，通过 `M-x customize-group RET org-seq` 可见：
+所有 NoteHQ 相关的路径都是 `modules/notes/init-org.el` 中 defcustom 形式的变量，通过 `M-x customize-group RET org-seq` 可见：
 
 ```elisp
 ;; init-org.el —— 所有路径的唯一真相源
@@ -187,7 +187,7 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 ## 四、节点模型与权威边界
 
-2026-10-22 起，org-seq 不再使用 Supertag 和 TextUI。笔记结构直接建立在 org-roam 上，由 `lisp/init-nodes.el` 提供类型、字段、表格视图和查询。设计参照 Tana 的 supertag 和 Fibery 的数据库，但不引入第二个数据库。
+2026-10-22 起，org-seq 不再使用 Supertag 和 TextUI。笔记结构直接建立在 org-roam 上，由 `modules/notes/init-nodes.el` 提供类型、字段、表格视图和查询。设计参照 Tana 的 supertag 和 Fibery 的数据库，但不引入第二个数据库。
 
 ### 节点
 
@@ -281,7 +281,7 @@ Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[
 
 `org-roam-capture-templates` 由三个来源按顺序合并（`my/reload-capture-templates`）：
 
-1. **内置默认模板**：定义在 `lisp/init-roam.el`，只有一个 `d`（Default），落到 `00_Roam/capture/%<%Y%m%dT%H%M%S>-${slug}.org`，不带 filetag。这是部署时会被覆盖的部分，**不建议**修改。
+1. **内置默认模板**：定义在 `modules/notes/init-roam.el`，只有一个 `d`（Default），落到 `00_Roam/capture/%<%Y%m%dT%H%M%S>-${slug}.org`，不带 filetag。这是部署时会被覆盖的部分，**不建议**修改。
 
 2. **类型模板**：由 `types.org` 自动生成，归在 `t`（Typed note）组下，键为 `t` 加 `TYPE_KEY`（省略 `TYPE_KEY` 时取标签首字母，重复时追加数字）。目标文件同样在 `00_Roam/capture/`，文件头带 `#+filetags: :TYPE_TAG:`，正文取自类型标题的正文。新笔记创建后自动加上该类型的空字段。修改 `types.org` 并保存后，这部分模板随之更新。
 
@@ -313,9 +313,9 @@ Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[
 
 ---
 
-## 六、`lisp/init-nodes.el` 模块职责
+## 六、`modules/notes/init-nodes.el` 模块职责
 
-> **实现参考**：真实代码在 `lisp/init-nodes.el`，请以源文件为准。本节只说明模块的**设计职责**。
+> **实现参考**：真实代码在 `modules/notes/init-nodes.el`，请以源文件为准。本节只说明模块的**设计职责**。
 
 `init-nodes.el` 在 org-roam 之上提供类型、字段、视图和操作，并承担原 `init-supertag.el` 中与 Supertag 无关的职责：
 

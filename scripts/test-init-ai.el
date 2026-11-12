@@ -11,7 +11,7 @@
 (defun my/vc-package-ensure (_package) nil)
 
 (load-file
- (expand-file-name "../lisp/init-ai.el"
+ (expand-file-name "../modules/tools/init-ai.el"
                    (file-name-directory load-file-name)))
 
 (ert-deftest my/ai-full-buffer-send-requires-confirmation-by-default ()

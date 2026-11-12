@@ -35,7 +35,7 @@ The following packages need a more conservative boundary:
 
 - The org-supertag 5.x package conclusion from this audit is historical.
   Supertag and TextUI were removed from org-seq on 2026-10-22; node types and
-  fields are now provided by `lisp/init-nodes.el` on top of org-roam, so no
+  fields are now provided by `modules/notes/init-nodes.el` on top of org-roam, so no
   Supertag compatibility work remains.
 - org-fragtog had no explicit Org 9.8 compatibility release during this audit.
   Its preview calls still exist in Org 9.8, so the integration is retained and

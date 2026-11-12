@@ -29,13 +29,13 @@ The literal list lives in the `my/init-modules-default' defconst;
     (dolist (required '("Doom Emacs" "MIT"
                         "Spacemacs" "GPL-3.0"
                         "LazyVim" "Apache-2.0"
-                        "design-only" "lisp/init-roam.el"))
+                        "design-only" "modules/notes/init-roam.el"))
       (should (string-match-p (regexp-quote required) contents)))))
 
 (ert-deftest my/runtime-has-no-eaf-module-or-terminal-residue ()
   (should-not (file-exists-p
-               (expand-file-name "lisp/init-eaf.el" my/test-provenance-root)))
-  (dolist (path '("init.el" "lisp/init-terminal.el" "lisp/init-evil.el"))
+               (expand-file-name "modules/tools/init-eaf.el" my/test-provenance-root)))
+  (dolist (path '("init.el" "modules/tools/init-terminal.el" "modules/editor/init-evil.el"))
     (let ((contents (downcase (my/test-provenance--contents path))))
       (should-not (string-match-p "init-eaf\\|pyqterminal" contents)))))
 
@@ -48,8 +48,13 @@ The literal list lives in the `my/init-modules-default' defconst;
                               (my/test-provenance--contents path))))))
 
 (ert-deftest my/popup-policy-is-the-only-display-buffer-registry-owner ()
-  (dolist (file (directory-files (expand-file-name "lisp" my/test-provenance-root)
-                                 t "\\`init-.*\\.el\\'"))
+  (dolist (file (append
+                 (directory-files-recursively
+                  (expand-file-name "core" my/test-provenance-root)
+                  "\\`init-.*\\.el\\'")
+                 (directory-files-recursively
+                  (expand-file-name "modules" my/test-provenance-root)
+                  "\\`init-.*\\.el\\'")))
     (unless (equal (file-name-nondirectory file) "init-popup.el")
       (should-not
        (string-match-p
@@ -66,7 +71,7 @@ The literal list lives in the `my/init-modules-default' defconst;
                    '(init-nodes init-daily init-terminal)))))
 
 (ert-deftest my/dashboard-daily-section-precedes-recents ()
-  (let* ((contents (my/test-provenance--contents "lisp/init-dashboard.el"))
+  (let* ((contents (my/test-provenance--contents "modules/ui/init-dashboard.el"))
          (daily (string-match "(daily \\. 5)" contents))
          (recents (string-match "(recents \\. 5)" contents))
          (today (string-match "\" Today \"" contents)))

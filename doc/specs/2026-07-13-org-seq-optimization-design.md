@@ -118,7 +118,7 @@ silently skip a dependent module and does not add dependency resolution.
 
 #### Doctor
 
-Add `lisp/init-doctor.el` with a pure result-producing layer and a presentation
+Add `core/init-doctor.el` with a pure result-producing layer and a presentation
 layer.
 
 Each check returns a plist with these fields:

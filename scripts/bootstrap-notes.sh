@@ -33,7 +33,7 @@ for arg in "$@"; do
   esac
 done
 
-# The library lives under the Emacs directory (lisp/init-org.el); the same
+# The library lives under the Emacs directory (modules/notes/init-org.el); the same
 # overrides apply here.
 NOTE_HOME="${ORG_SEQ_NOTE_HOME:-${ORG_SEQ_EMACS_DIR:-$HOME/.emacs.d}/notes}"
 NOTE_HOME="${NOTE_HOME%/}"

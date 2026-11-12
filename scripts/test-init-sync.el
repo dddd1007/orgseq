@@ -17,12 +17,12 @@
 
 (let ((dir (file-name-directory load-file-name)))
   (defconst my/test-sync--init-org
-    (expand-file-name "../lisp/init-org.el" dir))
+    (expand-file-name "../modules/notes/init-org.el" dir))
   (setq my/note-home "/nonexistent/" my/note-home-legacy "/nonexistent-legacy/"
         my/snapshot-dir "/nonexistent-snapshots/"
         my/roam-dir "/nonexistent/00_Roam/" my/orgseq-dir "/nonexistent/.orgseq/"
         my/library-dir "/nonexistent/30_Library/")
-  (load-file (expand-file-name "../lisp/init-sync.el" dir)))
+  (load-file (expand-file-name "../modules/notes/init-sync.el" dir)))
 
 (defun my/test-sync--write (file text)
   "Write TEXT to FILE, creating parent directories."

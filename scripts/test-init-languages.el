@@ -3,7 +3,7 @@
 (require 'ert)
 
 (load-file
- (expand-file-name "../lisp/init-languages.el"
+ (expand-file-name "../modules/lang/init-languages.el"
                    (file-name-directory load-file-name)))
 
 (ert-deftest my/polymode-keymap-adapter-flattens-cons-bindings ()

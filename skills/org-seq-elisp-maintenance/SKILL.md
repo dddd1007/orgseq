@@ -5,7 +5,7 @@ description: Maintain org-seq Emacs Lisp modules with the repository's load-orde
 
 # org-seq Elisp Maintenance
 
-Use this skill when editing `early-init.el`, `init.el`, root helper `.el` files, or `lisp/*.el`.
+Use this skill when editing `early-init.el`, `init.el`, root helper `.el` files, or Elisp under `core/`, `kernel/`, and `modules/`.
 
 ## Ground Rules
 

@@ -4,7 +4,7 @@
 (require 'cl-lib)
 
 (load-file
- (expand-file-name "../lisp/init-daily.el"
+ (expand-file-name "../modules/notes/init-daily.el"
                    (file-name-directory load-file-name)))
 
 (defvar my/roam-dir)

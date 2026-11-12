@@ -4,7 +4,7 @@
 (require 'cl-lib)
 
 (load-file
- (expand-file-name "../lisp/orgseq-cli.el"
+ (expand-file-name "../core/orgseq-cli.el"
                    (file-name-directory load-file-name)))
 
 (ert-deftest my/cli-options-split-flags-values-and-positionals ()

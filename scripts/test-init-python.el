@@ -3,7 +3,7 @@
 (require 'ert)
 
 (load-file
- (expand-file-name "../lisp/init-python.el"
+ (expand-file-name "../modules/lang/init-python.el"
                    (file-name-directory load-file-name)))
 
 (ert-deftest my/python-environment-root-keeps-windows-conda-root ()

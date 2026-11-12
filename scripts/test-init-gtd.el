@@ -10,7 +10,7 @@
 (defvar org-agenda-files)
 
 (load-file
- (expand-file-name "../lisp/init-gtd.el"
+ (expand-file-name "../modules/notes/init-gtd.el"
                    (file-name-directory load-file-name)))
 
 (defconst my/gtd-test--keywords

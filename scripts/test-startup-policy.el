@@ -8,8 +8,13 @@
 
 (defun my/test--numeric-defer-sites ()
   "Return numeric :defer sites and nearby source context."
-  (let* ((files (directory-files (expand-file-name "lisp" my/test--repo-root)
-                                 t "\\`init-.*\\.el\\'"))
+  (let* ((files (append
+                 (directory-files-recursively
+                  (expand-file-name "core" my/test--repo-root)
+                  "\\`init-.*\\.el\\'")
+                 (directory-files-recursively
+                  (expand-file-name "modules" my/test--repo-root)
+                  "\\`init-.*\\.el\\'")))
          sites)
     (dolist (file files)
       (with-temp-buffer

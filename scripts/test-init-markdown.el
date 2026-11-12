@@ -8,7 +8,7 @@
 (defvar native-comp-enable-subr-trampolines)
 
 (load-file
- (expand-file-name "../lisp/init-markdown.el"
+ (expand-file-name "../modules/lang/init-markdown.el"
                    (file-name-directory load-file-name)))
 
 (defun my/test-markdown--contents (file)

@@ -3,7 +3,7 @@
 (require 'ert)
 
 (defconst my/test-init-roam--source-file
-  (expand-file-name "../lisp/init-roam.el"
+  (expand-file-name "../modules/notes/init-roam.el"
                     (file-name-directory load-file-name)))
 
 (ert-deftest my/init-roam-consumes-central-para-paths ()

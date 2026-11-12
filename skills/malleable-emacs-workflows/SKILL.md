@@ -79,9 +79,9 @@ mutations in temporary data or behind explicit confirmation.
 Choose the durable home only after the behavior is useful:
 
 - Keep a disposable experiment outside committed runtime code.
-- Put org-seq-specific integration in the owning `lisp/init-*.el` module.
+- Put org-seq-specific integration in the owning `modules/<area>/init-*.el` module.
 - Put reusable, independently publishable behavior under `packages/<name>/`
-  and keep the `lisp/` integration thin.
+  and keep the `modules/` integration thin.
 - Add no code when an existing command or binding already solves the task.
 
 Use the article's build-for-1 versus build-for-N distinction only for the
@@ -118,7 +118,7 @@ all add compatibility and validation obligations even with one operator.
 
 ## 6. Fit the Existing org-seq Contracts
 
-- Centralize shared NoteHQ and PARA paths in `lisp/init-org.el`.
+- Centralize shared NoteHQ and PARA paths in `modules/notes/init-org.el`.
 - Reuse `init-popup` for placement and the owning module for lifecycle.
 - Register Git-hosted packages in `init-packages`; keep feature configuration in
   its owner module.

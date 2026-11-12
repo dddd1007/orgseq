@@ -2,7 +2,7 @@
 # orgseq --- command line and MCP server for the org-seq configuration.
 #
 # Runs a batch Emacs with the deployed configuration and hands the
-# arguments to lisp/orgseq-cli.el.  Run `orgseq help' for the commands.
+# arguments to core/orgseq-cli.el.  Run `orgseq help' for the commands.
 #
 # Environment:
 #   ORG_SEQ_EMACS         Emacs executable (default: emacs)
@@ -31,7 +31,7 @@ else
   dir="$HOME/.emacs.d"
 fi
 
-if [ ! -f "$dir/lisp/orgseq-cli.el" ]; then
+if [ ! -f "$dir/core/orgseq-cli.el" ]; then
   echo "orgseq: no org-seq configuration in $dir (set ORG_SEQ_EMACS_DIR)" >&2
   exit 2
 fi
@@ -45,14 +45,14 @@ fi
 # ORG_SEQ_DEBUG is set.  Standard output carries only command results.
 if [ -n "${ORG_SEQ_DEBUG:-}" ]; then
   exec "${ORG_SEQ_EMACS:-emacs}" "${args[@]}" -l "$dir/init.el" \
-    -l "$dir/lisp/orgseq-cli.el" -f my/cli-main -- "$@"
+    -l "$dir/core/orgseq-cli.el" -f my/cli-main -- "$@"
 fi
 
 log="$(mktemp)"
 trap 'rm -f "$log"' EXIT
 set +e
 "${ORG_SEQ_EMACS:-emacs}" "${args[@]}" -l "$dir/init.el" \
-  -l "$dir/lisp/orgseq-cli.el" -f my/cli-main -- "$@" 2>"$log"
+  -l "$dir/core/orgseq-cli.el" -f my/cli-main -- "$@" 2>"$log"
 code=$?
 set -e
 # Exit 1 is a negative answer (a failed check, a failed sync) that the

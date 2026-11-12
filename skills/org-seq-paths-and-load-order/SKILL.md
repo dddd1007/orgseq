@@ -9,7 +9,7 @@ Use this skill when a change touches NoteHQ paths, PARA directories, org-roam/or
 
 ## Central Path Source
 
-Shared NoteHQ path constants belong in `lisp/init-org.el`.
+Shared NoteHQ path constants belong in `modules/notes/init-org.el`.
 
 This includes:
 

@@ -11,13 +11,13 @@ if defined ORG_SEQ_EMACS_DIR (
   set "DIR=%USERPROFILE%\.emacs.d"
 )
 if not defined ORG_SEQ_EMACS set "ORG_SEQ_EMACS=emacs"
-if not exist "%DIR%\lisp\orgseq-cli.el" (
+if not exist "%DIR%\core\orgseq-cli.el" (
   echo orgseq: no org-seq configuration in %DIR% ^(set ORG_SEQ_EMACS_DIR^) 1>&2
   exit /b 2
 )
 if defined ORG_SEQ_DEBUG (
-  "%ORG_SEQ_EMACS%" --batch --init-directory "%DIR%" -l "%DIR%\init.el" -l "%DIR%\lisp\orgseq-cli.el" -f my/cli-main -- %*
+  "%ORG_SEQ_EMACS%" --batch --init-directory "%DIR%" -l "%DIR%\init.el" -l "%DIR%\core\orgseq-cli.el" -f my/cli-main -- %*
 ) else (
-  "%ORG_SEQ_EMACS%" --batch --init-directory "%DIR%" -l "%DIR%\init.el" -l "%DIR%\lisp\orgseq-cli.el" -f my/cli-main -- %* 2>nul
+  "%ORG_SEQ_EMACS%" --batch --init-directory "%DIR%" -l "%DIR%\init.el" -l "%DIR%\core\orgseq-cli.el" -f my/cli-main -- %* 2>nul
 )
 exit /b %ERRORLEVEL%

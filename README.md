@@ -2,7 +2,7 @@
 
 A modular Emacs configuration for personal knowledge management, built on org-roam with Zettelkasten methodology.
 
-Primary target: **Windows, Linux, and macOS**.
+Platforms: **Linux** is the primary target (P0). Windows and macOS are supported at P1: their scripts are kept consistent but are validated less often.
 
 ## Prerequisites
 
@@ -81,10 +81,12 @@ Primary target: **Windows, Linux, and macOS**.
    Options: `-NoBackup` / `--no-backup`, `-Force` / `--force`, `-SkipChecks` / `--skip-checks`, `-Target DIR` / `--target DIR`
    PowerShell also supports `-WhatIf` for a dry run.
 
-   A deployment replaces only `early-init.el`, `init.el`, `ec`, `lisp/`,
-   `packages/` and `bin/`. The note library (`notes/`), `custom.el` and the
-   installed packages are never written. `deploy.sh` backs up the files it
-   replaces plus `custom.el`; `--full-backup` copies the whole directory
+   A deployment replaces only `early-init.el`, `init.el`, `ec`, `core/`,
+   `kernel/`, `modules/`, `packages/` and `bin/`. The note library
+   (`notes/`), your own files in `user/` (`custom.el`, `modules.el`,
+   `config.el`) and the installed packages are never overwritten; a
+   `custom.el` from an earlier version is moved into `user/` once.
+   `deploy.sh` backs up the files it replaces plus `user/`; `--full-backup` copies the whole directory
    instead. `deploy.ps1` still copies the whole directory.
 
    Both deployers refuse filesystem roots, the home directory, and the source
@@ -233,7 +235,7 @@ changes show up in a running Emacs when the buffer reverts.
 ### Node types
 
 Notes are org-roam nodes: every file or heading with an Org ID. org-seq adds
-types, fields, and table views on top of org-roam (`lisp/init-nodes.el`)
+types, fields, and table views on top of org-roam (`modules/notes/init-nodes.el`)
 without a second database. Supertag and TextUI were removed on 2026-10-22.
 
 - Types are defined in `~/NoteHQ/.orgseq/types.org` (`SPC # T`). Each level-1
@@ -674,7 +676,7 @@ The GTD Dashboard (`SPC t d`) shows live counts and is the central hub:
 
 Load order is fixed in `init.el` (see [AGENTS.md](AGENTS.md)).
 
-`lisp/init-platform.el` loads before this table. It is a bootstrap-phase
+`core/init-platform.el` loads before this table. It is a bootstrap-phase
 module required directly by `init.el`: it repairs `exec-path` for GUI
 sessions and resolves ELPA signature checking, both of which must happen
 before the first package is installed. It is deliberately outside the
@@ -768,7 +770,7 @@ org-seq can use a converted local copy of the rime-frost dictionary as a pyim di
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\update-rime-frost-pyim.ps1
 ```
 
-The script requires `git` and Python 3 on `PATH`. It clones or updates `gaboolic/rime-frost` under `.cache/rime-frost`, converts the active Rime dictionary tables into pyim format, and writes `pyim/rime-frost.pyim`. The generated `pyim/` directory is local runtime state and is intentionally ignored by git; `lisp/init-pyim.el` loads the converted dictionary automatically when that file exists. `deploy.ps1` and `deploy.sh` copy this generated dictionary to the deployed `~/.emacs.d/pyim/` when it is present.
+The script requires `git` and Python 3 on `PATH`. It clones or updates `gaboolic/rime-frost` under `.cache/rime-frost`, converts the active Rime dictionary tables into pyim format, and writes `pyim/rime-frost.pyim`. The generated `pyim/` directory is local runtime state and is intentionally ignored by git; `modules/editor/init-pyim.el` loads the converted dictionary automatically when that file exists. `deploy.ps1` and `deploy.sh` copy this generated dictionary to the deployed `~/.emacs.d/pyim/` when it is present.
 
 ### Bundled subproject: `packages/org-focus-timer/`
 

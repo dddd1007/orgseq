@@ -294,7 +294,7 @@
         dashboard-item-shortcuts '((daily . "d") (recents . "r")))
 
   ;; Footer: random quote, Doom-style
-  ;; `my/dashboard-quotes' is provided by lisp/dashboard-quotes.el
+  ;; `my/dashboard-quotes' is provided by modules/ui/dashboard-quotes.el
   ;; (required at the top of this file).
 
   (my/dashboard--pick-quote)
