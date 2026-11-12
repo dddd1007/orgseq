@@ -4,6 +4,8 @@
 # Runs a batch Emacs with the deployed configuration and hands the
 # arguments to core/orgseq-cli.el.  Run `orgseq help' for the commands.
 #
+# `upgrade' and `version' are answered by this script itself (Linux/macOS).
+#
 # Environment:
 #   ORG_SEQ_EMACS         Emacs executable (default: emacs)
 #   ORG_SEQ_EMACS_DIR     configuration directory (default: the directory
@@ -30,6 +32,154 @@ elif [ -f "$here/../init.el" ]; then
 else
   dir="$HOME/.emacs.d"
 fi
+
+# ---------------------------------------------------------------------------
+# upgrade / version: handled here, before Emacs starts, because an upgrade
+# replaces the files a running Emacs would be loading.  Linux and macOS only.
+# ---------------------------------------------------------------------------
+
+installed_version() {
+  if [ -f "$dir/.org-seq-version" ]; then
+    tr -d '\n' < "$dir/.org-seq-version"
+  else
+    printf 'unversioned'
+  fi
+}
+
+source_record() {   # source_record KEY : value from .org-seq-source
+  [ -f "$dir/.org-seq-source" ] || return 0
+  sed -n "s/^$1=//p" "$dir/.org-seq-source" | head -n 1
+}
+
+strip_credentials() {
+  sed -E -e 's#^(https?|ftp)://[^/@]*@#\1://#' \
+         -e 's#^([A-Za-z+.-]+://)[^/@:]*:[^/@]*@#\1#'
+}
+
+is_git_checkout() {   # a non-bare working tree
+  [ -d "$1" ] && [ "$(git -C "$1" rev-parse --is-inside-work-tree 2>/dev/null)" = true ]
+}
+
+version_line() {   # version_line DIR : "<VERSION> (<short commit>)"
+  local v c
+  v="unknown"
+  [ -f "$1/VERSION" ] && v="$(tr -d '[:space:]' < "$1/VERSION")"
+  c="$(git -C "$1" rev-parse HEAD 2>/dev/null || true)"
+  printf '%s (%s)' "${v:-unknown}" "${c:0:7}"
+}
+
+upgrade_fail() {
+  echo "orgseq upgrade: $1" >&2
+  exit "${2:-2}"
+}
+
+do_upgrade() {
+  local check=0 from="" ref="" pass=() url="" cache src_dir src_desc rec_path rec_url rec_ref
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --check) check=1 ;;
+      --from) [ "$#" -ge 2 ] || upgrade_fail "--from needs a directory or URL"; from="$2"; shift ;;
+      --ref) [ "$#" -ge 2 ] || upgrade_fail "--ref needs a branch, tag or commit"; ref="$2"; shift ;;
+      --no-backup|--full-backup|--skip-checks|--skip-verify) pass+=("$1") ;;
+      *) upgrade_fail "unknown option: $1 (see: orgseq help)" ;;
+    esac
+    shift
+  done
+
+  if [ ! -f "$dir/init.el" ]; then
+    upgrade_fail "no org-seq deployment in $dir (set ORG_SEQ_EMACS_DIR)"
+  fi
+  cache="$dir/.cache/source"
+  rec_path="$(source_record path)"
+  rec_url="$(source_record url)"
+  rec_ref="$(source_record ref)"
+
+  # Choose the source.  A local checkout is used as it is.
+  src_dir=""
+  if [ -n "$from" ]; then
+    if is_git_checkout "$from" 2>/dev/null; then
+      src_dir="$(cd "$from" && pwd -P)"
+    else
+      url="$from"
+    fi
+  elif [ -n "$rec_path" ] && [ "$rec_path" != "$cache" ] && is_git_checkout "$rec_path"; then
+    src_dir="$rec_path"
+  elif [ -n "$rec_url" ]; then
+    url="$rec_url"
+  else
+    upgrade_fail "no usable source: the recorded checkout is gone and no remote URL is recorded. Use: orgseq upgrade --from DIR_OR_URL"
+  fi
+
+  if [ -n "$url" ]; then
+    command -v git >/dev/null 2>&1 || upgrade_fail "git is required to upgrade from a URL"
+    url="$(printf '%s' "$url" | strip_credentials)"
+    if [ -d "$cache/.git" ]; then
+      [ "$(git -C "$cache" config --get remote.origin.url || true)" = "$url" ] \
+        || git -C "$cache" remote set-url origin "$url"
+    else
+      mkdir -p "$dir/.cache"
+      rm -rf "$cache"
+      git clone --quiet --no-checkout "$url" "$cache" >&2 \
+        || upgrade_fail "cannot clone $url" 1
+    fi
+    git -C "$cache" fetch --quiet --prune --tags origin >&2 \
+      || upgrade_fail "cannot fetch from $url" 1
+    if [ -z "$ref" ]; then ref="$rec_ref"; fi
+    if [ -z "$ref" ]; then
+      git -C "$cache" remote set-head origin -a >/dev/null 2>&1 || true
+      ref="$(git -C "$cache" symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true)"
+      ref="${ref#origin/}"
+    fi
+    [ -n "$ref" ] || upgrade_fail "cannot tell the remote's default branch; pass --ref REF" 
+    local rev="" cand
+    for cand in "origin/$ref" "$ref"; do
+      if git -C "$cache" rev-parse --verify -q "$cand^{commit}" >/dev/null 2>&1; then
+        rev="$cand"; break
+      fi
+    done
+    [ -n "$rev" ] || upgrade_fail "ref '$ref' not found in $url" 1
+    git -C "$cache" checkout --quiet --detach --force "$rev" >&2 \
+      || upgrade_fail "cannot check out $rev" 1
+    git -C "$cache" clean --quiet -fd >&2 || true
+    src_dir="$cache"
+    src_desc="$url (ref $ref)"
+  else
+    src_desc="$src_dir"
+  fi
+
+  [ -f "$src_dir/deploy.sh" ] || upgrade_fail "the source has no deploy.sh: $src_dir"
+
+  local old new
+  old="$(installed_version)"
+  new="$(version_line "$src_dir")"
+
+  if [ "$check" -eq 1 ]; then
+    echo "installed: $old"
+    echo "source:    $src_desc"
+    echo "available: $new"
+    if [ "$old" = "$new" ]; then
+      echo "up to date"
+      exit 0
+    fi
+    echo "upgrade available (run: orgseq upgrade)"
+    exit 10
+  fi
+
+  echo "orgseq upgrade: deploying $src_desc"
+  bash "$src_dir/deploy.sh" --target "$dir" ${pass[@]+"${pass[@]}"} >&2 \
+    || upgrade_fail "deploy.sh failed; the previous files are in the backup next to $dir" 1
+  echo "$old -> $(installed_version)"
+  exit 0
+}
+
+case "${1:-}" in
+  version|--version)
+    installed_version; echo
+    exit 0 ;;
+  upgrade)
+    shift
+    do_upgrade "$@" ;;
+esac
 
 if [ ! -f "$dir/core/orgseq-cli.el" ]; then
   echo "orgseq: no org-seq configuration in $dir (set ORG_SEQ_EMACS_DIR)" >&2

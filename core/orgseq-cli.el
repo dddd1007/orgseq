@@ -421,10 +421,22 @@ PARAMS takes :view (a saved view), :type, :filter (a filter form), :group,
   (let ((inhibit-message t))
     (list (cons 'folder (or (my/storage-snapshot) "")))))
 
+(defun my/cli--installed-version ()
+  "Return the deployed org-seq version line, or \"unversioned\"."
+  (let ((file (expand-file-name ".org-seq-version" user-emacs-directory)))
+    (or (and (file-readable-p file)
+             (let ((text (string-trim
+                          (with-temp-buffer
+                            (insert-file-contents file)
+                            (buffer-string)))))
+               (and (not (string-empty-p text)) text)))
+        "unversioned")))
+
 (defun my/api-info ()
   "Return where the library lives, how it syncs and how it is protected."
   (let ((storage (my/storage-info)))
-    (list (cons 'library (expand-file-name my/note-home))
+    (list (cons 'version (my/cli--installed-version))
+          (cons 'library (expand-file-name my/note-home))
           (cons 'notes (plist-get storage :notes))
           (cons 'files (plist-get storage :files))
           (cons 'types_file (expand-file-name my/types-file))
@@ -471,7 +483,12 @@ Maintenance
   doctor                 self-check; exits 1 when a required check fails
   update                 upgrade installed packages (snapshot first)
   reindex                rebuild the command-line node index
-  info                   show library location, sync status and snapshots
+  info                   show version, library location, sync status and snapshots
+  version                print the installed org-seq version
+  upgrade [--check] [--from DIR_OR_URL] [--ref REF] [--no-backup|--full-backup]
+                         update this installation from its source checkout or
+                         remote (Linux/macOS only; --check exits 10 when an
+                         upgrade is available)
   mcp                    serve the Model Context Protocol on stdin/stdout
 
 Add --json to any command for machine-readable output."
@@ -741,6 +758,7 @@ SPEC is an alist of (\"--name\" . KIND), KIND one of `flag', `value' or
       ("info"
        (funcall emit (my/api-info)
                 (lambda (value)
+                  (my/cli--print (format "version: %s" (alist-get 'version value)))
                   (my/cli--print (format "library: %s (%d Org files)"
                                          (alist-get 'library value)
                                          (alist-get 'notes value)))

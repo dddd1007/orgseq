@@ -10,6 +10,8 @@ set -euo pipefail
 #   ./deploy.sh --force          # continue despite failed required checks
 #   ./deploy.sh --skip-checks    # skip prerequisite checks
 #   ./deploy.sh --target DIR     # custom target directory
+#   ./deploy.sh --skip-verify    # skip the byte-compile gate (tests only;
+#                                # a real deployment should keep the gate)
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET="${HOME}/.emacs.d"
@@ -17,12 +19,13 @@ FORCE=0
 NO_BACKUP=0
 FULL_BACKUP=0
 SKIP_CHECKS=0
+SKIP_VERIFY=0
 
 # What a deployment replaces.  Everything else in the target belongs to the
 # user (notes/, custom.el) or is rebuildable device state (elpa/, .cache/)
 # and is never written.  custom.el is backed up but not replaced.
 SOURCE_DIRS=(core kernel modules)
-DEPLOYED_ITEMS=(early-init.el init.el ec "${SOURCE_DIRS[@]}" packages bin .org-seq-version)
+DEPLOYED_ITEMS=(early-init.el init.el ec "${SOURCE_DIRS[@]}" packages bin .org-seq-version .org-seq-source)
 # Layout of earlier versions; removed from the target after a backup.
 OBSOLETE_ITEMS=(lisp)
 
@@ -34,8 +37,9 @@ while [[ $# -gt 0 ]]; do
         --full-backup) FULL_BACKUP=1; shift ;;
         --force)     FORCE=1; shift ;;
         --skip-checks) SKIP_CHECKS=1; shift ;;
+        --skip-verify) SKIP_VERIFY=1; shift ;;
         -h|--help)
-            echo "Usage: $0 [--target DIR] [--no-backup] [--full-backup] [--force] [--skip-checks]"
+            echo "Usage: $0 [--target DIR] [--no-backup] [--full-backup] [--force] [--skip-checks] [--skip-verify]"
             exit 0 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -65,7 +69,8 @@ resolve_safe_target() {
           "$resolved" == "$home_resolved" ||
           "$resolved" == "$SCRIPT_DIR" ||
           "$resolved" == "$SCRIPT_DIR/"* ||
-          "$SCRIPT_DIR" == "$resolved/"* ]]; then
+          ( "$SCRIPT_DIR" == "$resolved/"* &&
+            "$SCRIPT_DIR" != "$resolved/.cache/"* ) ]]; then
         printf 'Refusing unsafe deployment target: %s\n' "$resolved" >&2
         return 1
     fi
@@ -234,7 +239,14 @@ deploy_config() {
     # Command line and MCP launcher (bin/orgseq); loads core/orgseq-cli.el.
     if [[ -d "$SCRIPT_DIR/bin" ]]; then
         mkdir -p "$TARGET/bin"
-        cp -f "$SCRIPT_DIR/bin/"* "$TARGET/bin/"
+        # Copy then rename: `orgseq upgrade' runs this script while the
+        # launcher is still executing, and bash reads a script as it runs.
+        # A rename leaves the running file's old contents intact.
+        local binfile
+        for binfile in "$SCRIPT_DIR/bin/"*; do
+            cp -f "$binfile" "$TARGET/bin/.$(basename "$binfile").new"
+            mv -f "$TARGET/bin/.$(basename "$binfile").new" "$TARGET/bin/$(basename "$binfile")"
+        done
         chmod +x "$TARGET/bin/orgseq"
         pass "bin/ (orgseq command line)"
     fi
@@ -247,7 +259,7 @@ deploy_config() {
 
     # Restore custom.el from latest backup if needed
     local latest_backup
-    latest_backup="$(ls -dt "${TARGET}.backup-"* 2>/dev/null | head -1)"
+    latest_backup="$(ls -dt "${TARGET}.backup-"* 2>/dev/null | head -1 || true)"
     if [[ -n "$latest_backup" && ! -f "$TARGET/user/custom.el" ]]; then
         local saved=""
         if [[ -f "$latest_backup/user/custom.el" ]]; then saved="$latest_backup/user/custom.el"
@@ -258,12 +270,40 @@ deploy_config() {
         fi
     fi
 
-    local version="unknown"
-    if command -v git &>/dev/null; then
-        version="$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
+    local base_version="unknown"
+    if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
+        base_version="$(tr -d '[:space:]' < "$SCRIPT_DIR/VERSION")"
+        [[ -n "$base_version" ]] || base_version="unknown"
     fi
+    local commit=""
+    local short="unknown"
+    if command -v git &>/dev/null; then
+        commit="$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || true)"
+        if [[ -n "$commit" ]]; then short="${commit:0:7}"; fi
+    fi
+    local version="$base_version ($short)"
     printf '%s' "$version" > "$TARGET/.org-seq-version"
     pass ".org-seq-version ($version)"
+
+    # Where this deployment came from, so `orgseq upgrade' can find it again.
+    # Device state, not user data.  Credentials embedded in the remote URL
+    # are removed; nothing secret is recorded.
+    local url=""
+    local ref=""
+    if command -v git &>/dev/null && [[ -n "$commit" ]]; then
+        url="$(git -C "$SCRIPT_DIR" config --get remote.origin.url 2>/dev/null || true)"
+        url="$(printf '%s' "$url" | sed -E \
+            -e 's#^(https?|ftp)://[^/@]*@#\1://#' \
+            -e 's#^([A-Za-z+.-]+://)[^/@:]*:[^/@]*@#\1#')"
+        ref="$(git -C "$SCRIPT_DIR" symbolic-ref --short -q HEAD 2>/dev/null || true)"
+    fi
+    {
+        printf 'path=%s\n' "$SCRIPT_DIR"
+        printf 'url=%s\n' "$url"
+        printf 'ref=%s\n' "$ref"
+        printf 'commit=%s\n' "$commit"
+    } > "$TARGET/.org-seq-source"
+    pass ".org-seq-source (${url:-$SCRIPT_DIR})"
 }
 
 # ── Verify ──
@@ -366,5 +406,5 @@ echo "Target: $TARGET"
 if [[ "$SKIP_CHECKS" -eq 0 ]]; then check_prerequisites; fi
 backup_existing
 deploy_config
-verify_deployment
+if [[ "$SKIP_VERIFY" -eq 0 ]]; then verify_deployment; fi
 print_summary

@@ -89,6 +89,11 @@ Platforms: **Linux** is the primary target (P0). Windows and macOS are supported
    `deploy.sh` backs up the files it replaces plus `user/`; `--full-backup` copies the whole directory
    instead. `deploy.ps1` still copies the whole directory.
 
+   After the first deployment, update with `orgseq upgrade` (Linux and macOS;
+   `orgseq upgrade --check` only reports): it redeploys from the checkout or
+   remote recorded in `.org-seq-source`, so the source repository need not be
+   kept around. `orgseq version` prints what is installed.
+
    Both deployers refuse filesystem roots, the home directory, and the source
    tree or any of its ancestors as targets. A deployment is reported complete
    only after byte compilation succeeds; verification failures exit nonzero

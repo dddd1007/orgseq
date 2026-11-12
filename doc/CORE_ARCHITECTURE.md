@@ -42,7 +42,18 @@ the source tree. PowerShell exposes `SupportsShouldProcess`, so `-WhatIf` is
 the canonical dry run. Existing targets are backed up unless the user explicitly
 disables that step. A deployment writes only the distribution files
 (`early-init.el`, `init.el`, `ec`, `core/`, `kernel/`, `modules/`, `packages/`,
-`bin/`); the note library, `user/` and installed packages are never written. `deploy.sh`
+`bin/`) plus two device-state files, `.org-seq-version` (`<VERSION> (<short commit>)`,
+from the `VERSION` file at the repository root) and `.org-seq-source` (plain
+`key=value`: `path`, `url` with embedded credentials stripped, `ref`, `commit` of
+the checkout deployed from; never a token). The note library, `user/` and
+installed packages are never written. `orgseq upgrade` (Linux and macOS) reads
+`.org-seq-source`, picks the recorded checkout as it is (never pulling or
+resetting it) or else clones/fetches the recorded URL into `.cache/source`, and
+runs that source's `deploy.sh --target`; `--check` only compares versions and
+exits 10 when an upgrade is available. It runs in the shell launcher before
+Emacs starts, and `deploy.sh` replaces `bin/` files by rename so the running
+launcher is not corrupted. `deploy.sh --skip-verify` skips the byte-compile gate
+and exists for the upgrade test only. `deploy.sh`
 therefore backs up the replaced files plus `custom.el` (`--full-backup` copies
 the whole target); `deploy.ps1` still copies the whole target. Byte-compilation is a completion gate: missing Emacs or a nonzero compile
 result aborts the deployer before it prints the completion summary. The

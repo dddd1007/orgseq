@@ -11,16 +11,19 @@
 #   scripts/check.sh --packages DIR       # use an installed package set
 #   scripts/check.sh --strict             # module errors and required
 #                                         # doctor failures fail the check
+#   scripts/check.sh --no-upgrade-test    # skip the orgseq upgrade test
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PACKAGES=""
 STRICT=0
+UPGRADE_TEST=1
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --packages) PACKAGES="$2"; shift 2 ;;
         --strict) STRICT=1; shift ;;
-        -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+        --no-upgrade-test) UPGRADE_TEST=0; shift ;;
+        -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -101,6 +104,14 @@ elif [[ $STRICT -eq 1 ]] && ! printf '%s\n' "$out" | grep -q '^FAILED-MODULES ni
 elif [[ $STRICT -eq 1 ]] && ! printf '%s\n' "$out" | grep -q '^DOCTOR-FAIL nil'; then
     failures=$((failures + 1))
     echo "FAIL required doctor checks failed (strict)"
+fi
+
+if [[ $UPGRADE_TEST -eq 1 ]]; then
+    echo "== Upgrade"
+    if ! bash "$ROOT/scripts/test-upgrade.sh"; then
+        failures=$((failures + 1))
+        echo "FAIL scripts/test-upgrade.sh"
+    fi
 fi
 
 leftover="$(find "${SOURCE_DIRS[@]}" packages -name '*.elc' 2>/dev/null | wc -l)"
