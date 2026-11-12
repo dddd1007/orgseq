@@ -6,19 +6,35 @@ configuration into a general framework.
 
 ## Bootstrap And Diagnostics
 
-`init.el` loads a fixed module list. Every attempt records the module, status,
-elapsed seconds, and original error object. A failed module does not prevent
-later modules from being attempted.
+`init.el` computes the module load order at startup. `my/init-modules-default`
+is the set of built-in modules and the tie-break order. `my/init-sort-modules`
+does a stable topological sort over `my/init-module-requires`, so a module
+loads after everything it requires and unconstrained modules keep their
+canonical order. `my/init-module-pins` pins `init-doctor` first and `init-evil`
+last; these are positions, not dependencies. A dependency cycle produces an
+error-level warning naming the cycle, and the canonical order is used. Every
+attempt records the module, status, elapsed seconds, and original error
+object. A failed module does not prevent later modules from being attempted.
 
-The load-order contract is machine-checkable: `my/init-module-requires`
-declares each module's dependencies (mirroring the `;; Requires:` headers in
-`core/` and `modules/`), `my/init-check-module-order` returns violations, startup emits
-an error-level warning for each violation before loading modules, and
-`scripts/test-init-loader.el` fails when the declarations, the headers, or
-the order disagree.
+The dependency data is the runtime source (nothing is parsed at startup). The
+block of `my/init-module-requires` between the `BEGIN generated` and `END
+generated` markers is generated from the `;; Requires:` headers in `core/` and
+`modules/` by `scripts/gen-module-requires.el`, and
+`scripts/test-init-loader.el` fails when it is stale. `my/init-check-module-order`
+returns violations and startup emits an error-level warning for each one
+before loading modules.
+
+User modules extend the same loader. `user/modules.el` sets
+`my/init-user-modules`, a list of `(FEATURE . REQUIRES)`; `user/` and
+`user/modules/` go on `load-path`, each feature is loaded with `require`
+through the guarded loader and placed by the same sort. A user module whose
+requirement is unknown or disabled is skipped with a warning instead of
+loading out of order.
 
 - `M-x my/init-errors` shows legacy failure details.
-- `M-x my/init-report` shows ordered module status and timings.
+- `M-x my/init-report` shows ordered module status and timings, where each
+  module came from (built-in, optional, user), its position in the computed
+  order, and the modules left out of it with the reason.
 - `M-x my/doctor` checks requirements without installing, downloading, or
   creating user directories.
 - `scripts/check.ps1` is the canonical Windows contributor check.

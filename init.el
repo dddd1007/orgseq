@@ -49,6 +49,18 @@ modules.el there runs before the modules load (set
 config.el after them, and custom.el holds
 Customize settings.  Deployment never writes this directory.")
 
+(defun my/init-add-user-load-path ()
+  "Append `my/user-directory' and its modules/ subdirectory to `load-path'.
+Only directories that exist are added, and they go last so a user file
+cannot shadow a library by accident.  User modules (see
+`my/init-user-modules') are found through this."
+  (dolist (dir (list my/user-directory
+                     (expand-file-name "modules/" my/user-directory)))
+    (when (file-directory-p dir)
+      (add-to-list 'load-path (directory-file-name dir) t))))
+
+(my/init-add-user-load-path)
+
 ;; ---- Platform tuning ----
 ;; Bootstrap-phase module: repairs `exec-path' and owns the ELPA signature
 ;; probe, both of which must run before the first package is installed.  It is
@@ -357,7 +369,8 @@ Absent optional packages are skipped silently, matching module loading."
                  (if (eq system-type 'windows-nt) " (winget/scoop)" ""))))))
 
 ;; ---- Load modules ----
-;; Order: doctor -> packages -> popup -> keymap -> UI -> completion -> pyim -> python
+;; Canonical order (the tie-break; the load order is computed from
+;; `my/init-module-requires'): doctor -> packages -> popup -> keymap -> UI -> completion -> pyim -> python
 ;; -> markdown -> languages -> org -> capture -> roam (optional, off by default)
 ;; -> gtd -> gtd-dashboard -> focus -> pkm -> nodes -> views -> palette -> sync
 ;; -> daily -> terminal
@@ -406,12 +419,36 @@ Absent optional packages are skipped silently, matching module loading."
     init-update
     init-tty
     init-evil)
-  "Canonical org-seq module list in dependency order.
+  "Canonical org-seq module list.
+This is the set of built-in modules and the tie-break order: the load order
+is computed from `my/init-module-requires' by `my/init-sort-modules', and
+modules without an ordering constraint between them keep their order here.
 Kept separate from `my/init-modules' so tests can inspect the canonical
 order while overriding the effective load list.")
 
 (defvar my/init-modules my/init-modules-default
-  "Modules loaded by org-seq in dependency order.")
+  "Modules loaded by org-seq.
+At startup this becomes the computed load order of the enabled modules,
+built-in and user.")
+
+(defconst my/init-module-pins
+  '((init-doctor . first)
+    (init-evil . last))
+  "Alist of (MODULE . first|last) for modules pinned by position.
+These are not dependencies.  init-doctor loads first so the diagnostic
+commands survive a failure in any later module; init-evil loads last
+because its leader map references commands from nearly every other module,
+whether or not those modules declare it.  Pinned modules are placed before
+or after everything the sort orders; a module that requires a `last' module
+is reported as a violation by `my/init-check-module-order'.")
+
+(defvar my/init-user-modules nil
+  "User modules to load, as a list of (FEATURE . REQUIRES).
+Set it in user/modules.el, for example
+\='((my-research . (init-org init-nodes))).  FEATURE is loaded with
+`require' from user/FEATURE.el or user/modules/FEATURE.el, which must
+`provide' it.  REQUIRES names modules that must load first; a user module
+whose requirement is unknown or disabled is skipped with a warning.")
 
 (defvar my/init-disabled-modules nil
   "Modules from `my/init-modules' that are not loaded.
@@ -431,15 +468,25 @@ Set it in user/modules.el, for example (setq
 my/init-enabled-optional-modules \='(init-roam)) to add org-roam, its
 graph view and consult-org-roam.")
 
+(defun my/init-module-skip-reason (module)
+  "Return why MODULE is not loaded by configuration, or nil."
+  (cond ((memq module my/init-disabled-modules)
+         "disabled in my/init-disabled-modules")
+        ((and (memq module my/init-optional-modules)
+              (not (memq module my/init-enabled-optional-modules)))
+         "optional, not in my/init-enabled-optional-modules")))
+
 (defun my/init-effective-modules (&optional modules)
   "Return MODULES (default `my/init-modules') as they are actually loaded.
 Modules in `my/init-disabled-modules' are dropped, and so are optional
 modules that are not in `my/init-enabled-optional-modules'."
-  (cl-remove-if (lambda (module)
-                  (or (memq module my/init-disabled-modules)
-                      (and (memq module my/init-optional-modules)
-                           (not (memq module my/init-enabled-optional-modules)))))
-                (or modules my/init-modules)))
+  (cl-remove-if #'my/init-module-skip-reason (or modules my/init-modules)))
+
+(defun my/init-module-source (module)
+  "Return where MODULE comes from: `built-in', `optional' or `user'."
+  (cond ((memq module my/init-optional-modules) 'optional)
+        ((memq module my/init-modules-default) 'built-in)
+        (t 'user)))
 
 (defun my/load-user-file (name)
   "Load NAME from `my/user-directory' when it exists; report failures.
@@ -458,7 +505,8 @@ Return non-nil when the file was loaded."
          nil)))))
 
 (defconst my/init-module-requires
-  '((init-ui            . (init-packages))
+  '(;; BEGIN generated by scripts/gen-module-requires.el
+    (init-ui            . (init-packages))
     (init-markdown      . (init-ui))
     (init-languages     . (init-completion init-python))
     (init-org           . (init-packages init-ui))
@@ -480,13 +528,16 @@ Return non-nil when the file was loaded."
     (init-mouse         . (init-org init-gtd init-gtd-dashboard init-daily))
     (init-workspace     . (init-org init-daily init-terminal init-dired init-frame))
     (init-tty           . (init-completion init-ui))
-    (init-evil          . (init-keymap)))
+    (init-evil          . (init-keymap))
+    ;; END generated
+    )
   "Alist of (MODULE . DEPENDENCIES) mirroring the module \"Requires:\" headers.
-Every dependency must appear before MODULE in `my/init-modules'.  This is
-the machine-checkable form of the load-order contract: startup warns on
-violations, and scripts/test-init-loader.el fails on them.  When adding a
-module, add its record here and keep the module file's \"Requires:\"
-comment in sync.")
+The load order is computed from it by `my/init-sort-modules'.  The block
+between the BEGIN and END markers is generated from the headers: edit the
+module's \"Requires:\" comment, then run
+  emacs --batch -Q -l scripts/gen-module-requires.el \\
+        --eval \"(my/gen-module-requires-main t)\"
+to rewrite it; scripts/test-init-loader.el fails when it is stale.")
 
 (defun my/init-check-module-order (&optional modules requires)
   "Return module dependency violations as a list of (MODULE . PROBLEM) pairs.
@@ -512,6 +563,104 @@ missing from MODULES or ordered after the module that requires it."
                             (format "dependency %s loads after it" dep))
                       violations))))))))
     (nreverse violations)))
+
+(defun my/init-find-cycle (remaining requires)
+  "Return a dependency cycle among REMAINING as a list ending where it began.
+Every module of REMAINING has a dependency inside REMAINING, so following
+the first such dependency from the first module must repeat."
+  (let ((node (car remaining))
+        (path nil))
+    (while (not (memq node path))
+      (push node path)
+      (setq node (cl-find-if (lambda (dep) (memq dep remaining))
+                             (cdr (assq node requires)))))
+    (append (memq node (reverse path)) (list node))))
+
+(defun my/init-sort-modules (modules requires &optional pins)
+  "Return (ORDER . CYCLE) for MODULES under REQUIRES and PINS.
+ORDER is a stable topological sort: a module comes after every module it
+requires, and among modules with no constraint between them the order of
+MODULES is kept.  REQUIRES is an alist of (MODULE . DEPENDENCIES); a
+dependency that is not in MODULES is ignored here (see
+`my/init-check-module-order').  PINS is an alist of (MODULE . first|last):
+pinned modules go before or after everything else, in MODULES order.
+When the requirements contain a cycle, CYCLE lists it (ending with the
+module it started from) and ORDER is MODULES unchanged."
+  (let* ((pinned (lambda (side)
+                   (cl-remove-if-not (lambda (m) (eq (cdr (assq m pins)) side))
+                                     modules)))
+         (firsts (funcall pinned 'first))
+         (lasts (funcall pinned 'last))
+         (remaining (cl-remove-if (lambda (m) (assq m pins)) modules))
+         (placed nil)
+         (cycle nil))
+    (while (and remaining (not cycle))
+      (let ((next (cl-find-if
+                   (lambda (m)
+                     (cl-every (lambda (dep)
+                                 (not (memq dep remaining)))
+                               (cdr (assq m requires))))
+                   remaining)))
+        (if next
+            (progn (push next placed)
+                   (setq remaining (remq next remaining)))
+          (setq cycle (my/init-find-cycle remaining requires)))))
+    (if cycle
+        (cons modules cycle)
+      (cons (append firsts (nreverse placed) lasts) nil))))
+
+(defun my/init-plan-modules (enabled &optional user-modules requires pins)
+  "Plan the load order for the ENABLED built-in modules plus USER-MODULES.
+USER-MODULES is a list of (FEATURE . REQUIRES) like `my/init-user-modules'.
+REQUIRES defaults to `my/init-module-requires' and PINS to
+`my/init-module-pins'.  Return a plist:
+  :order    modules in load order (ENABLED first, then accepted user
+            modules, sorted by `my/init-sort-modules')
+  :requires REQUIRES extended with the accepted user modules
+  :skipped  alist of (USER-MODULE . REASON) for rejected user modules
+  :cycle    a dependency cycle, or nil
+A user module is rejected when it is malformed, repeats a name, clashes
+with a built-in module, or needs a module that is not loaded (directly or
+because that module was itself rejected)."
+  (let ((requires (or requires my/init-module-requires))
+        (pins (or pins my/init-module-pins))
+        (accepted nil) (skipped nil))
+    (dolist (entry user-modules)
+      (let ((name (car-safe entry)))
+        (cond
+         ((not (and (symbolp name) name (listp (cdr entry))
+                    (cl-every #'symbolp (cdr entry))))
+          (push (cons (if (symbolp name) name 'invalid)
+                      "malformed entry in my/init-user-modules")
+                skipped))
+         ((or (memq name my/init-modules-default) (memq name enabled))
+          (push (cons name "name clashes with a built-in module") skipped))
+         ((assq name accepted)
+          (push (cons name "declared more than once") skipped))
+         (t (push entry accepted)))))
+    (setq accepted (nreverse accepted))
+    (let ((changed t))
+      (while changed
+        (setq changed nil)
+        (dolist (entry accepted)
+          (let ((missing
+                 (cl-find-if (lambda (dep)
+                               (not (or (memq dep enabled) (assq dep accepted))))
+                             (cdr entry))))
+            (when missing
+              (push (cons (car entry)
+                          (format "requires %s, which is unknown or not loaded"
+                                  missing))
+                    skipped)
+              (setq accepted (remq entry accepted)
+                    changed t))))))
+    (let* ((requires (append requires
+                             (mapcar (lambda (e) (cons (car e) (cdr e)))
+                                     accepted)))
+           (sorted (my/init-sort-modules
+                    (append enabled (mapcar #'car accepted)) requires pins)))
+      (list :order (car sorted) :requires requires
+            :skipped (nreverse skipped) :cycle (cdr sorted)))))
 
 (defun my/init-results ()
   "Return module load results in attempted load order."
@@ -572,11 +721,43 @@ Return non-nil when MODULE loads successfully."
 
 ;; The user's module selection, read before anything is checked or loaded.
 (my/load-user-file "modules.el")
-(setq my/init-modules (my/init-effective-modules my/init-modules))
+
+(defvar my/--init-skipped nil
+  "Alist of (MODULE . REASON) for modules not loaded this startup.")
+
+(defvar my/--init-requires nil
+  "`my/init-module-requires' extended with the loaded user modules.")
+
+;; Compute the load order from the declared dependencies.  Disabled and
+;; optional modules drop out first; accepted user modules join the sort.
+(let* ((enabled (my/init-effective-modules my/init-modules))
+       (plan (my/init-plan-modules enabled my/init-user-modules))
+       (cycle (plist-get plan :cycle)))
+  (setq my/--init-requires (plist-get plan :requires)
+        my/--init-skipped
+        (append
+         (delq nil (mapcar (lambda (m)
+                             (when-let* ((why (my/init-module-skip-reason m)))
+                               (cons m why)))
+                           my/init-modules))
+         (plist-get plan :skipped))
+        my/init-modules (plist-get plan :order))
+  (dolist (skip (plist-get plan :skipped))
+    (display-warning
+     'org-seq
+     (format "user module %s skipped: %s" (car skip) (cdr skip))
+     :warning))
+  (when cycle
+    (display-warning
+     'org-seq
+     (format "module order: dependency cycle %s; using the canonical order"
+             (mapconcat #'symbol-name cycle " -> "))
+     :error)))
 
 ;; Dependency assertion: fail loudly (but non-fatally) when the module list
 ;; violates the declared load-order contract, before any module loads.
-(dolist (violation (my/init-check-module-order))
+(dolist (violation (my/init-check-module-order my/init-modules
+                                               my/--init-requires))
   (display-warning
    'org-seq
    (format "module order: %s: %s" (car violation) (cdr violation))

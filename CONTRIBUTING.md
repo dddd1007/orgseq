@@ -22,10 +22,11 @@ init-doctor  →  init-packages  →  init-popup  →  init-keymap  →  init-ui
         →  init-mouse  →  init-frame  →  init-workspace  →  init-update  →  init-tty  →  init-evil
 ```
 
-Order is fixed in `init.el` and matters. Module dependencies are declared in
-`my/init-module-requires` (in `init.el`), mirroring each module's `;; Requires:`
-header; startup warns on order violations and `scripts/test-init-loader.el`
-fails on them or on header drift. See `AGENTS.md` for the dependency rationale.
+The load order is computed in `init.el` from the dependencies in
+`my/init-module-requires`, which is generated from each module's `;; Requires:`
+header by `scripts/gen-module-requires.el`; `my/init-modules-default` is the
+tie-break order. Startup warns on order violations and `scripts/test-init-loader.el`
+fails on them, on a dependency cycle, or on header drift. See `AGENTS.md` for the dependency rationale.
 The short version:
 
 - `init-doctor` loads first so diagnostics remain available when a later module fails
@@ -52,7 +53,7 @@ The short version:
 - `init-update` runs after the package-config modules it manages, snapshots `elpa/` before every upgrade, and provides `M-x my/package-snapshot-rollback`
 - `init-evil` loads last because the leader-key map references functions from nearly every earlier module
 
-If you add a new module, place it deliberately in the chain, update `init.el` (both `my/init-modules-default` and `my/init-module-requires`), and keep `AGENTS.md`, `README.md`, and this file aligned.
+If you add a new module, declare its dependencies in a `;; Requires:` header, add it to `my/init-modules-default` in `init.el`, regenerate the dependency block with `emacs --batch -Q -l scripts/gen-module-requires.el --eval "(my/gen-module-requires-main t)"`, and keep `AGENTS.md`, `README.md`, and this file aligned.
 
 ## Bundled subprojects
 
