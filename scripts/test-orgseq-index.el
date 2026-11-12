@@ -161,4 +161,24 @@ Closing words.
         (should-not (equal a (my/index--file))))
       (should (string-match-p "/\\.cache/index-[0-9a-f]+\\.db\\'" a)))))
 
+(ert-deftest my/index-follows-org-on-heading-and-link-edge-cases ()
+  (with-temp-buffer
+    (insert "#+title: Edge\n#+TODO: OPEN | SHUT\n"
+            "* OPEN Custom keyword\n:PROPERTIES:\n:ID: e-1\n:END:\n"
+            "See [[id:target-1::*Section][there]].\n"
+            "*\tNot a heading: a tab follows the star\n"
+            "* TODO\n:PROPERTIES:\n:ID: e-2\n:END:\n")
+    (pcase-let ((`(,nodes ,links ,texts) (my/index-parse-buffer "/lib/edge.org")))
+      (should (equal (mapcar (lambda (n) (plist-get n :id)) nodes) '("e-1" "e-2")))
+      ;; A keyword from the file's own #+TODO line is a TODO state.
+      (should (equal (plist-get (car nodes) :todo) "OPEN"))
+      (should (equal (plist-get (car nodes) :title) "Custom keyword"))
+      ;; A search option is not part of the link target.
+      (should (equal links '(("e-1" . "target-1"))))
+      ;; The tab line stays inside the first node's text.
+      (should (string-match-p "Not a heading" (cdr (assoc "e-1" texts))))
+      ;; A heading that is only a keyword has that state and no title.
+      (should (equal (plist-get (cadr nodes) :todo) "TODO"))
+      (should (equal (plist-get (cadr nodes) :title) "")))))
+
 ;;; test-orgseq-index.el ends here

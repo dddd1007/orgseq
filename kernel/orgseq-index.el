@@ -210,12 +210,19 @@ without the subtrees of nodes nested in it."
     ;; Keywords above the first heading.
     (let ((limit (save-excursion
                    (goto-char (point-min))
-                   (if (re-search-forward "^\\*+[ \t]" nil t)
+                   (if (re-search-forward "^\\*+ " nil t)
                        (line-beginning-position)
                      (point-max)))))
       (goto-char (point-min))
       (when (re-search-forward "^#\\+title:[ \t]*\\(.*\\)$" limit t)
         (setq file-title (my/index--clean-title (match-string-no-properties 1))))
+      ;; TODO keywords declared by the file itself.
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^#\\+\\(?:todo\\|seq_todo\\|typ_todo\\):[ \t]*\\(.*\\)$" nil t)
+        (dolist (word (split-string (match-string-no-properties 1) "[ \t]+" t))
+          (unless (equal word "|")
+            (push (replace-regexp-in-string "(.*\\'" "" word) keywords))))
       (goto-char (point-min))
       (while (re-search-forward "^#\\+filetags:[ \t]*\\(.*\\)$" limit t)
         (setq file-tags
@@ -232,7 +239,8 @@ without the subtrees of nodes nested in it."
             nodes))
     ;; Headings.
     (goto-char (point-min))
-    (while (re-search-forward "^\\(\\*+\\)[ \t]+\\(.*\\)$" nil t)
+    ;; Org starts a heading with stars and a space; a tab does not count.
+    (while (re-search-forward "^\\(\\*+\\) +\\(.*\\)$" nil t)
       (let* ((level (length (match-string 1)))
              (pos (match-beginning 0))
              (text (match-string-no-properties 2))
@@ -311,8 +319,12 @@ without the subtrees of nodes nested in it."
                 (push (buffer-substring-no-properties (car part) (cdr part)) own)
                 (goto-char (car part))
                 (while (re-search-forward "\\[\\[id:\\([^]\n]+\\)\\]" (cdr part) t)
+                  ;; "id:ID::search" points into node ID; the search
+                  ;; option is not part of the id.
                   (push (cons (plist-get node :id)
-                              (string-trim (match-string-no-properties 1)))
+                              (string-trim
+                               (car (split-string
+                                     (match-string-no-properties 1) "::"))))
                         links)))
               (push (cons (plist-get node :id)
                           (string-join (nreverse own) ""))
