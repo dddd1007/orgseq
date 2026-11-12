@@ -65,22 +65,39 @@ signature probe must run before the first package is installed. It has no
 org-seq module dependencies, must not require another `init-*` module, and is
 intentionally absent from `my/init-modules-default`.
 
-The module load order in `init.el` is intentional:
+The load order is computed, not hand-maintained. `my/init-modules-default` is
+the set of built-in modules and the tie-break order; `my/init-sort-modules`
+does a stable topological sort over `my/init-module-requires`, so a module
+loads after everything it requires and unconstrained modules keep their
+canonical position. `init-doctor` (first) and `init-evil` (last) are pinned
+by `my/init-module-pins`, not by dependencies. A dependency cycle is an
+error-level warning and the loader falls back to the canonical order. With the
+shipped data the computed order is:
 
 `init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-capture -> init-roam -> init-gtd -> init-gtd-dashboard -> init-focus -> init-pkm -> init-nodes -> init-views -> init-palette -> init-sync -> init-daily -> init-terminal -> init-ai -> init-ai-cli -> init-dashboard -> init-dired -> init-mouse -> init-frame -> init-workspace -> init-update -> init-tty -> init-evil`
 
-Module dependencies are machine-checked: `my/init-module-requires` in `init.el`
-declares each module's dependencies, mirroring the module's `;; Requires:`
-header. Startup emits a warning for order violations, and
-`scripts/test-init-loader.el` fails when the list, the headers, or the order
-drift apart.
+Module dependencies are machine-checked: the block of `my/init-module-requires`
+in `init.el` between the `BEGIN generated` and `END generated` markers is
+generated from each module's `;; Requires:` header by
+`scripts/gen-module-requires.el` (run it with `--eval "(my/gen-module-requires-main t)"`
+to rewrite the block). Startup warns on order violations, and
+`scripts/test-init-loader.el` fails when the list, the headers, the generated
+block, or the computed order drift apart.
+
+Users add their own modules without editing `init.el`: `user/modules.el` sets
+`my/init-user-modules` to a list of `(FEATURE . REQUIRES)`. Each is loaded with
+`require` from `user/` or `user/modules/` (both on `load-path` when they exist)
+through the same guarded loader, sorted with the built-in modules, and shown in
+`M-x my/init-report`. A user module with an unknown or disabled requirement is
+skipped with a warning.
 
 When adding a new module:
 
-- Place it deliberately in the dependency chain.
-- Update `init.el`: add the module to `my/init-modules-default` and, if it
-  depends on other modules, add a matching `my/init-module-requires` record
-  that agrees with the module's `;; Requires:` header.
+- Declare its dependencies in the module's `;; Requires:` header.
+- Update `init.el`: add the module to `my/init-modules-default` (its canonical
+  position only breaks ties), then regenerate the `my/init-module-requires`
+  block with `scripts/gen-module-requires.el`. Add a `my/init-module-pins`
+  entry only when the position is required for a reason other than a dependency.
 - Update the load-order comment in `init.el` at the same time; do not let comments drift from the actual module list.
 - Update `README.md`, `CONTRIBUTING.md`, and this file if the change is user-visible or affects repo structure.
 

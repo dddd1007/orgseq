@@ -85,22 +85,47 @@ Each entry contains :id, :label, and :check keys.")
   (interactive)
   (pop-to-buffer (my/doctor-render (my/doctor-run))))
 
+(defvar my/init-modules)
+(defvar my/--init-skipped)
+(declare-function my/init-module-source "init" (module))
+
 (defun my/init-report-render (results)
-  "Render module load RESULTS and return the report buffer."
-  (let ((buffer (get-buffer-create "*org-seq init report*")))
+  "Render module load RESULTS and return the report buffer.
+Each line shows status, elapsed time and module, then where the module
+comes from (built-in, optional or user) and its position in the load
+order.  Modules left out of the load order are listed after the results
+with the reason."
+  (let ((buffer (get-buffer-create "*org-seq init report*"))
+        (order (and (boundp 'my/init-modules) my/init-modules))
+        (skipped (and (boundp 'my/--init-skipped) my/--init-skipped)))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer)
         (insert "org-seq module load report\n\n")
         (dolist (result results)
-          (insert
-           (format "%-6s %7.3f s  %s\n"
-                   (upcase (symbol-name (plist-get result :status)))
-                   (plist-get result :elapsed)
-                   (plist-get result :module)))
-          (when-let* ((err (plist-get result :error)))
-            (insert (format "                    %s\n"
-                            (error-message-string err)))))
+          (let* ((module (plist-get result :module))
+                 (pos (cl-position module order)))
+            (insert
+             (format "%-6s %7.3f s  %-24s %-9s %s\n"
+                     (upcase (symbol-name (plist-get result :status)))
+                     (plist-get result :elapsed)
+                     module
+                     (if (fboundp 'my/init-module-source)
+                         (my/init-module-source module)
+                       "")
+                     (if pos (format "#%d" (1+ pos)) "")))
+            (when-let* ((err (plist-get result :error)))
+              (insert (format "                    %s\n"
+                              (error-message-string err))))))
+        (when skipped
+          (insert "\nNot loaded:\n")
+          (dolist (skip skipped)
+            (insert (format "SKIP   %-24s %-9s %s\n"
+                            (car skip)
+                            (if (fboundp 'my/init-module-source)
+                                (my/init-module-source (car skip))
+                              "")
+                            (cdr skip)))))
         (goto-char (point-min))
         (special-mode)))
     buffer))
