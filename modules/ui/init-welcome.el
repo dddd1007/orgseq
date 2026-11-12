@@ -528,5 +528,9 @@ state file the first time only."
                            #'my/welcome--startup-show)
       'scheduled)))
 
+;; Shown once on the first interactive start of a device; see
+;; `my/welcome-at-startup'.  Does nothing in a batch session.
+(add-hook 'emacs-startup-hook #'my/welcome-maybe-show)
+
 (provide 'init-welcome)
 ;;; init-welcome.el ends here

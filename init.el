@@ -375,7 +375,7 @@ Absent optional packages are skipped silently, matching module loading."
 ;; -> gtd -> gtd-dashboard -> focus -> pkm -> nodes -> views -> palette -> sync
 ;; -> daily -> terminal
 ;; -> ai -> ai-cli -> dashboard -> dired
-;; -> mouse -> frame -> workspace -> update -> tty -> evil (last)
+;; -> mouse -> frame -> workspace -> welcome -> update -> tty -> evil (last)
 ;; Each require is guarded so a single broken module does not kill the
 ;; entire config -- the user gets an actionable warning and can inspect
 ;; details with `M-x my/init-errors'.
@@ -416,6 +416,7 @@ Absent optional packages are skipped silently, matching module loading."
     init-mouse
     init-frame
     init-workspace
+    init-welcome
     init-update
     init-tty
     init-evil)
@@ -527,6 +528,7 @@ Return non-nil when the file was loaded."
     (init-dired         . (init-org init-ui init-terminal))
     (init-mouse         . (init-org init-gtd init-gtd-dashboard init-daily))
     (init-workspace     . (init-org init-daily init-terminal init-dired init-frame))
+    (init-welcome       . (init-org init-sync))
     (init-tty           . (init-completion init-ui))
     (init-evil          . (init-keymap))
     ;; END generated

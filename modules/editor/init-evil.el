@@ -267,6 +267,7 @@ with SPC as the prefix and M-SPC as the global prefix."
 
     ;; ── SPC h — Help (helpful-powered where available) ──
     "h"   '(:ignore t :wk "help")
+    "hw"  '(my/welcome :wk "Welcome page")
     "hf"  '(helpful-callable :wk "Function")
     "hv"  '(helpful-variable :wk "Variable")
     "hk"  '(helpful-key :wk "Key")

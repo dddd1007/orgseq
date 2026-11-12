@@ -74,7 +74,7 @@ by `my/init-module-pins`, not by dependencies. A dependency cycle is an
 error-level warning and the loader falls back to the canonical order. With the
 shipped data the computed order is:
 
-`init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-capture -> init-roam -> init-gtd -> init-gtd-dashboard -> init-focus -> init-pkm -> init-nodes -> init-views -> init-palette -> init-sync -> init-daily -> init-terminal -> init-ai -> init-ai-cli -> init-dashboard -> init-dired -> init-mouse -> init-frame -> init-workspace -> init-update -> init-tty -> init-evil`
+`init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-capture -> init-roam -> init-gtd -> init-gtd-dashboard -> init-focus -> init-pkm -> init-nodes -> init-views -> init-palette -> init-sync -> init-daily -> init-terminal -> init-ai -> init-ai-cli -> init-dashboard -> init-dired -> init-mouse -> init-frame -> init-workspace -> init-welcome -> init-update -> init-tty -> init-evil`
 
 Module dependencies are machine-checked: the block of `my/init-module-requires`
 in `init.el` between the `BEGIN generated` and `END generated` markers is
