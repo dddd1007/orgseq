@@ -274,8 +274,13 @@ NO-VISIT the note is written but not shown.  Return the note plist
   (my/daily-open-date (current-time)))
 
 (defun my/daily--offset-days (days)
-  "Return the time DAYS days from now (negative for the past)."
-  (time-add (current-time) (days-to-time days)))
+  "Return a time on the calendar day DAYS days from today.
+Steps the calendar date, not 24-hour blocks, so a daylight-saving change
+cannot skip or repeat a day; the result is noon of that day."
+  (let ((now (decode-time)))
+    (encode-time (list 0 0 12 (+ (decoded-time-day now) days)
+                       (decoded-time-month now) (decoded-time-year now)
+                       nil -1 nil))))
 
 (defun my/daily-goto-yesterday ()
   "Visit yesterday's Daily note."

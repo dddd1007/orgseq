@@ -414,4 +414,25 @@
   "Nothing above loaded org-roam."
   (should-not (featurep 'org-roam)))
 
+(ert-deftest my/note-create-stays-inside-the-library ()
+  "A path with .. or an absolute path cannot take a note out of the library."
+  (my/test-capture--with-library
+    (let ((outside (expand-file-name "../escaped.org" my/note-home)))
+      (should-error (my/note-create :title "Escape" :file "../../escaped.org")
+                    :type 'user-error)
+      (should-error (my/note-create :title "Escape" :file outside) :type 'user-error)
+      (should-not (file-exists-p outside))
+      ;; A title full of path syntax still lands in the capture directory.
+      (let ((note (my/note-create :title "../../../etc/passwd")))
+        (should (string-prefix-p (expand-file-name my/note-home)
+                                 (plist-get note :file)))))))
+
+(ert-deftest my/daily-offset-steps-calendar-days ()
+  (let ((tomorrow (decode-time (my/daily--offset-days 1)))
+        (today (decode-time)))
+    (should (= 12 (decoded-time-hour tomorrow)))
+    (should (equal (format-time-string "%F" (my/daily--offset-days 0))
+                   (format-time-string "%F")))
+    (should-not (equal (decoded-time-day tomorrow) (decoded-time-day today)))))
+
 ;;; test-init-capture.el ends here

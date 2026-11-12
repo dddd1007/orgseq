@@ -377,4 +377,15 @@ Binds `root', `my/note-home' with its layer paths, `my/snapshot-dir',
         (should-not (cl-some (lambda (m) (string-match-p "my/sync-preview" m))
                              messages))))))
 
+(ert-deftest my/storage-restore-recreates-a-missing-library ()
+  "Losing the whole library directory is what a restore is for."
+  (my/test-sync--with-dirs
+    (my/test-sync--write (expand-file-name "00_Roam/a.org" my/note-home) "a")
+    (let ((snapshot (my/storage-snapshot)))
+      (delete-directory my/note-home t)
+      (let ((result (my/storage-restore snapshot)))
+        (should (= 1 (plist-get result :restored)))
+        (should (equal "a" (my/test-sync--read
+                            (expand-file-name "00_Roam/a.org" my/note-home))))))))
+
 ;;; test-init-sync.el ends here

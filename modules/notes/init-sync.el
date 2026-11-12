@@ -437,6 +437,9 @@ links and `.git' are neither read nor changed.  Return a plist with
          (restored 0) (deleted 0) undo visiting)
     (when (file-equal-p source home)
       (user-error "The snapshot is the library itself"))
+    ;; A library directory that is gone altogether is the case a restore
+    ;; matters most for; the containment checks below need it to exist.
+    (make-directory home t)
     (my/sync--save-note-buffers)
     (let ((plan (my/storage-restore-plan source))
           (before (my/storage--files home)))

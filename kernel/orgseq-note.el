@@ -108,6 +108,13 @@ POS is the buffer position at which BODY begins in the new file."
          (body (or body ""))
          (coding-system-for-write 'utf-8-unix)
          body-start)
+    ;; FILE may come from a user template or a title placed in a path; a
+    ;; ".." or an absolute path must not take the note out of the library.
+    (unless (string-prefix-p
+             (file-name-as-directory (expand-file-name my/note-home))
+             (expand-file-name file))
+      (user-error "Note path %s is outside the library %s"
+                  file (abbreviate-file-name my/note-home)))
     (make-directory (file-name-directory file) t)
     (with-temp-file file
       (insert ":PROPERTIES:\n" (format ":ID:       %s\n" id))
