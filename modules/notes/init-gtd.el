@@ -54,7 +54,7 @@
 (require 'subr-x)
 (require 'org)
 (require 'org-agenda)
-(defvar my/roam-dir)     ; forward-declare from init-org
+(defvar my/inbox-dir)     ; forward-declare from init-org
 (defvar my/outputs-dir)  ; forward-declare from init-org
 (defvar my/practice-dir) ; forward-declare from init-org
 (defvar org-agenda-files)
@@ -78,7 +78,7 @@
   :type 'integer :group 'org-seq)
 
 (defun my/agenda-files (&optional force)
-  "Return the .org files under Roam/, Outputs/ and Practice/.
+  "Return the .org files under the Inbox, Outputs and Practice layers.
 The actionable layers are listed directly; Library/ and Archives/ are
 not scanned, so reference material and completed work stay out of GTD
 views.  Hidden directories and sync conflict copies are skipped.  With
@@ -100,7 +100,7 @@ non-nil FORCE (or prefix arg interactively), bypass the cache."
                    dir "\\.org\\'" nil
                    (lambda (sub)
                      (not (string-prefix-p "." (file-name-nondirectory sub))))))))
-             (list my/roam-dir my/outputs-dir my/practice-dir))
+             (list my/inbox-dir my/outputs-dir my/practice-dir))
             my/agenda-cache-timestamp now)
       (message "org-seq: agenda cache refreshed (%d files)" (length my/agenda-cache))))
   my/agenda-cache)

@@ -4,7 +4,7 @@
 ;; Requires: init-ui        (nerd-icons for file-type icons)
 ;; Requires: init-terminal  (Ghostel popup lifecycle)
 (defvar my/note-home)      ; forward-declare from init-org
-(defvar my/roam-dir)       ; forward-declare from init-org
+(defvar my/inbox-dir)       ; forward-declare from init-org
 (defvar my/outputs-dir)    ; forward-declare from init-org
 (defvar my/practice-dir)   ; forward-declare from init-org
 (defvar my/library-dir)    ; forward-declare from init-org
@@ -492,9 +492,9 @@ Called via `[mouse-1]' in `dirvish-mode-map' (see `:bind' below)."
   (setq dirvish-quick-access-entries
         `(("h" "~/"                                         "Home")
           ("n" ,my/note-home                                 "NoteHQ")
-          ("r" ,my/roam-dir                                  "Roam")
-          ("c" ,(expand-file-name "capture/" my/roam-dir)    "Captures")
-          ("d" ,(expand-file-name "daily/"   my/roam-dir)    "Daily")
+          ("r" ,my/inbox-dir                                  "Inbox")
+          ("c" ,(expand-file-name "capture/" my/inbox-dir)    "Captures")
+          ("d" ,(expand-file-name "daily/"   my/inbox-dir)    "Daily")
           ("b" ,my/dashboards-dir                            "Dashboards")
           ("o" ,my/outputs-dir                               "Outputs")
           ("p" ,my/practice-dir                              "Practice")

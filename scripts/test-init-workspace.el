@@ -21,7 +21,7 @@
         (progn
           (switch-to-buffer historical)
           (with-current-buffer historical
-            (setq buffer-file-name "C:/NoteHQ/00_Roam/daily/20200101.org"))
+            (setq buffer-file-name "C:/NoteHQ/00_Inbox/daily/20200101.org"))
           (cl-letf (((symbol-function 'my/workspace--startup-target-buffer)
                      (lambda () historical))
                     ((symbol-function 'my/workspace--main-window)

@@ -49,7 +49,8 @@
   ;; Notifications get no response.
   (should-not (my/mcp-handle '((jsonrpc . "2.0")
                                (method . "notifications/initialized"))))
-  (let* ((tools (alist-get 'tools
+  (let* ((my/mcp-access "structure")
+         (tools (alist-get 'tools
                            (alist-get 'result
                                       (my/mcp-handle
                                        '((jsonrpc . "2.0") (id . 2)
@@ -92,5 +93,41 @@
       (should (string-match-p "No node with id x"
                               (alist-get 'text
                                          (aref (alist-get 'content result) 0)))))))
+
+(ert-deftest my/mcp-access-level-limits-listing-and-calls ()
+  (let* ((names (lambda ()
+                  (mapcar (lambda (tool) (alist-get 'name tool))
+                          (alist-get 'tools
+                                     (alist-get 'result
+                                                (my/mcp-handle
+                                                 '((jsonrpc . "2.0") (id . 1)
+                                                   (method . "tools/list"))))))))
+         (call (lambda (tool)
+                 (alist-get 'result
+                            (my/mcp-handle
+                             `((jsonrpc . "2.0") (id . 2)
+                               (method . "tools/call")
+                               (params . ((name . ,tool) (arguments . nil)))))))))
+    (let ((my/mcp-access "read"))
+      (should (member "search_notes" (funcall names)))
+      (should-not (member "create_node" (funcall names)))
+      (should-not (member "set_field" (funcall names)))
+      (let ((result (funcall call "set_field")))
+        (should (alist-get 'isError result))
+        (should (string-match-p "needs access level write"
+                                (alist-get 'text (aref (alist-get 'content result) 0))))))
+    (let ((my/mcp-access "inbox"))
+      (should (member "create_node" (funcall names)))
+      (should (member "append_daily" (funcall names)))
+      (should-not (member "file_node" (funcall names))))
+    (let ((my/mcp-access "write"))
+      (should (member "file_node" (funcall names)))
+      (should-not (member "sync_library" (funcall names))))
+    (let ((my/mcp-access "structure"))
+      (should (member "sync_library" (funcall names))))
+    ;; Every tool has a declared level.
+    (dolist (tool (my/mcp-tools))
+      (should (assoc (car tool) my/mcp--tool-access)))
+    (should-error (my/mcp--level "root"))))
 
 ;;; test-orgseq-cli.el ends here

@@ -28,7 +28,7 @@
 (require 'orgseq-note)
 
 (defvar my/note-home)
-(defvar my/roam-dir)
+(defvar my/inbox-dir)
 (defvar my/library-dir)
 (defvar my/archives-dir)
 (defvar my/orgseq-dir)
@@ -52,6 +52,8 @@
 (declare-function my/node-type-formulas "init-nodes" (type))
 (declare-function my/node-type-parent "init-nodes" (type))
 (declare-function my/node-set-type "init-nodes" (type &optional replace))
+(declare-function my/node-file-into "init-nodes" (id layer &optional type folder))
+(declare-function my/node-type-dir "init-nodes" (type))
 (declare-function my/node-call-at-id "init-nodes" (id fn))
 (declare-function my/node-set-field-by-id "init-nodes" (id name value))
 (declare-function my/view--records "init-views" ())
@@ -71,10 +73,18 @@
 (declare-function my/storage-export "init-sync" (dir))
 (declare-function my/storage-snapshot "init-sync" ())
 (declare-function my/storage-info "init-sync" ())
+(declare-function my/private-info "init-private" ())
+(declare-function my/notion-import-plan "init-import" (dir &rest keys))
+(declare-function my/notion-import "init-import" (dir &rest keys))
+(declare-function my/tana-import-plan "init-import" (file &rest keys))
+(declare-function my/tana-import "init-import" (file &rest keys))
+(declare-function my/import-profile-read "init-import" (file))
 (declare-function my/storage-snapshots "init-sync" ())
 (declare-function my/storage--files "init-sync" (dir))
 (declare-function my/storage-restore "init-sync" (snapshot))
 (declare-function my/storage-restore-plan "init-sync" (snapshot))
+(declare-function my/storage-layout-plan "init-sync" (&optional dir))
+(declare-function my/storage-migrate-layout "init-sync" ())
 (declare-function my/doctor-run "init-doctor" ())
 (declare-function my/package-update-all "init-update" ())
 
@@ -214,8 +224,13 @@ from ripgrep), each limited to LIMIT entries (default 20)."
 (defalias 'my/api--slug #'my/note-slug
   "Return a file-name slug for a title; see `my/note-slug'.")
 
+(defvar my/api-inbox-only nil
+  "Non-nil makes `my/api-create' write to the Inbox whatever the type says.
+Bound by the MCP server for clients that may only add to the Inbox.")
+
 (defun my/api-create (title &optional type fields body tags template)
-  "Create a note titled TITLE in the capture directory.
+  "Create a note titled TITLE in the Inbox capture directory.
+A type with TYPE_LAYER puts the note in that layer instead.
 TYPE is a type name or tag; FIELDS an alist of (NAME . VALUE); BODY the
 Org text (default: the type's template, or its \"Template: NAME\"
 template when TEMPLATE names one); TAGS extra tags.  Return an
@@ -246,8 +261,16 @@ alist with the new node's id and file.  The file is written by
                            "%\\?" ""
                            (my/node-type-template-body type-def template) t t))
                 (t "")))
+         (dir (and type-def (not my/api-inbox-only)
+                   (my/node-type-dir type-def)))
          (note (my/note-create
                 :title title :tags all-tags :body text
+                :file (and dir
+                           (expand-file-name
+                            (format "%s-%s.org"
+                                    (format-time-string "%Y%m%dT%H%M%S")
+                                    (my/note-slug title))
+                            dir))
                 :props (mapcar
                         (lambda (name)
                           (cons name
@@ -295,6 +318,15 @@ alist with the new node's id and file.  The file is written by
           (let ((inhibit-message t))
             (my/node-set-type type-def 'replace))))
     (list (cons 'id id) (cons 'type (my/node-type-tag type-def)))))
+
+(defun my/api-file (id layer &optional type folder)
+  "File node ID into library LAYER; see `my/node-file-into'."
+  (my/api-refresh)
+  (let ((result (let ((inhibit-message t))
+                  (my/node-file-into id layer type folder))))
+    (list (cons 'id id)
+          (cons 'layer (symbol-name (plist-get result :layer)))
+          (cons 'file (my/api--relative (plist-get result :file))))))
 
 (defun my/api-query (params)
   "Run the view described by plist PARAMS and return its groups.
@@ -397,6 +429,80 @@ PARAMS takes :view (a saved view), :type, :filter (a filter form), :group,
     (list (cons 'copied count)
           (cons 'source (expand-file-name dir)))))
 
+(defun my/api-import-notion (dir confirmed &rest options)
+  "Import the extracted Notion export DIR when CONFIRMED, else describe it.
+OPTIONS are the keywords of `my/notion-import-plan' (:type :types
+:layer :folder :private :map :routes).  Page titles are not part of the
+result, so a plan that fills the private zone can be shown anywhere."
+  (my/api-refresh)
+  (let* ((inhibit-message t)
+         (plan (apply #'my/notion-import-plan dir options))
+         (summary
+          (list (cons 'source (plist-get plan :source))
+                (cons 'targets (vconcat (plist-get plan :targets)))
+                (cons 'new (plist-get plan :new))
+                (cons 'new_private (plist-get plan :new-private))
+                (cons 'existing (plist-get plan :existing))
+                (cons 'left_out (plist-get plan :left-out))
+                (cons 'databases
+                      (vconcat
+                       (mapcar
+                        (lambda (database)
+                          (list (cons 'name (plist-get database :name))
+                                (cons 'pages (plist-get database :pages))
+                                (cons 'type (or (plist-get database :type) ""))
+                                (cons 'properties
+                                      (vconcat (plist-get database :properties)))
+                                (cons 'not_in_type
+                                      (vconcat (plist-get database :unmapped)))))
+                        (plist-get plan :databases)))))))
+    (if (or (not confirmed) (zerop (plist-get plan :new)))
+        (cons (cons 'imported nil) summary)
+      (let ((result (apply #'my/notion-import dir options)))
+        (my/api-refresh)
+        (append (list (cons 'imported t)
+                      (cons 'created (plist-get result :created))
+                      (cons 'private (plist-get result :private))
+                      (cons 'assets (plist-get result :assets))
+                      (cons 'unresolved_links (plist-get result :unresolved))
+                      (cons 'withheld_links (plist-get result :withheld))
+                      (cons 'snapshot (or (plist-get result :snapshot) "")))
+                summary)))))
+
+(defun my/api-import-tana (file confirmed &rest options)
+  "Import the Tana JSON export FILE when CONFIRMED, else describe it.
+OPTIONS are the keywords of `my/tana-import-plan' (:types :map :routes).
+Titles are not part of the result."
+  (my/api-refresh)
+  (let* ((inhibit-message t)
+         (plan (apply #'my/tana-import-plan file options))
+         (summary
+          (list (cons 'source (plist-get plan :source))
+                (cons 'targets (vconcat (plist-get plan :targets)))
+                (cons 'new (plist-get plan :new))
+                (cons 'new_private (plist-get plan :new-private))
+                (cons 'days (plist-get plan :daily))
+                (cons 'existing (plist-get plan :existing))
+                (cons 'left_out (plist-get plan :left-out))
+                (cons 'tags
+                      (vconcat
+                       (mapcar (lambda (tag)
+                                 (list (cons 'name (plist-get tag :name))
+                                       (cons 'count (plist-get tag :count))
+                                       (cons 'type (or (plist-get tag :type) ""))))
+                               (plist-get plan :tags)))))))
+    (if (or (not confirmed) (zerop (plist-get plan :new)))
+        (cons (cons 'imported nil) summary)
+      (let ((result (apply #'my/tana-import file options)))
+        (my/api-refresh)
+        (append (list (cons 'imported t)
+                      (cons 'created (plist-get result :created))
+                      (cons 'days_written (plist-get result :daily))
+                      (cons 'private (plist-get result :private))
+                      (cons 'withheld_links (plist-get result :withheld))
+                      (cons 'snapshot (or (plist-get result :snapshot) "")))
+                summary)))))
+
 (defun my/api-export (dir)
   "Copy the library into a new dated folder inside DIR; return its path."
   (let ((inhibit-message t))
@@ -454,6 +560,26 @@ The result lists the files that would be (or were) written and deleted."
               (cons 'snapshot (plist-get result :snapshot))
               (cons 'undo_snapshot (or (plist-get result :undo-snapshot) "")))))))
 
+(defun my/api-migrate (confirmed)
+  "Move the library to the current layout when CONFIRMED, else describe it.
+See `my/storage-migrate-layout'."
+  (let ((inhibit-message t)
+        (plan (my/storage-layout-plan)))
+    (if (or (not confirmed) (null plan))
+        (list (cons 'migrated nil)
+              (cons 'would_move (length plan))
+              (cons 'moves (vconcat
+                            (mapcar (lambda (move)
+                                      (list (cons 'from (car move))
+                                            (cons 'to (cdr move))))
+                                    plan))))
+      (let ((result (my/storage-migrate-layout)))
+        (my/api-refresh)
+        (list (cons 'migrated t)
+              (cons 'moved (plist-get result :moved))
+              (cons 'skipped (plist-get result :skipped))
+              (cons 'snapshot (plist-get result :snapshot)))))))
+
 (defun my/api-info ()
   "Return where the library lives, how it syncs and how it is protected."
   (let ((storage (my/storage-info)))
@@ -468,6 +594,12 @@ The result lists the files that would be (or were) written and deleted."
           (cons 'snapshots (plist-get storage :snapshots))
           (cons 'last_snapshot (or (plist-get storage :last-snapshot) ""))
           (cons 'legacy_library (or (plist-get storage :legacy) ""))
+          (cons 'private_dir (if (fboundp 'my/private-info)
+                                 (plist-get (my/private-info) :dir)
+                               ""))
+          (cons 'private_files (if (fboundp 'my/private-info)
+                                   (plist-get (my/private-info) :files)
+                                 0))
           (cons 'failed_modules
                 (vconcat (mapcar (lambda (entry) (symbol-name (car entry)))
                                  my/--init-errors))))))
@@ -488,6 +620,9 @@ Notes
   show ID                print a node with its fields, links and text
   set ID FIELD VALUE     set a field on a node (empty VALUE clears it)
   retype ID TYPE         make a node an instance of TYPE
+  file ID LAYER [--type T] [--folder F]
+                         move a node out of the Inbox into a layer: project,
+                         area, resource, archive or ai (keeps its id)
   append ID TEXT         append Org text to a node
 
 Structure
@@ -499,12 +634,40 @@ Structure
 
 Maintenance
   import DIR             copy notes in from a folder (never overwrites)
+  import-notion DIR [--type T] [--db-type DATABASE=T]... [--layer L]
+        [--folder F] [--map NAME=FIELD]... [--private] --yes
+                         turn an extracted Notion export (Markdown & CSV)
+                         into notes; pages imported before are skipped.
+                         --type applies an existing type to every page,
+                         --db-type to the rows of one database, --map
+                         renames a Notion property to a field, --private
+                         writes to the private zone (not indexed, not
+                         synced); without --yes only shows what would
+                         happen
+        [--route PREFIX=DEST]... [--profile FILE]
+                         --route sends the pages below a path of the
+                         export (by titles) to DEST: a layer (inbox,
+                         project, area, resource, archive, ai) or
+                         private, then folders, or skip; the folders
+                         below the path are kept.  --profile reads
+                         \"route A = B\", \"type DATABASE = T\" and
+                         \"map NAME = FIELD\" lines from a file
+  import-tana FILE [--db-type SUPERTAG=T]... [--map NAME=FIELD]...
+        [--route PREFIX=DEST]... [--profile FILE] --yes
+                         turn a Tana JSON export into notes: days go to
+                         Daily files, nodes with a supertag become notes
+                         with their fields as properties.  Route paths
+                         are tag/SUPERTAG and page/TITLE
   export DIR             copy the library into a new dated folder in DIR
   snapshot               take a local snapshot of the library now
   snapshots              list the snapshots, newest first
   restore NAME --yes     return the library to snapshot NAME (a snapshot of
                          the current library is taken first; without --yes
                          only shows what would happen)
+  migrate --yes          rename an old library layout (00_Roam/ becomes
+                         00_Inbox/, AI context files move to 50_AI/; a
+                         snapshot is taken first; without --yes only shows
+                         what would move)
   sync [--preview]       sync the library with the configured remote
   doctor                 self-check; exits 1 when a required check fails
   update                 upgrade installed packages (snapshot first)
@@ -515,7 +678,10 @@ Maintenance
                          update this installation from its source checkout or
                          remote (Linux/macOS only; --check exits 10 when an
                          upgrade is available)
-  mcp                    serve the Model Context Protocol on stdin/stdout
+  mcp [--access LEVEL]   serve the Model Context Protocol on stdin/stdout.
+                         LEVEL limits the client: read, inbox (also add to
+                         the Inbox), write (default; also change and file
+                         nodes), structure (also sync)
 
 Add --json to any command for machine-readable output."
   "Help text of the command line.")
@@ -613,7 +779,11 @@ SPEC is an alist of (\"--name\" . KIND), KIND one of `flag', `value' or
                 (my/cli--options
                  args '(("--json" . flag) ("--preview" . flag) ("--yes" . flag)
                         ("--type" . value) ("--body" . value)
-                        ("--template" . value)
+                        ("--template" . value) ("--folder" . value)
+                        ("--access" . value) ("--layer" . value)
+                        ("--private" . flag) ("--map" . multi)
+                        ("--db-type" . multi) ("--route" . multi)
+                        ("--profile" . value)
                         ("--limit" . value) ("--view" . value)
                         ("--filter" . value) ("--group" . value)
                         ("--columns" . value) ("--sort" . value)
@@ -689,6 +859,14 @@ SPEC is an alist of (\"--name\" . KIND), KIND one of `flag', `value' or
        (funcall emit (my/api-set-type (car rest) (cadr rest))
                 (lambda (value)
                   (my/cli--print (format "Type: %s" (alist-get 'type value))))))
+      ("file"
+       (unless (= (length rest) 2)
+         (user-error "Usage: orgseq file ID LAYER [--type TYPE] [--folder FOLDER]"))
+       (funcall emit (my/api-file (car rest) (cadr rest)
+                                  (cdr (assoc "--type" options))
+                                  (cdr (assoc "--folder" options)))
+                (lambda (value)
+                  (my/cli--print (format "Filed into %s" (alist-get 'file value))))))
       ("append"
        (unless (>= (length rest) 2) (user-error "Usage: orgseq append ID TEXT"))
        (funcall emit
@@ -739,6 +917,93 @@ SPEC is an alist of (\"--name\" . KIND), KIND one of `flag', `value' or
                   (my/cli--print (format "Copied %d files from %s"
                                          (alist-get 'copied value)
                                          (alist-get 'source value))))))
+      ((or "import-notion" "import-tana")
+       (unless (= (length rest) 1)
+         (user-error "Usage: orgseq %s %s [--profile FILE] [--route PREFIX=DEST]... [--yes]"
+                     command (if (equal command "import-tana") "FILE" "DIR")))
+       (let* ((yes (cdr (assoc "--yes" options)))
+              (tana (equal command "import-tana"))
+              (profile (and (cdr (assoc "--profile" options))
+                            (my/import-profile-read
+                             (cdr (assoc "--profile" options)))))
+              (pairs (lambda (option what key)
+                       (append
+                        (mapcar
+                         (lambda (pair)
+                           (unless (string-match "\\`\\([^=]+\\)=\\(.+\\)\\'" pair)
+                             (user-error "%s expects %s, got %s" option what pair))
+                           (cons (match-string 1 pair) (match-string 2 pair)))
+                         (cdr (assoc option options)))
+                        (plist-get profile key))))
+              (types (funcall pairs "--db-type" "NAME=TYPE" :types))
+              (map (funcall pairs "--map" "NAME=FIELD" :map))
+              (routes (funcall pairs "--route" "PREFIX=DEST" :routes))
+              (value
+               (if tana
+                   (my/api-import-tana (car rest) yes
+                                       :types types :map map :routes routes)
+                 (my/api-import-notion
+                  (car rest) yes
+                  :type (cdr (assoc "--type" options))
+                  :types types
+                  :layer (cdr (assoc "--layer" options))
+                  :folder (cdr (assoc "--folder" options))
+                  :private (cdr (assoc "--private" options))
+                  :lenient (and profile t)
+                  :map map :routes routes)))
+              (what (if tana "items" "pages"))
+              (places (lambda (v)
+                        (mapconcat #'identity (alist-get 'targets v) ", "))))
+         (funcall
+          emit value
+          (lambda (v)
+            (seq-doseq (database (alist-get 'databases v))
+              (my/cli--print
+               (format "  database %s%s: %d pages; properties: %s%s"
+                       (alist-get 'name database)
+                       (if (string-empty-p (alist-get 'type database)) ""
+                         (format " as %s" (alist-get 'type database)))
+                       (alist-get 'pages database)
+                       (mapconcat #'identity
+                                  (alist-get 'properties database) ", ")
+                       (if (zerop (length (alist-get 'not_in_type database)))
+                           ""
+                         (format "; not fields of the type: %s"
+                                 (mapconcat #'identity
+                                            (alist-get 'not_in_type database)
+                                            ", "))))))
+            (seq-doseq (tag (alist-get 'tags v))
+              (my/cli--print
+               (format "  supertag %s%s: %d nodes"
+                       (alist-get 'name tag)
+                       (if (string-empty-p (alist-get 'type tag)) ""
+                         (format " as %s" (alist-get 'type tag)))
+                       (alist-get 'count tag))))
+            (cond
+             ((eq (alist-get 'imported v) t)
+              (my/cli--print
+               (if tana
+                   (format "Imported %d notes and %d days into %s (%d notes in the private zone); skipped %d imported before; %d references into the private zone withheld"
+                           (alist-get 'created v) (alist-get 'days_written v)
+                           (funcall places v) (alist-get 'private v)
+                           (alist-get 'existing v) (alist-get 'withheld_links v))
+                 (format "Imported %d pages and %d attachments into %s (%d pages in the private zone); skipped %d imported before; %d links point outside the export; %d links into the private zone withheld"
+                         (alist-get 'created v) (alist-get 'assets v)
+                         (funcall places v) (alist-get 'private v)
+                         (alist-get 'existing v)
+                         (alist-get 'unresolved_links v)
+                         (alist-get 'withheld_links v)))))
+             ((zerop (alist-get 'new v))
+              (my/cli--print
+               (format "Nothing to import; %d %s were imported before"
+                       (alist-get 'existing v) what)))
+             (t
+              (my/cli--print
+               (format "Would import %d %s into %s (%d of them into the private zone; %d left out by a route; %d imported before); nothing changed, add --yes to import"
+                       (alist-get 'new v) what (funcall places v)
+                       (alist-get 'new_private v) (alist-get 'left_out v)
+                       (alist-get 'existing v)))))))
+         (if (or yes (zerop (alist-get 'new value))) 0 1)))
       ("export"
        (unless (= (length rest) 1) (user-error "Usage: orgseq export DIR"))
        (funcall emit (my/api-export (car rest))
@@ -790,6 +1055,27 @@ SPEC is an alist of (\"--name\" . KIND), KIND one of `flag', `value' or
                         (my/cli--print (format "  delete %s" rel)))
                       (my/cli--print "Nothing changed; add --yes to restore"))))
          (if yes 0 1)))
+      ("migrate"
+       (let* ((yes (cdr (assoc "--yes" options)))
+              (value (my/api-migrate yes)))
+         (funcall emit value
+                  (lambda (v)
+                    (cond
+                     ((eq (alist-get 'migrated v) t)
+                      (my/cli--print
+                       (format "Moved %d files, left %d in place; the state before is snapshot %s"
+                               (alist-get 'moved v) (alist-get 'skipped v)
+                               (file-name-nondirectory (alist-get 'snapshot v)))))
+                     ((zerop (alist-get 'would_move v))
+                      (my/cli--print "The library already has the current layout"))
+                     (t
+                      (seq-doseq (move (alist-get 'moves v))
+                        (my/cli--print (format "  %s -> %s" (alist-get 'from move)
+                                               (alist-get 'to move))))
+                      (my/cli--print
+                       (format "Would move %d files; nothing changed, add --yes to migrate"
+                               (alist-get 'would_move v)))))))
+         (if (or yes (zerop (alist-get 'would_move value))) 0 1)))
       ("sync"
        (let ((value (my/api-sync (cdr (assoc "--preview" options)))))
          (funcall emit value
@@ -838,11 +1124,23 @@ SPEC is an alist of (\"--name\" . KIND), KIND one of `flag', `value' or
                            (if (string-empty-p (alist-get 'last_snapshot value)) ""
                              (format ", newest %s"
                                      (alist-get 'last_snapshot value)))))
+                  (unless (string-empty-p (alist-get 'private_dir value))
+                    (my/cli--print
+                     (format "private: %s (%d files; not indexed, not synced)"
+                             (alist-get 'private_dir value)
+                             (alist-get 'private_files value))))
                   (unless (string-empty-p (alist-get 'legacy_library value))
                     (my/cli--print
                      (format "old library not imported: %s (orgseq import DIR)"
                              (alist-get 'legacy_library value)))))))
-      ("mcp" (my/mcp-serve) 0)
+      ("mcp"
+       (let ((level (or (cdr (assoc "--access" options))
+                        (let ((env (getenv "ORG_SEQ_MCP_ACCESS")))
+                          (and env (not (string-empty-p env)) env)))))
+         (when level
+           (my/mcp--level level)
+           (setq my/mcp-access level)))
+       (my/mcp-serve) 0)
       (_ (user-error "Unknown command %s; run `orgseq help'" command)))))
 
 (defun my/cli-main ()
@@ -892,7 +1190,7 @@ PROPERTIES is a list of (NAME TYPE DESCRIPTION)."
   (alist-get (intern name) arguments))
 
 (defconst my/mcp--filter-help
-  "Filter form, an s-expression: (type \"reading\"), (tag \"x\"), (todo \"NEXT\"), (field \"YEAR\" > 2020) with ops = != < > <= >= contains has, (field \"STATUS\" \"read\"), (field \"TOPIC\" empty|set), (modified-within 7), (created-within 7), (links-to \"ID\"), (linked-from \"ID\"), (under \"ID\"), (title \"str\"), (text \"str\"), combined with (and ...), (or ...), (not ...)."
+  "Filter form, an s-expression: (type \"reading\"), (tag \"x\"), (todo \"NEXT\"), (field \"YEAR\" > 2020) with ops = != < > <= >= contains has, (field \"STATUS\" \"read\"), (field \"TOPIC\" empty|set), (modified-within 7), (created-within 7), (links-to \"ID\"), (linked-from \"ID\"), (under \"ID\"), (title \"str\"), (text \"str\"), (layer inbox|project|area|resource|archive|ai) (the archive layer is left out unless a layer is named), combined with (and ...), (or ...), (not ...)."
   "Filter syntax summary included in tool descriptions.")
 
 (defun my/mcp-tools ()
@@ -949,6 +1247,15 @@ PROPERTIES is a list of (NAME TYPE DESCRIPTION)."
                            ("type" "string" "Type name or tag"))
                          '("id" "type"))
          (lambda (a) (my/api-set-type (my/mcp--arg a "id") (my/mcp--arg a "type"))))
+   (list "file_node"
+         "Move a node out of the Inbox (staging) into a library layer once it is worth keeping.  The id stays the same.  A heading becomes a file of its own and a link is left in its place."
+         (my/mcp--schema '(("id" "string" "Node id")
+                           ("layer" "string" "project, area, resource, archive or ai")
+                           ("type" "string" "Optional type name or tag to apply")
+                           ("folder" "string" "Optional folder inside the layer, such as a project name"))
+                         '("id" "layer"))
+         (lambda (a) (my/api-file (my/mcp--arg a "id") (my/mcp--arg a "layer")
+                                  (my/mcp--arg a "type") (my/mcp--arg a "folder"))))
    (list "list_types"
          "List node types (supertags) with their fields, field kinds and allowed values."
          (my/mcp--schema nil)
@@ -993,6 +1300,40 @@ PROPERTIES is a list of (NAME TYPE DESCRIPTION)."
          (my/mcp--schema nil)
          (lambda (_a) (my/api-doctor)))))
 
+(defconst my/mcp-access-levels '("read" "inbox" "write" "structure")
+  "Access levels of an MCP client, each including the ones before it.
+read: search and read.  inbox: also add notes to the Inbox and append
+to today's Daily.  write: also change, retype and file existing nodes
+and create notes in any layer.  structure: also run library-wide
+operations such as sync.")
+
+(defvar my/mcp-access "write"
+  "Access level of the MCP server being served; see `my/mcp-access-levels'.
+Set by `orgseq mcp --access LEVEL' or ORG_SEQ_MCP_ACCESS.")
+
+(defconst my/mcp--tool-access
+  '(("search_notes" . "read") ("get_node" . "read") ("list_types" . "read")
+    ("list_views" . "read") ("query_nodes" . "read") ("library_info" . "read")
+    ("doctor" . "read")
+    ("create_node" . "inbox") ("append_daily" . "inbox")
+    ("append_to_node" . "write") ("set_field" . "write") ("set_type" . "write")
+    ("file_node" . "write")
+    ("sync_library" . "structure"))
+  "Lowest access level that may call each MCP tool.
+A tool missing from this list needs the highest level.")
+
+(defun my/mcp--level (name)
+  "Return the rank of access level NAME, or signal a user error."
+  (or (cl-position name my/mcp-access-levels :test #'equal)
+      (user-error "Unknown access level %s (one of: %s)" name
+                  (string-join my/mcp-access-levels ", "))))
+
+(defun my/mcp--allowed-p (tool-name)
+  "Return non-nil when the current access level may call TOOL-NAME."
+  (>= (my/mcp--level my/mcp-access)
+      (my/mcp--level (or (cdr (assoc tool-name my/mcp--tool-access))
+                         "structure"))))
+
 (defun my/mcp--tool-result (value &optional is-error)
   "Wrap VALUE as an MCP tool result; IS-ERROR marks a failed call."
   (list (cons 'content
@@ -1036,18 +1377,33 @@ Return nil for notifications, which get no response."
                                       (list (cons 'name (nth 0 tool))
                                             (cons 'description (nth 1 tool))
                                             (cons 'inputSchema (nth 2 tool))))
-                                    (my/mcp-tools)))))))
+                                    (cl-remove-if-not
+                                     (lambda (tool)
+                                       (my/mcp--allowed-p (car tool)))
+                                     (my/mcp-tools))))))))
      ((equal method "tools/call")
       (let ((tool (assoc (alist-get 'name params) (my/mcp-tools))))
-        (if (null tool)
-            (funcall fail -32602
-                     (format "Unknown tool: %s" (alist-get 'name params)))
+        (cond
+         ((null tool)
+          (funcall fail -32602
+                   (format "Unknown tool: %s" (alist-get 'name params))))
+         ((not (my/mcp--allowed-p (car tool)))
+          (funcall reply
+                   (my/mcp--tool-result
+                    (format "Tool %s needs access level %s; this server runs with %s"
+                            (car tool)
+                            (or (cdr (assoc (car tool) my/mcp--tool-access))
+                                "structure")
+                            my/mcp-access)
+                    t)))
+         (t
           (funcall reply
                    (condition-case err
                        (my/mcp--tool-result
-                        (funcall (nth 3 tool) (alist-get 'arguments params)))
+                        (let ((my/api-inbox-only (equal my/mcp-access "inbox")))
+                          (funcall (nth 3 tool) (alist-get 'arguments params))))
                      (error
-                      (my/mcp--tool-result (error-message-string err) t)))))))
+                      (my/mcp--tool-result (error-message-string err) t))))))))
      (t (funcall fail -32601 (format "Method not found: %s" method))))))
 
 (defun my/mcp--read-line ()

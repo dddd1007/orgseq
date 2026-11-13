@@ -49,7 +49,7 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 
 整个系统围绕三条简单原则：
 
-1. **笔记用 `.org` 格式存在 `~/.emacs.d/notes/00_Roam/` 下**——不是数据库，不是云端，而是人眼可读的纯文本文件。二十年后你的 Emacs 没了，这些 `.org` 文件依然能被任何文本编辑器打开。
+1. **笔记用 `.org` 格式存在 `~/.emacs.d/notes/00_Inbox/` 下**——不是数据库，不是云端，而是人眼可读的纯文本文件。二十年后你的 Emacs 没了，这些 `.org` 文件依然能被任何文本编辑器打开。
 2. **任务就写在笔记里**，用 `TODO` / `NEXT` / `DONE` 等状态词标记。不存在"任务系统"和"笔记系统"的分离——一件待办总有它的上下文，而最好的上下文就是写下它时的那段话。
 3. **键盘和鼠标是平级的一等输入**。键盘侧的核心入口是空格键 `SPC`：按下 SPC 等半秒钟会弹出 which-key 菜单告诉你下一步可以按什么。鼠标侧则由 `init-mouse.el` 保证同等能力：右键在笔记/agenda/Daily 侧栏/GTD 仪表盘上弹出针对当前对象的操作菜单，TODO 关键字、复选框、时间戳可以直接点击，菜单栏的 NoteHQ 菜单收纳了核心工作流，文件可以拖进笔记、拖出 dired。日常闭环用哪种输入都能独立完成。
 
@@ -57,7 +57,7 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
 
 ```
 ~/.emacs.d/notes/                  ← 笔记总目录
-├── 00_Roam/                       ← 原子笔记层（节点索引范围）
+├── 00_Inbox/                       ← 原子笔记层（节点索引范围）
 │   ├── daily/                     ← 每日笔记（思维流 + 任务录入）
 │   ├── capture/                   ← 所有捕获的笔记（扁平，时间戳前缀）
 │   ├── dashboards/                ← 查询入口文件（只放查询，不放数据）
@@ -72,9 +72,9 @@ org-seq 是一套 Emacs 配置，它把 Emacs 这个三十多岁的老牌编辑�
     └── capture-templates.el       ← 用户自定义捕获模板
 ```
 
-目录前面的数字前缀（00/10/20/30/40）不是强迫症,它有一个具体的作用:让 dirvish 侧边栏按字母序排列时,**这些层级按"工作优先级"顺序显示**,而不是按英文字母。每天最常打开的 `00_Roam/` 永远在最上面,几乎不会动的 `40_Archives/` 沉到最下面。10 步的间隔给以后插入新层级留了余地(比如你哪天想加一个 `15_Inbox/` 就不用重新编号所有后面的层)。
+目录前面的数字前缀（00/10/20/30/40）不是强迫症,它有一个具体的作用:让 dirvish 侧边栏按字母序排列时,**这些层级按"工作优先级"顺序显示**,而不是按英文字母。每天最常打开的 `00_Inbox/` 永远在最上面,几乎不会动的 `40_Archives/` 沉到最下面。10 步的间隔给以后插入新层级留了余地(比如你哪天想加一个 `15_Inbox/` 就不用重新编号所有后面的层)。
 
-**核心设计**:`00_Roam/` 内部是扁平的——分类靠标签和节点类型,不靠目录。PARA 四层存放产出物和素材。两层通过 `id:` 链接和 transclusion 通信。
+**核心设计**:`00_Inbox/` 内部是扁平的——分类靠标签和节点类型,不靠目录。PARA 四层存放产出物和素材。两层通过 `id:` 链接和 transclusion 通信。
 
 ---
 
@@ -597,7 +597,7 @@ SPC n c        → 新建笔记（弹出模板选择）
 | `t c` | Concept | 概念笔记（Definition / Related），带 STAGE、SOURCE 字段 |
 | `t p` | Person | 人物笔记（Context），带 ROLE、AFFILIATION 字段 |
 
-`t` 组下的模板由 `~/.emacs.d/notes/.orgseq/types.org` 自动生成，上表是起始文件中的三个示例类型（见 8.8）。每条笔记自动获得一个唯一 ID，存储在 `~/.emacs.d/notes/00_Roam/capture/` 下。
+`t` 组下的模板由 `~/.emacs.d/notes/.orgseq/types.org` 自动生成，上表是起始文件中的三个示例类型（见 8.8）。每条笔记自动获得一个唯一 ID，存储在 `~/.emacs.d/notes/00_Inbox/capture/` 下。
 
 **添加更多模板**：需要固定字段和表格视图的笔记（如咨询记录、学生信息）在 `types.org` 中定义类型；只需要正文骨架的笔记用自由模板：
 
@@ -703,7 +703,7 @@ Daily capture 有三种模板：
 - `NAME_ALL`：字段 `NAME` 的可选值
 - 标题正文：该类型的 capture 模板，`%?` 是光标位置
 
-文件不存在时自动创建，带 Reading、Concept、Person 三个示例。`SPC # T` 打开它，保存后立即生效。它放在 `.orgseq/` 而不是 `00_Roam/`，所以模板里的 TODO 不会出现在 GTD 视图中。
+文件不存在时自动创建，带 Reading、Concept、Person 三个示例。`SPC # T` 打开它，保存后立即生效。它放在 `.orgseq/` 而不是 `00_Inbox/`，所以模板里的 TODO 不会出现在 GTD 视图中。
 
 **给笔记加类型和填字段**：
 
@@ -976,8 +976,8 @@ SPC a +        → 添加上下文文件（让 AI 参考更多内容）
 
 任何和 AI 频繁打交道的人都体会过这种疲劳：每次开新对话都要重新交代一遍自己是谁、研究什么、笔记体系如何组织。org-seq 用一个简单的机制解决了这个问题——它会自动把两个文件的内容注入到每次 AI 对话的系统提示中，让 AI **始终知道**你在做什么。
 
-- `~/.emacs.d/notes/00_Roam/purpose.org` 描述你的知识库目标和研究方向。例如"我是研究认知科学的博士生，当前关注元认知与学习迁移"。
-- `~/.emacs.d/notes/00_Roam/schema.org` 描述你的笔记类型约定和 tag 体系。例如"reading tag 记录文献，field 有 authors / year / topic"。
+- `~/.emacs.d/notes/00_Inbox/purpose.org` 描述你的知识库目标和研究方向。例如"我是研究认知科学的博士生，当前关注元认知与学习迁移"。
+- `~/.emacs.d/notes/00_Inbox/schema.org` 描述你的笔记类型约定和 tag 体系。例如"reading tag 记录文献，field 有 authors / year / topic"。
 
 首次使用时按 `SPC a i` 会在 Roam 目录下创建这两个文件的骨架，你填入自己的内容即可。以后每次 `SPC a s` / `SPC a k` / `SPC a a` 的调用都会自动带上这段背景，不需要你重复输入。编辑完保存，下次调用自动生效——没有重启步骤，没有缓存刷新。
 
@@ -1472,7 +1472,7 @@ M-x customize-group RET org-seq RET
 | 变量 | 含义 | 默认值 |
 |------|------|--------|
 | `my/note-home` | 笔记总目录 | `ORG_SEQ_NOTE_HOME`，未设置时为 `~/.emacs.d/notes/` |
-| `my/roam-dir` | 原子笔记层（AI context 指向此处） | `~/.emacs.d/notes/00_Roam/` |
+| `my/inbox-dir` | 原子笔记层（AI context 指向此处） | `~/.emacs.d/notes/00_Inbox/` |
 | `my/orgseq-dir` | 个性化配置目录（.orgseq/） | `~/.emacs.d/notes/.orgseq/` |
 | `my/types-file` | 节点类型定义文件 | `~/.emacs.d/notes/.orgseq/types.org` |
 | `my/node-review-days` | `SPC # r` 列出最近多少天的笔记 | `14` |

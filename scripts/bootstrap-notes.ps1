@@ -92,7 +92,8 @@ function Archive-LegacyClaudeScaffold {
 
 # --- Migrate old layout to numeric-prefixed layout (idempotent) ---
 # Old layout (pre-numbering): Roam / Outputs / Practice / Library / Archives
-# New layout: 00_Roam / 10_Outputs / 20_Practice / 30_Library / 40_Archives
+# New layout: 00_Inbox / 10_Outputs / 20_Practice / 30_Library / 40_Archives / 50_AI
+# (the Inbox layer was called 00_Roam before org-seq 0.2.0)
 function Migrate-Layer {
     param([string]$Old, [string]$New)
     $oldPath = Join-Path $NoteHome $Old
@@ -102,7 +103,8 @@ function Migrate-Layer {
         Write-Host "  [migrated] $Old -> $New"
     }
 }
-Migrate-Layer "Roam"     "00_Roam"
+Migrate-Layer "Roam"     "00_Inbox"
+Migrate-Layer "00_Roam"  "00_Inbox"
 Migrate-Layer "Outputs"  "10_Outputs"
 Migrate-Layer "Practice" "20_Practice"
 Migrate-Layer "Library"  "30_Library"
@@ -110,9 +112,9 @@ Migrate-Layer "Archives" "40_Archives"
 
 # --- Create directory tree (idempotent) ---
 $dirs = @(
-    "$NoteHome\00_Roam\daily"
-    "$NoteHome\00_Roam\capture"
-    "$NoteHome\00_Roam\dashboards"
+    "$NoteHome\00_Inbox\daily"
+    "$NoteHome\00_Inbox\capture"
+    "$NoteHome\00_Inbox\dashboards"
     "$NoteHome\10_Outputs\_template"
     "$NoteHome\20_Practice\_template"
     "$NoteHome\30_Library\bibliography"
@@ -121,6 +123,7 @@ $dirs = @(
     "$NoteHome\30_Library\references"
     "$NoteHome\30_Library\pdfs"
     "$NoteHome\40_Archives"
+    "$NoteHome\50_AI"
     "$NoteHome\.orgseq"
 )
 
@@ -132,21 +135,21 @@ foreach ($d in $dirs) {
 Write-Host ""
 
 # --- Flatten legacy Roam subdirectories (lit/, concepts/) ---
-# (Works against the post-migration 00_Roam name; if the old Roam
+# (Works against the post-migration 00_Inbox name; if the old Roam
 # layout hasn't been migrated yet the Migrate-Layer block above has
 # already renamed it.)
 $legacyDirs = @("lit", "concepts")
 
 foreach ($sub in $legacyDirs) {
-    $src = Join-Path $NoteHome "00_Roam\$sub"
+    $src = Join-Path $NoteHome "00_Inbox\$sub"
     if (Test-Path $src -PathType Container) {
         $orgFiles = Get-ChildItem -Path $src -Filter "*.org" -File
         if ($orgFiles.Count -gt 0) {
-            Write-Host "  Flattening $src\ -> 00_Roam\ ..."
+            Write-Host "  Flattening $src\ -> 00_Inbox\ ..."
             foreach ($f in $orgFiles) {
-                $dest = Join-Path $NoteHome "00_Roam\$($f.Name)"
+                $dest = Join-Path $NoteHome "00_Inbox\$($f.Name)"
                 if (Test-Path $dest) {
-                    Write-Host "    [skip] $($f.Name) (already exists in 00_Roam\)"
+                    Write-Host "    [skip] $($f.Name) (already exists in 00_Inbox\)"
                 } else {
                     Move-Item -Path $f.FullName -Destination $dest
                     Write-Host "    [moved] $($f.Name)"

@@ -1,10 +1,11 @@
 ;;; init-ai.el --- AI integration via gptel -*- lexical-binding: t; -*-
 
-;; Requires: init-org (my/orgseq-dir, my/roam-dir)
+;; Requires: init-org (my/orgseq-dir, my/inbox-dir, my/ai-dir)
 ;; Requires: init-packages (Git package bootstrap and source metadata)
 ;; Requires: init-popup (my/popup-display-buffer)
 (defvar my/orgseq-dir)  ; forward-declare from init-org
-(defvar my/roam-dir)    ; forward-declare from init-org
+(defvar my/inbox-dir)    ; forward-declare from init-org
+(defvar my/ai-dir)
 
 (declare-function my/index-records "orgseq-index" ())
 (declare-function my/popup-display-buffer "init-popup" (buffer &optional overrides))
@@ -206,18 +207,26 @@ returns nil so the caller can fall back to hardcoded defaults."
 ;; Inspired by llm_wiki's purpose.md + schema.md pattern:
 ;; purpose.org defines your knowledge base goals and research scope.
 ;; schema.org defines note types, tag conventions, and linking rules.
+;; They live in the AI System layer (`my/ai-dir'); a library that still
+;; keeps them in the Inbox layer is read from there until it is migrated.
 ;; Both are auto-injected into gptel's system prompt so every AI interaction
 ;; understands your PKM context without manual repetition.
 
-(defcustom my/ai-purpose-file
-  (expand-file-name "purpose.org" my/roam-dir)
+(defun my/ai--context-file (name)
+  "Return the path of AI context file NAME.
+The file belongs in `my/ai-dir'.  When it is absent there and present
+in the Inbox layer (a library from before 0.2.0), return that path."
+  (let ((new (expand-file-name name my/ai-dir))
+        (old (expand-file-name name my/inbox-dir)))
+    (if (and (not (file-exists-p new)) (file-exists-p old)) old new)))
+
+(defcustom my/ai-purpose-file (my/ai--context-file "purpose.org")
   "Path to the purpose.org file defining knowledge base goals and scope.
 Auto-injected into gptel system prompts.  Edit to define your research
 interests, key questions, and knowledge domains."
   :type 'file :group 'org-seq)
 
-(defcustom my/ai-schema-file
-  (expand-file-name "schema.org" my/roam-dir)
+(defcustom my/ai-schema-file (my/ai--context-file "schema.org")
   "Path to the schema.org file defining note structure rules.
 Auto-injected into gptel system prompts.  Edit to define your note
 types, tag conventions, and linking rules."
@@ -367,7 +376,11 @@ when working with notes.")
   :group 'org-seq)
 
 (defun my/ai--get-text ()
-  "Return the active region or a confirmed full-buffer selection as text."
+  "Return the active region or a confirmed full-buffer selection as text.
+A buffer in the private zone is refused, region or not."
+  (when (and buffer-file-name (fboundp 'my/private-file-p)
+             (my/private-file-p buffer-file-name))
+    (user-error "This note is in the private zone; it is not sent to AI"))
   (if (use-region-p)
       (buffer-substring-no-properties (region-beginning) (region-end))
     (when (and my/ai-confirm-full-buffer-send
@@ -502,7 +515,7 @@ and discover unexpected connections.")
       :callback
       (lambda (response info)
         (if response
-            (let ((overview-file (expand-file-name "overview.org" my/roam-dir)))
+            (let ((overview-file (my/ai--context-file "overview.org")))
               (with-current-buffer (find-file overview-file)
                 (erase-buffer)
                 (insert (format

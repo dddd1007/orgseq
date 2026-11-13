@@ -738,7 +738,15 @@ Read from the CREATED property, else from a timestamp-style ID."
 ;;   (linked-from ID|current)      that node links to it
 ;;   (under ID|current)            is below that node in its file
 ;;   (title "str") (text "str")    title contains / file text contains
+;;   (layer inbox) (layer project area)   is in one of these library
+;;                                 layers: inbox project area resource
+;;                                 archive ai
+;;   (folder "20_Practice/courses")  its file is in that folder of the
+;;                                 library, at any depth
 ;;   (and ...) (or ...) (not ...)
+;;
+;; A view leaves out the archive layer unless its filter names a layer,
+;; so finished material stays findable without crowding every table.
 ;;
 ;; Field names accept every column form of Section 2, so (field "@in" = 0),
 ;; (field "TOPIC.AREA" contains "stats"), (field "count(<-reading)" > 2)
@@ -853,6 +861,18 @@ Read from the CREATED property, else from a timestamp-style ID."
                   (let ((olp (plist-get record :olp)))
                     (and (>= (length olp) (length prefix))
                          (equal (cl-subseq olp 0 (length prefix)) prefix))))))))
+    (`(layer . ,layers)
+     (let ((layers (mapcar (lambda (layer) (intern (format "%s" layer)))
+                           layers)))
+       (dolist (layer layers)
+         (my/note-layer-dir layer))
+       (lambda (record) (memq (plist-get record :layer) layers))))
+    (`(folder ,folder)
+     (let ((prefix (file-name-as-directory
+                    (expand-file-name (format "%s" folder) my/note-home))))
+       (lambda (record)
+         (when-let* ((file (plist-get record :file)))
+           (string-prefix-p prefix (expand-file-name file))))))
     (`(title ,string)
      (let ((needle (regexp-quote (downcase string))))
        (lambda (record)
@@ -960,14 +980,24 @@ records without a value come last under the empty string."
                     (cons value (nreverse (gethash value table))))
                   order))))))
 
+(defun my/view--filter-names-layer-p (form)
+  "Return non-nil when filter FORM contains a (layer ...) condition."
+  (and (consp form)
+       (or (eq (car form) 'layer)
+           (and (memq (car form) '(and or not))
+                (cl-some #'my/view--filter-names-layer-p (cdr form))))))
+
 (defun my/view--effective-filter (view)
-  "Return VIEW's filter combined with its type condition."
-  (let ((type (plist-get view :type))
-        (filter (plist-get view :filter)))
-    (cond
-     ((and type filter) `(and (type ,type) ,filter))
-     (type `(type ,type))
-     (t filter))))
+  "Return VIEW's filter combined with its type condition.
+The archive layer is left out unless the filter names a layer itself."
+  (let* ((type (plist-get view :type))
+         (filter (plist-get view :filter))
+         (parts (delq nil (list (and type `(type ,type))
+                                filter
+                                (and (not (my/view--filter-names-layer-p
+                                           filter))
+                                     '(not (layer archive)))))))
+    (if (cdr parts) `(and ,@parts) (car parts))))
 
 (defun my/view--columns (view)
   "Return VIEW's columns, defaulting to the fields and formulas of its type."

@@ -6,7 +6,8 @@
 (require 'use-package)
 
 (setq my/orgseq-dir user-emacs-directory
-      my/roam-dir user-emacs-directory)
+      my/inbox-dir user-emacs-directory
+      my/ai-dir user-emacs-directory)
 
 (defun my/vc-package-ensure (_package) nil)
 

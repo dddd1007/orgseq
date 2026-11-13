@@ -19,7 +19,7 @@ Use this skill when editing `early-init.el`, `init.el`, root helper `.el` files,
 
 The load order in `init.el` is intentional:
 
-`init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-capture -> init-gtd -> init-gtd-dashboard -> init-focus -> init-pkm -> init-nodes -> init-views -> init-palette -> init-sync -> init-daily -> init-terminal -> init-ai -> init-ai-cli -> init-dashboard -> init-dired -> init-mouse -> init-frame -> init-workspace -> init-welcome -> init-update -> init-tty -> init-evil`
+`init-doctor -> init-packages -> init-popup -> init-keymap -> init-ui -> init-completion -> init-pyim -> init-python -> init-markdown -> init-languages -> init-org -> init-capture -> init-gtd -> init-gtd-dashboard -> init-focus -> init-pkm -> init-nodes -> init-views -> init-palette -> init-sync -> init-private -> init-import -> init-daily -> init-terminal -> init-ai -> init-ai-cli -> init-dashboard -> init-dired -> init-mouse -> init-frame -> init-workspace -> init-welcome -> init-update -> init-tty -> init-evil`
 
 When changing it:
 

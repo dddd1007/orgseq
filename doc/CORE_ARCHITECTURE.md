@@ -112,10 +112,39 @@ synced because it is a rebuildable local cache (a leftover `org-roam.db` in an o
 library is skipped too). Device-local state lives in
 `.cache/` under the Emacs directory.
 
+`modules/notes/init-private.el` keeps a private zone, `private/` under the
+Emacs directory (`my/private-dir`), for material that must not be found by
+accident. It is isolated by position: only files under the library are
+nodes, sync and text search work on the library directory, and the command
+line and MCP read the index. `my/note-create` writes there only with
+`:private t`, owner-readable, without indexing. `my/ai--get-text` refuses
+its buffers, `my/private-mode` switches off backup files, and
+`my/private-snapshot` keeps dated copies in a sibling of the snapshot
+directory. The doctor fails when the zone is configured inside the library.
+Files are not encrypted.
+
+`modules/notes/init-import.el` imports an extracted Notion export
+(`orgseq import-notion DIR`): one note per page with its page id in
+`NOTION_ID` (re-runs skip known pages), Markdown converted by
+`my/notion-md-to-org`, page links resolved to id links, database property
+lines read only for the columns of the database's `.csv`. It applies an
+existing type on request and never creates one. Routes
+(`--route PREFIX=DEST`, or a `--profile` file) send parts of the export to a
+layer, to the private zone or nowhere and keep the folders below the prefix;
+each database gets a note with an `orgseq-view` block over the folder of its
+rows. `orgseq import-tana FILE` does the same for a Tana JSON export: days
+are appended to Daily files, nodes with a supertag become notes (`TANA_ID`),
+other nodes are list items.
+
 `bin/orgseq` runs a batch Emacs with the same configuration and exposes the
 node layer as subcommands and as MCP tools (`orgseq mcp`, stdio transport).
 Both call the `my/api-*` functions in `core/orgseq-cli.el`, which write Org
-files through the same path as the interactive commands.
+files through the same path as the interactive commands. `orgseq mcp
+--access LEVEL` limits a client to one of four levels, each including the
+ones before it: `read`, `inbox` (add notes to the Inbox and to today's
+Daily), `write` (the default; change, retype and file nodes), `structure`
+(library-wide operations such as sync). Tools above the level are neither
+listed nor callable.
 
 ### Kernel index
 
@@ -123,11 +152,14 @@ files through the same path as the interactive commands.
 library path. `orgseq-index.el` is the one index of nodes: a SQLite file under
 `.cache/` (Emacs' built-in SQLite, no emacsql), filled by a plain-text scan of
 the Org files, with an FTS5 trigram table for substring search in any script.
-A refresh re-reads only files whose time or size changed, so nothing watches
+Every layer of the library is indexed (hidden directories and sync
+conflict copies are not); `:layer` is one of `inbox`, `project`, `area`,
+`resource`, `archive`, `ai`, and views leave out the archive layer unless
+their filter names a layer. A refresh re-reads only files whose time or size changed, so nothing watches
 the file system and edits made by sync or other programs are picked up. The
 interactive session, the daemon and `bin/orgseq` share the file. Records are
 plists (`:id :title :tags :file :mtime :props :todo :priority :level :olp
-:pos`); views, node tables, dashboard blocks, the command line and MCP all
+:pos :layer`); views, node tables, dashboard blocks, the command line and MCP all
 read them through `my/index-records`, `my/index-node`, `my/index-links` and
 `my/index-search`. Interactive capture, node find/insert, the backlinks and
 forward links buffers and the Daily commands are org-seq's own

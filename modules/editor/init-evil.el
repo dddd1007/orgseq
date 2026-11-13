@@ -333,6 +333,14 @@ with SPC as the prefix and M-SPC as the global prefix."
     "nSB" '(my/storage-browse-snapshots :wk "Browse snapshots")
     "nSt" '(my/storage-status :wk "Storage status")
     "nSR" '(my/storage-restore :wk "Restore a snapshot")
+    "nSn" '(my/notion-import-folder :wk "Import a Notion export")
+    "nST" '(my/tana-import-file :wk "Import a Tana export")
+
+    ;; SPC n P -- Private zone (init-private): outside the library
+    "nP"  '(:ignore t :wk "private zone")
+    "nPo" '(my/private-open :wk "Open private zone")
+    "nPn" '(my/private-new-note :wk "New private note")
+    "nPb" '(my/private-snapshot :wk "Copy private zone now")
 
     ;; ── SPC # — Node types and fields (init-nodes) ──
     ;; "#" is Tana's supertag sigil; mirrors the org local-leader `, #`.
@@ -345,6 +353,7 @@ with SPC as the prefix and M-SPC as the global prefix."
     "#F"  '(my/node-fields-edit :wk "Edit a field (panel)")
     "#P"  '(my/node-fields-toggle :wk "Toggle field panel")
     "#p"  '(my/node-promote :wk "Promote to node")
+    "#m"  '(my/node-file :wk "File into a layer")
     "#n"  '(my/node-capture :wk "New note of type")
     "#v"  '(my/node-view :wk "Type view")
     "#V"  '(my/view-open :wk "Open saved view")

@@ -20,7 +20,10 @@
 (setq recentf-max-saved-items 30
       recentf-exclude '("\\.git/" "COMMIT_EDITMSG" "/tmp/" "/ssh:"
                         ".*-autoloads\\.el\\'" "[/\\\\]elpa/"
-                        "\\.emacs\\.d/"))
+                        "\\.emacs\\.d/"
+                        ;; File names in the private zone can identify a
+                        ;; person; keep them out wherever the zone is.
+                        my/private-file-p))
 (recentf-mode 1)
 
 (defun my/dashboard-open-last-file ()

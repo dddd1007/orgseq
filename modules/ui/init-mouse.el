@@ -16,14 +16,14 @@
 ;;   5. Single-click navigation in the agenda (Daily sidebar rows and GTD
 ;;      dashboard rows are already single-click buttons).
 
-;; Requires: init-org (my/roam-dir)
+;; Requires: init-org (my/inbox-dir)
 ;; Requires: init-gtd (GTD commands surfaced in the org context menu)
 ;; Requires: init-gtd-dashboard (dashboard commands in its context menu)
 ;; Requires: init-daily (Daily sidebar commands in its context menu)
 
 (require 'easymenu)
 
-(defvar my/roam-dir)  ; forward-declare from init-org
+(defvar my/inbox-dir)  ; forward-declare from init-org
 (defvar dired-mouse-drag-files)
 (defvar org-agenda-mode-map)
 (defvar org-yank-dnd-method)
@@ -197,12 +197,12 @@ Each entry is (ID LABEL COMMAND); COMMAND runs at CLICK's position."
 (setq dired-mouse-drag-files t)
 
 ;; Files dropped into org buffers ask: attach, insert link, or insert
-;; contents (Org 9.7+).  Dropped/pasted images are saved under the Roam
+;; contents (Org 9.7+).  Dropped/pasted images are saved under the Inbox
 ;; assets directory so notes stay portable.
 (with-eval-after-load 'org
   (setq org-yank-dnd-method 'ask)
   (setq org-yank-image-save-method
-        (expand-file-name "assets/" my/roam-dir)))
+        (expand-file-name "assets/" my/inbox-dir)))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 5: Single-click navigation

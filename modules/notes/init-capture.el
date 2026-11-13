@@ -35,7 +35,7 @@
 (require 'orgseq-note)
 
 (defvar my/note-home)
-(defvar my/roam-dir)
+(defvar my/inbox-dir)
 (defvar my/capture-templates-file)
 
 (declare-function consult-ripgrep "consult" (&optional dir initial))
@@ -101,7 +101,7 @@ can be filled in.  Set by init-nodes; nil adds no fields.")
 ;;
 ;; Each entry follows org-seq's capture template format:
 ;;   (KEY DESCRIPTION plain BODY :target (file+head PATH HEAD))
-;; PATH is relative to 00_Roam/.  PATH, HEAD and BODY may use ${title},
+;; PATH is relative to the Inbox layer.  PATH, HEAD and BODY may use ${title},
 ;; ${slug}, %<TIME-FORMAT>, %t %T %u %U, and %? marks where the cursor
 ;; lands.  Keys starting with \"t\" are reserved for type templates.
 ;;
@@ -349,17 +349,17 @@ current Daily buffer's date, else today.  Return nil when there is none."
 ;; ═══════════════════════════════════════════════════════════════════════════
 
 (defun my/note-search-text ()
-  "Search the text of the notes in 00_Roam/ with ripgrep.
+  "Search the text of the notes in the Inbox layer with ripgrep.
 Uses consult-ripgrep when Consult is installed, else a plain *grep*
 buffer running rg."
   (interactive)
   (if (fboundp 'consult-ripgrep)
-      (consult-ripgrep my/roam-dir)
+      (consult-ripgrep my/inbox-dir)
     (unless (executable-find "rg")
       (user-error "ripgrep (rg) is not installed"))
     (require 'grep)
     (let ((query (grep-read-regexp))
-          (default-directory my/roam-dir))
+          (default-directory my/inbox-dir))
       (grep (concat "rg --no-heading --line-number --smart-case --glob '*.org' -e "
                     (shell-quote-argument query) " .")))))
 

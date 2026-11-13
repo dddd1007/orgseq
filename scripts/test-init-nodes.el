@@ -252,4 +252,125 @@ One line.
   (should (equal (my/node-split-multi "\"light blue\" red") '("light blue" "red")))
   (should (equal (my/node-split-multi "single") '("single"))))
 
+(defmacro my/test-nodes--with-library (&rest body)
+  "Run BODY in a temporary library with its own index; binds `root'."
+  (declare (indent 0))
+  `(let* ((root (file-name-as-directory (make-temp-file "org-seq-file-" t)))
+          (my/note-home (expand-file-name "library/" root))
+          (my/inbox-dir (expand-file-name "00_Inbox/" my/note-home))
+          (my/outputs-dir (expand-file-name "10_Outputs/" my/note-home))
+          (my/practice-dir (expand-file-name "20_Practice/" my/note-home))
+          (my/library-dir (expand-file-name "30_Library/" my/note-home))
+          (my/archives-dir (expand-file-name "40_Archives/" my/note-home))
+          (my/ai-dir (expand-file-name "50_AI/" my/note-home))
+          (my/index-file (expand-file-name "index.db" root))
+          (my/index-sync-interval 0)
+          (my/node-types (my/test-nodes--parse my/test-nodes--types))
+          (org-inhibit-startup t)
+          (inhibit-message t))
+     (unwind-protect
+         (progn (make-directory (expand-file-name "daily/" my/inbox-dir) t)
+                ,@body)
+       (dolist (buffer (buffer-list))
+         (when (and (buffer-file-name buffer)
+                    (string-prefix-p root (buffer-file-name buffer)))
+           (with-current-buffer buffer (set-buffer-modified-p nil))
+           (kill-buffer buffer)))
+       (my/index-close)
+       (delete-directory root t))))
+
+(defun my/test-nodes--slurp (file)
+  "Return the contents of FILE."
+  (with-temp-buffer (insert-file-contents file) (buffer-string)))
+
+(ert-deftest my/node-file-into-moves-a-note-file-and-keeps-its-id ()
+  (my/test-nodes--with-library
+    (let ((note (my/note-create :title "Working memory" :id "wm-1"
+                                :body "Text.\n")))
+      (should (eq 'inbox (plist-get (my/index-node "wm-1") :layer)))
+      (let* ((result (my/node-file-into "wm-1" "resource" "reading"))
+             (file (plist-get result :file)))
+        (should (string-prefix-p my/library-dir file))
+        (should-not (file-exists-p (plist-get note :file)))
+        (let ((record (my/index-node "wm-1")))
+          (should (equal (plist-get record :file) file))
+          (should (eq 'resource (plist-get record :layer)))
+          (should (member "reading" (plist-get record :tags))))
+        (should (string-match-p "^:STATUS:" (my/test-nodes--slurp file)))
+        (should (string-match-p "Text\\." (my/test-nodes--slurp file)))))))
+
+(ert-deftest my/node-file-into-uses-a-folder-inside-the-layer ()
+  (my/test-nodes--with-library
+    (my/note-create :title "Plan" :id "p-1")
+    (let ((file (plist-get (my/node-file-into "p-1" 'project nil "grant-2027")
+                           :file)))
+      (should (string-prefix-p (expand-file-name "grant-2027/" my/outputs-dir)
+                               file)))
+    (should-error (my/node-file-into "p-1" 'project nil "../../outside"))
+    (should-error (my/node-file-into "p-1" "nowhere"))))
+
+(ert-deftest my/node-file-into-gives-a-heading-its-own-file-and-leaves-a-link ()
+  (my/test-nodes--with-library
+    (let ((daily (expand-file-name "daily/2026-11-13.org" my/inbox-dir)))
+      (with-temp-file daily
+        (insert ":PROPERTIES:\n:ID: day-1\n:END:\n#+title: 2026-11-13\n\n"
+                "* Before\n"
+                "* Prediction error idea :draft:\n"
+                ":PROPERTIES:\n:ID: idea-1\n:SOURCE: lecture\n:END:\n"
+                "First thought.\n"
+                "** Detail\nMore.\n"
+                "* After\n"))
+      (my/index-sync 'check)
+      (let* ((result (my/node-file-into "idea-1" "area" nil "research"))
+             (file (plist-get result :file))
+             (text (my/test-nodes--slurp file))
+             (left (my/test-nodes--slurp daily)))
+        (should (string-prefix-p (expand-file-name "research/" my/practice-dir)
+                                 file))
+        (should (string-match-p "^#\\+title: Prediction error idea$" text))
+        (should (string-match-p "^:SOURCE: lecture$" text))
+        (should (string-match-p "^#\\+filetags: :draft:$" text))
+        (should (string-match-p "^First thought\\.$" text))
+        (should (string-match-p "^\\* Detail$" text))
+        ;; The Daily keeps its shape and points at the node.
+        (should (string-match-p
+                 "^\\* Before\n\\* \\[\\[id:idea-1\\]\\[Prediction error idea\\]\\]\n\\* After"
+                 left))
+        (should-not (string-match-p "First thought" left))
+        ;; One node with that id, now in the area layer.
+        (should (= 1 (cl-count "idea-1" (my/index-records)
+                               :key (lambda (r) (plist-get r :id))
+                               :test #'equal)))
+        (should (eq 'area (plist-get (my/index-node "idea-1") :layer)))
+        (should (member '("day-1" "idea-1") (my/index-links)))))))
+
+(ert-deftest my/node-file-into-refuses-a-task-heading ()
+  (my/test-nodes--with-library
+    (let ((daily (expand-file-name "daily/2026-11-13.org" my/inbox-dir)))
+      (with-temp-file daily
+        (insert "#+title: day\n\n* TODO Call\n:PROPERTIES:\n:ID: task-1\n:END:\n"))
+      (my/index-sync 'check)
+      (should-error (my/node-file-into "task-1" "project"))
+      (should (string-match-p "TODO Call" (my/test-nodes--slurp daily))))))
+
+(ert-deftest my/node-type-layer-places-new-notes-of-the-type ()
+  (my/test-nodes--with-library
+    (let* ((my/node-types
+            (my/test-nodes--parse
+             "* Memory\n:PROPERTIES:\n:TYPE_LAYER: ai\n:TYPE_FIELDS: KIND\n:END:\n%?\n\n* Plain\n\n* Odd\n:PROPERTIES:\n:TYPE_LAYER: nowhere\n:END:\n"))
+           (memory (car my/node-types))
+           (warning-minimum-log-level :emergency))
+      (should (equal (my/node-type-dir memory) (file-name-as-directory my/ai-dir)))
+      (should-not (my/node-type-dir (nth 1 my/node-types)))
+      (should-not (my/node-type-dir (nth 2 my/node-types)))
+      (let ((target (cadr (plist-get (nthcdr 4 (my/node--capture-entry
+                                                "tm" "Memory" memory ""))
+                                     :target))))
+        (should (string-prefix-p (file-name-as-directory my/ai-dir) target)))
+      (should (string-prefix-p
+               "capture/"
+               (cadr (plist-get (nthcdr 4 (my/node--capture-entry
+                                           "tp" "Plain" (nth 1 my/node-types) ""))
+                                :target)))))))
+
 ;;; test-init-nodes.el ends here

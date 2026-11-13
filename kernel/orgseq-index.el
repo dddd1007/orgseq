@@ -8,9 +8,10 @@
 ;;
 ;;   Node      A file or heading with an :ID: property.
 ;;   Record    The plist handed to callers: :id :title :tags :file :mtime
-;;             :props :todo :priority :level :olp :pos.
-;;   Scope     Every .org file in the library except the reference layer,
-;;             the archives, hidden directories and sync conflict copies.
+;;             :props :todo :priority :level :olp :pos :layer.
+;;   Scope     Every .org file in the library except hidden directories
+;;             and sync conflict copies.  :layer says which part of the
+;;             library a node is in (see `my/note-layer').
 ;;   Refresh   Incremental: a file is re-read when its modification time
 ;;             or size changed.  Nothing has to watch the file system, so
 ;;             edits made by sync, git or another program are picked up.
@@ -343,9 +344,13 @@ without the subtrees of nodes nested in it."
 ;; ═══════════════════════════════════════════════════════════════════════════
 
 (defun my/index--excluded-dirs ()
-  "Return the library directories that are not indexed."
-  (mapcar (lambda (dir) (directory-file-name (expand-file-name dir)))
-          (list my/library-dir my/archives-dir)))
+  "Return the library directories that are not indexed.
+Every layer is indexed.  The private zone normally sits outside the
+library; when it was configured inside, it is left out here.  Hidden
+directories are skipped separately."
+  (and (boundp 'my/private-dir) my/private-dir
+       (my/private-inside-library-p)
+       (list (directory-file-name (expand-file-name my/private-dir)))))
 
 (defun my/index-file-p (file)
   "Return non-nil when FILE is an Org file inside the indexed scope."
@@ -518,7 +523,8 @@ would otherwise miss an edit saved a moment after it."
           :priority priority
           :level (or level 0)
           :olp (and olp (car (read-from-string olp)))
-          :pos (or pos 1))))
+          :pos (or pos 1)
+          :layer (and file (my/note-layer file)))))
 
 (defun my/index--data-version (db)
   "Return SQLite's change counter for writes made by other connections."

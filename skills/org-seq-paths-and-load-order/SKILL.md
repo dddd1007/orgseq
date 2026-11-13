@@ -15,7 +15,7 @@ This includes:
 
 - `my/note-home`
 - `my/orgseq-dir`
-- `my/roam-dir`
+- `my/inbox-dir`
 - `my/outputs-dir`
 - `my/practice-dir`
 - `my/library-dir`
@@ -25,13 +25,13 @@ This includes:
 - `my/capture-templates-file`
 - `my/types-file`
 
-Other modules should consume these with `defvar` declarations. Do not rebuild canonical paths with repeated string literals like `"00_Roam/"`, `"10_Outputs/"`, or `"20_Practice/"` unless the path is purely local and intentionally not a shared constant.
+Other modules should consume these with `defvar` declarations. Do not rebuild canonical paths with repeated string literals like `"00_Inbox/"`, `"10_Outputs/"`, or `"20_Practice/"` unless the path is purely local and intentionally not a shared constant.
 
 ## GTD Path Semantics
 
 GTD agenda scans actionable layers only:
 
-- `my/roam-dir`
+- `my/inbox-dir`
 - `my/outputs-dir`
 - `my/practice-dir`
 

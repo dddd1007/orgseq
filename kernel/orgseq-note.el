@@ -35,7 +35,7 @@
 (require 'orgseq-paths)
 (require 'orgseq-index)
 
-(defvar my/roam-dir)
+(defvar my/inbox-dir)
 
 (declare-function org-id-new "org-id" (&optional prefix))
 
@@ -72,7 +72,7 @@ notes within a second, so a taken id gets a random suffix."
 
 (defun my/note-capture-dir ()
   "Return the directory new notes go to when no template names one."
-  (expand-file-name "capture/" my/roam-dir))
+  (expand-file-name "capture/" my/inbox-dir))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 2: Creating a note file
@@ -83,10 +83,13 @@ notes within a second, so a taken id gets a random suffix."
   (concat (format "#+title: %s\n" title)
           (if tags (format "#+filetags: :%s:\n" (string-join tags ":")) "")))
 
-(cl-defun my/note-create (&key title file id props tags head body)
+(cl-defun my/note-create (&key title file id props tags head body private)
   "Write a new note file and add it to the index.
+With PRIVATE non-nil the note goes to the private zone instead: FILE is
+taken relative to `my/private-dir', the file is readable by its owner
+only, and it is not indexed.
 TITLE is the note title.  FILE is the file to create; a relative name is
-taken relative to `my/roam-dir', and nil means capture/STAMP-SLUG.org.
+taken relative to `my/inbox-dir', and nil means capture/STAMP-SLUG.org.
 An existing file is never overwritten: a numeric suffix is added instead.
 ID defaults to `my/note-new-id'.  PROPS is an alist of (NAME . VALUE)
 written to the file's property drawer after the id.  HEAD is the text
@@ -97,13 +100,18 @@ Return a plist (:id ID :file FILE :title TITLE :body-start POS), where
 POS is the buffer position at which BODY begins in the new file."
   (when (or (null title) (string-empty-p (string-trim title)))
     (user-error "A note needs a title"))
-  (let* ((id (or id (my/note-new-id)))
+  (let* ((root (if private my/private-dir my/note-home))
+         (id (or id (if private
+                        (progn (require 'org-id) (org-id-new))
+                      (my/note-new-id))))
          (file (my/note--free-file
                 (expand-file-name
                  (or file
                      (format "%s-%s.org" (format-time-string "%Y%m%dT%H%M%S")
                              (my/note-slug title)))
-                 (if file my/roam-dir (my/note-capture-dir)))))
+                 (cond (private my/private-dir)
+                       (file my/inbox-dir)
+                       (t (my/note-capture-dir))))))
          (head (or head (my/note-default-head title tags)))
          (body (or body ""))
          (coding-system-for-write 'utf-8-unix)
@@ -111,12 +119,19 @@ POS is the buffer position at which BODY begins in the new file."
     ;; FILE may come from a user template or a title placed in a path; a
     ;; ".." or an absolute path must not take the note out of the library.
     (unless (string-prefix-p
-             (file-name-as-directory (expand-file-name my/note-home))
+             (file-name-as-directory (expand-file-name root))
              (expand-file-name file))
-      (user-error "Note path %s is outside the library %s"
-                  file (abbreviate-file-name my/note-home)))
-    (make-directory (file-name-directory file) t)
-    (with-temp-file file
+      (user-error "Note path %s is outside %s"
+                  file (abbreviate-file-name root)))
+    ;; A library note must never land in a private zone that was
+    ;; configured inside the library.
+    (when (and (not private) (my/private-file-p file))
+      (user-error "Note path %s is in the private zone" file))
+    (if private
+        (with-file-modes #o700 (make-directory (file-name-directory file) t))
+      (make-directory (file-name-directory file) t))
+    (with-file-modes (if private #o600 (default-file-modes))
+     (with-temp-file file
       (insert ":PROPERTIES:\n" (format ":ID:       %s\n" id))
       (pcase-dolist (`(,name . ,value) props)
         (insert (format ":%s: %s\n" (upcase (format "%s" name)) (or value ""))))
@@ -125,8 +140,8 @@ POS is the buffer position at which BODY begins in the new file."
       (insert "\n")
       (setq body-start (point))
       (insert body)
-      (unless (bolp) (insert "\n")))
-    (my/index-update-file file)
+      (unless (bolp) (insert "\n"))))
+    (unless private (my/index-update-file file))
     (list :id id :file file :title title :body-start body-start)))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
@@ -260,7 +275,7 @@ of the body)."
 ;; Section 4: Daily files
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
-;; One file per day, daily/YYYY-MM-DD.org under `my/roam-dir'.  A Daily
+;; One file per day, daily/YYYY-MM-DD.org under `my/inbox-dir'.  A Daily
 ;; file starts with a title and the daily tag; entries are top-level
 ;; headings named by the time they were written.
 

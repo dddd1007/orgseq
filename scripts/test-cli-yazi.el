@@ -7,9 +7,10 @@
 
 (defvar my/note-home)
 (defvar my/orgseq-dir)
-(defvar my/roam-dir)
+(defvar my/inbox-dir)
 (defvar my/outputs-dir)
 (defvar my/practice-dir)
+(defvar my/ai-dir)
 (defvar my/library-dir)
 (defvar my/archives-dir)
 (defvar my/dashboards-dir)
@@ -36,12 +37,13 @@
              (expand-file-name "org-seq-test-notehq" temporary-file-directory))))
   (setq my/note-home root
         my/orgseq-dir (expand-file-name ".orgseq/" root)
-        my/roam-dir (expand-file-name "00_Roam/" root)
+        my/inbox-dir (expand-file-name "00_Inbox/" root)
         my/outputs-dir (expand-file-name "10_Outputs/" root)
         my/practice-dir (expand-file-name "20_Practice/" root)
         my/library-dir (expand-file-name "30_Library/" root)
         my/archives-dir (expand-file-name "40_Archives/" root)
-        my/dashboards-dir (expand-file-name "dashboards/" my/roam-dir)))
+        my/ai-dir (expand-file-name "50_AI/" root)
+        my/dashboards-dir (expand-file-name "dashboards/" my/inbox-dir)))
 
 (when (file-directory-p my/orgseq-dir)
   (delete-directory my/orgseq-dir t))

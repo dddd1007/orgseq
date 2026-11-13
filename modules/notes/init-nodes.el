@@ -52,11 +52,12 @@
 ;; Requires: init-capture (note creation, capture template registry)
 (defvar my/note-home)
 (defvar my/orgseq-dir)
-(defvar my/roam-dir)
+(defvar my/inbox-dir)
 (defvar my/outputs-dir)
 (defvar my/practice-dir)
 (defvar my/library-dir)
 (defvar my/archives-dir)
+(defvar my/ai-dir)
 (defvar my/dashboards-dir)
 (defvar my/types-file)
 (defvar my/capture-template-functions)
@@ -143,8 +144,10 @@ Nil when `my/node-add-empty-fields' is off."
   "A note type: an Org tag with fields, formulas and capture templates.
 TEMPLATE is the default template body; TEMPLATES an alist of (NAME .
 BODY); FORMULAS a list of plists (:name :kind formula :expr); VIEW an
-alist of TYPE_VIEW_* settings (\"LAYOUT\" . VALUE)."
-  name tag key fields choices template parent templates formulas view)
+alist of TYPE_VIEW_* settings (\"LAYOUT\" . VALUE); LAYER the name of
+the library layer new notes of the type are created in (TYPE_LAYER), nil
+for the Inbox."
+  name tag key fields choices template parent templates formulas view layer)
 
 (defvar my/node-types nil
   "Types parsed from `my/types-file', in file order.")
@@ -160,6 +163,8 @@ alist of TYPE_VIEW_* settings (\"LAYOUT\" . VALUE)."
 # NAME:check a yes/no value, NAME:url a web address, NAME:multi several
 # values from NAME_ALL.
 # TYPE_EXTENDS names a parent type whose fields are inherited.
+# TYPE_LAYER (project, area, resource, archive or ai) creates new notes
+# of the type in that layer instead of the Inbox.
 # FORMULA_NAME is a column computed when a view runs and never stored,
 # e.g. (days (today) @created), or a rollup such as (count <-reading).
 # The heading body is the capture template (\"%?\" = cursor); a child
@@ -205,6 +210,39 @@ alist of TYPE_VIEW_* settings (\"LAYOUT\" . VALUE)."
 :END:
 ** Context
 %?
+
+* Memory
+:PROPERTIES:
+:TYPE_TAG:    memory
+:TYPE_KEY:    m
+:TYPE_LAYER:  ai
+:TYPE_FIELDS: KIND CONFIRMED:date
+:KIND_ALL:    profile preference work people notes
+:END:
+** Summary
+%?
+** Applies when
+** Sources and history
+
+* Instruction
+:PROPERTIES:
+:TYPE_TAG:    instruction
+:TYPE_KEY:    i
+:TYPE_LAYER:  ai
+:TYPE_FIELDS: SCENE VERSION
+:END:
+%?
+
+* Skill
+:PROPERTIES:
+:TYPE_TAG:    skill
+:TYPE_KEY:    s
+:TYPE_LAYER:  ai
+:TYPE_FIELDS: DESCRIPTION ENABLED:check
+:END:
+** When to use
+%?
+** Steps
 "
   "Starter content for a new types.org file.")
 
@@ -336,6 +374,7 @@ SKIP lists (NAME BEG END) regions, the named templates, left out."
                                    named)
                 :formulas (my/node-types--parse-formulas)
                 :view (my/node-types--parse-view)
+                :layer (org-entry-get nil "TYPE_LAYER")
                 :parent (org-entry-get nil "TYPE_EXTENDS"))
                types))
        (forward-line 1)))
@@ -472,13 +511,36 @@ Templates and view settings are not inherited."
   "Return the capture menu description of TYPE's template NAME."
   (format "%s / %s" (my/node-type-name type) name))
 
+(defun my/node-type-dir (type)
+  "Return the directory new notes of TYPE are created in, or nil.
+Nil means the Inbox capture directory.  A TYPE_LAYER that names no
+layer is reported once and ignored."
+  (when-let* ((name (my/node-type-layer type))
+              ((not (string-empty-p (string-trim name)))))
+    (let ((layer (cdr (assoc (downcase (string-trim name))
+                             '(("project" . project) ("area" . area)
+                               ("resource" . resource) ("archive" . archive)
+                               ("ai" . ai) ("inbox" . inbox))))))
+      (cond
+       ((null layer)
+        (display-warning
+         'org-seq
+         (format "Type %s: TYPE_LAYER %s is not a layer (project, area, resource, archive, ai)"
+                 (my/node-type-name type) name)
+         :warning)
+        nil)
+       ((eq layer 'inbox) nil)
+       (t (file-name-as-directory
+           (expand-file-name (my/note-layer-dir layer))))))))
+
 (defun my/node--capture-entry (key description type body)
   "Return a capture template KEY DESCRIPTION for TYPE with template BODY."
   (list key description 'plain
         (if (string-empty-p body) "%?" body)
         :target
         (list 'file+head
-              "capture/%<%Y%m%dT%H%M%S>-${slug}.org"
+              (concat (or (my/node-type-dir type) "capture/")
+                      "%<%Y%m%dT%H%M%S>-${slug}.org")
               (format "#+title: ${title}\n#+filetags: :%s:\n"
                       (my/node-type-tag type)))
         :unnarrowed t))
@@ -831,6 +893,193 @@ in place, as any block can be referenced in Tana."
                                                  "Heading is now a node"))))
           (call-interactively #'my/node-set-type)
         (message (if had-id "Already a node" "Heading is now a node"))))))
+
+;; -- Filing a node out of the Inbox --
+;;
+;; The Inbox is the staging layer.  Filing moves a node into one of the
+;; PARA layers (or the AI System layer) once it is worth keeping; the
+;; node keeps its ID, so every link to it still resolves.
+
+(defconst my/node-file-layers
+  '(("project" . project) ("area" . area) ("resource" . resource)
+    ("archive" . archive) ("ai" . ai) ("inbox" . inbox))
+  "Layer names accepted by `my/node-file-into', with their symbols.")
+
+(defun my/node-file--layer (layer)
+  "Return the layer symbol named by LAYER, a symbol or string."
+  (or (cdr (assoc (downcase (format "%s" layer)) my/node-file-layers))
+      (user-error "Unknown layer %s (one of: %s)" layer
+                  (mapconcat #'car my/node-file-layers ", "))))
+
+(defun my/node-file--target-dir (layer folder)
+  "Return the directory FOLDER inside LAYER, refusing to leave the layer."
+  (let* ((root (file-name-as-directory
+                (expand-file-name (my/note-layer-dir layer))))
+         (dir (file-name-as-directory
+               (expand-file-name (or folder "") root))))
+    (unless (string-prefix-p root dir)
+      (user-error "Folder %s is outside the %s layer" folder layer))
+    dir))
+
+(defun my/node-file--subtree-parts (pos)
+  "Return the parts of the heading node at POS for a file of its own.
+A plist :title :tags :props :body.  Child headings in :body are raised
+one level."
+  (save-excursion
+    (goto-char pos)
+    (org-back-to-heading t)
+    (let* ((title (org-get-heading t t t t))
+           (tags (org-get-tags nil t))
+           (props (cl-remove-if
+                   (lambda (cell) (member (car cell) '("ID" "CATEGORY")))
+                   (org-entry-properties nil 'standard)))
+           (text (buffer-substring-no-properties
+                  (point) (save-excursion (org-end-of-subtree t t) (point))))
+           body)
+      (with-temp-buffer
+        (insert text)
+        (goto-char (point-min))
+        (let ((stars (progn (looking-at "\\*+") (- (match-end 0) (match-beginning 0)))))
+          ;; Drop the heading line, its planning line and property drawer.
+          (forward-line 1)
+          (while (looking-at "[ \t]*\\(SCHEDULED\\|DEADLINE\\|CLOSED\\):")
+            (forward-line 1))
+          (when (looking-at "[ \t]*:PROPERTIES:[ \t]*$")
+            (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+            (forward-line 1))
+          (delete-region (point-min) (point))
+          ;; Children were at STARS + 1 or deeper; make them top level.
+          (goto-char (point-min))
+          (while (re-search-forward
+                  (format "^\\*\\{%d\\}\\(\\*+ \\)" stars) nil t)
+            (replace-match "\\1")))
+        (setq body (string-trim (buffer-string))))
+      (list :title (substring-no-properties title)
+            :tags (mapcar #'substring-no-properties tags)
+            :props props
+            :body body))))
+
+(defun my/node-file-into (id layer &optional type folder)
+  "Move node ID into library LAYER and return a plist :id :file :layer.
+LAYER is one of `my/node-file-layers'.  FOLDER is an optional directory
+inside the layer (a project or area name).  TYPE, a type name or tag,
+makes the node an instance of that type and adds its fields.
+
+A note file is moved as it is.  A heading (for instance one captured in
+a Daily note) becomes a file of its own with the same ID, properties,
+tags and text, and a link to it is left where the heading was.  The ID
+never changes, so links to the node keep working.  A heading with a
+TODO state is refused: a file has no state to carry it."
+  (let* ((layer (my/node-file--layer layer))
+         (type-def (and type (not (equal type ""))
+                        (or (my/node-types--find type my/node-types)
+                            (user-error "Unknown type: %s" type))))
+         (node (or (my/index-node id)
+                   (user-error "Node %s is not in the index" id)))
+         (source (plist-get node :file))
+         (dir (my/node-file--target-dir layer folder))
+         target)
+    (if (= 0 (or (plist-get node :level) 0))
+        ;; A whole file: rename it into the layer.
+        (if (string-prefix-p dir (file-name-directory (expand-file-name source)))
+            (setq target source)
+          (setq target (my/note--free-file
+                        (expand-file-name (file-name-nondirectory source) dir)))
+          (make-directory dir t)
+          (let ((buffer (get-file-buffer source)))
+            (when buffer
+              (with-current-buffer buffer (save-buffer)))
+            (rename-file source target)
+            (when buffer
+              (with-current-buffer buffer
+                (set-visited-file-name target t t))))
+          (my/index-update-file source)
+          (my/index-update-file target))
+      ;; A heading: give it a file of its own and leave a link behind.
+      (when (plist-get node :todo)
+        (user-error "Node %s is a task (%s); clear its state or file the note it is in"
+                    id (plist-get node :todo)))
+      (with-current-buffer (find-file-noselect source)
+        (org-with-wide-buffer
+         (let* ((pos (or (org-find-property "ID" id)
+                         (user-error "Cannot find node %s in %s" id source)))
+                (parts (my/node-file--subtree-parts pos))
+                (title (plist-get parts :title))
+                beg end stars)
+           (goto-char pos)
+           (org-back-to-heading t)
+           (setq beg (point)
+                 stars (progn (looking-at "\\*+") (match-string 0))
+                 end (save-excursion (org-end-of-subtree t t) (point)))
+           ;; Remove the heading first so the ID exists once at any time
+           ;; the index looks.
+           (delete-region beg end)
+           (goto-char beg)
+           (insert (format "%s [[id:%s][%s]]\n" stars id title))
+           (save-buffer)
+           (my/index-update-file source)
+           (setq target
+                 (plist-get
+                  (my/note-create
+                   :title title
+                   :file (expand-file-name
+                          (format "%s-%s.org"
+                                  (format-time-string "%Y%m%dT%H%M%S")
+                                  (my/note-slug title))
+                          dir)
+                   :id id
+                   :props (plist-get parts :props)
+                   :tags (plist-get parts :tags)
+                   :body (plist-get parts :body))
+                  :file))))))
+    (when type-def
+      (my/node-call-at-id
+       id (lambda (pos)
+            (goto-char pos)
+            (let ((inhibit-message t))
+              (my/node-set-type type-def 'replace)))))
+    (list :id id :file target :layer layer)))
+
+(defun my/node-file--read-folder (layer)
+  "Read a folder inside LAYER; empty input means the layer itself."
+  (let* ((root (my/note-layer-dir layer))
+         (folders (and (file-directory-p root)
+                       (cl-remove-if-not
+                        (lambda (name)
+                          (and (file-directory-p (expand-file-name name root))
+                               (not (string-prefix-p "." name))
+                               (not (string-prefix-p "_" name))))
+                        (directory-files root nil directory-files-no-dot-files-regexp))))
+         (choice (completing-read
+                  (format "Folder in %s (empty: none): "
+                          (file-name-nondirectory (directory-file-name root)))
+                  folders nil nil)))
+    (and (not (string-empty-p choice)) choice)))
+
+(defun my/node-file ()
+  "File the node at point out of the Inbox into a PARA layer.
+Asks for the layer, an optional folder inside it and an optional type;
+see `my/node-file-into'."
+  (interactive)
+  (my/node--ensure-org)
+  (let* ((id (or (org-entry-get nil "ID" t)
+                 (user-error "Not on a node; make it one first (my/node-promote)")))
+         (layer (my/node-file--layer
+                 (completing-read
+                  "File into: "
+                  (mapcar #'car (butlast my/node-file-layers)) nil t)))
+         (folder (my/node-file--read-folder layer))
+         (type (and my/node-types
+                    (let ((name (completing-read
+                                 "Type (empty: keep as it is): "
+                                 (mapcar #'my/node-type-name my/node-types)
+                                 nil t)))
+                      (and (not (string-empty-p name)) name))))
+         (result (progn (save-buffer)
+                        (my/node-file-into id layer type folder))))
+    (message "Filed into %s"
+             (file-relative-name (plist-get result :file) my/note-home))
+    result))
 
 (defun my/node--check-template (type name)
   "Signal a user error unless TYPE has a named template NAME."
@@ -1609,7 +1858,7 @@ RET visits the node on the line."
 ;; Section 9: Dashboard files, PARA navigation, NoteHQ bootstrap
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;
-;; Dashboards are read-only query pages in 00_Roam/dashboards/.  Opening
+;; Dashboards are read-only query pages in `my/dashboards-dir'.  Opening
 ;; one refreshes its dynamic blocks.  They are never used for data entry.
 
 (defun my/dashboard-open (name)
@@ -1675,20 +1924,21 @@ RET visits the node on the line."
     (call-interactively #'find-file)))
 
 (defun my/ripgrep-notehq ()
-  "Ripgrep across entire NoteHQ (Roam + PARA layers)."
+  "Ripgrep across entire NoteHQ (every layer)."
   (interactive)
   (consult-ripgrep my/note-home))
 
 (defun my/ensure-notehq-structure ()
   "Create NoteHQ directory skeleton if missing.  Idempotent."
-  (dolist (dir (list my/roam-dir
+  (dolist (dir (list my/inbox-dir
                      (my/daily-dir)
                      (my/note-capture-dir)
                      my/dashboards-dir
                      my/outputs-dir
                      my/practice-dir
                      my/library-dir
-                     my/archives-dir))
+                     my/archives-dir
+                     my/ai-dir))
     (make-directory dir t)))
 
 (add-hook 'after-init-hook

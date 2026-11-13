@@ -183,6 +183,7 @@ with the reason."
      "Start Emacs once, or run M-x my/ensure-notehq-structure."))))
 
 (declare-function my/storage-info "init-sync" ())
+(declare-function my/private-info "init-private" ())
 
 (defun my/doctor--check-library-protection ()
   "Check that the library exists in more than one place.
@@ -209,6 +210,47 @@ Read-only: neither syncs nor takes a snapshot."
         (my/doctor--payload
          'warn (format "The only copy is %s" (plist-get info :library))
          "Run M-x my/storage-snapshot, or M-x my/sync-setup for a cloud remote."))))))
+
+(defun my/doctor--check-library-layout ()
+  "Check that the library uses the current layer directory names.
+Read-only."
+  (cond
+   ((not (fboundp 'my/storage-info))
+    (my/doctor--payload
+     'warn "init-sync is not loaded"
+     "Inspect init-sync with M-x my/init-errors."))
+   ((plist-get (my/storage-info) :old-layout)
+    (my/doctor--payload
+     'warn "The Inbox layer still has its old name, 00_Roam/"
+     "Run `orgseq migrate --yes' or M-x my/storage-migrate-layout (takes a snapshot first)."))
+   (t
+    (my/doctor--payload 'pass "Inbox, PARA and AI System layers"))))
+
+(defun my/doctor--check-private-zone ()
+  "Check that the private zone is isolated from the library.
+Read-only; reports counts, never file names."
+  (if (not (fboundp 'my/private-info))
+      (my/doctor--payload
+       'warn "init-private is not loaded"
+       "Inspect init-private with M-x my/init-errors.")
+    (let ((info (my/private-info)))
+      (cond
+       ((plist-get info :inside-library)
+        (my/doctor--payload
+         'fail (format "%s is inside the library, so sync and text search reach it"
+                       (plist-get info :dir))
+         "Set my/private-dir to a directory outside the library."))
+       ((not (plist-get info :exists))
+        (my/doctor--payload
+         'pass "Not created yet (M-x my/private-open)"))
+       ((plist-get info :open-to-others)
+        (my/doctor--payload
+         'warn (format "%s is readable by other accounts" (plist-get info :dir))
+         (format "Run: chmod -R go-rwx %s" (plist-get info :dir))))
+       (t
+        (my/doctor--payload
+         'pass (format "%d files outside the library; not indexed, not synced, %d local copies"
+                       (plist-get info :files) (plist-get info :snapshots))))))))
 
 (defun my/doctor--check-module-loads ()
   "Report module load failures recorded by the guarded loader."
@@ -435,6 +477,10 @@ nil when the source or the constant cannot be found."
          :check my/doctor--check-note-home)
         (:id library-protection :label "Library copies"
          :check my/doctor--check-library-protection)
+        (:id library-layout :label "Library layout"
+         :check my/doctor--check-library-layout)
+        (:id private-zone :label "Private zone"
+         :check my/doctor--check-private-zone)
         (:id module-loads :label "Module loading"
          :check my/doctor--check-module-loads)
         (:id ghostel :label "Ghostel"

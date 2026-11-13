@@ -4,7 +4,7 @@
 (require 'ert)
 (require 'org)
 
-(defvar my/roam-dir)
+(defvar my/inbox-dir)
 (defvar my/outputs-dir)
 (defvar my/practice-dir)
 (defvar org-agenda-files)
@@ -220,13 +220,13 @@
 
 (ert-deftest my/gtd-agenda-cache-scans-actionable-para-layers-only ()
   (let* ((root (make-temp-file "org-seq-gtd-agenda-" t))
-         (my/roam-dir (expand-file-name "00_Roam/" root))
+         (my/inbox-dir (expand-file-name "00_Inbox/" root))
          (my/outputs-dir (expand-file-name "10_Outputs/" root))
          (my/practice-dir (expand-file-name "20_Practice/" root))
          (library (expand-file-name "30_Library/" root))
          (archives (expand-file-name "40_Archives/" root)))
     (unwind-protect
-        (let ((roam (my/gtd-test--make-note my/roam-dir "note.org"))
+        (let ((roam (my/gtd-test--make-note my/inbox-dir "note.org"))
               (outputs (my/gtd-test--make-note my/outputs-dir "draft.org"))
               (practice (my/gtd-test--make-note my/practice-dir "drill.org"))
               (in-library (my/gtd-test--make-note library "ref.org"))
@@ -244,16 +244,16 @@
 
 (ert-deftest my/gtd-agenda-cache-is-reused-until-invalidated ()
   (let* ((root (make-temp-file "org-seq-gtd-cache-" t))
-         (my/roam-dir (expand-file-name "00_Roam/" root))
+         (my/inbox-dir (expand-file-name "00_Inbox/" root))
          (my/outputs-dir (expand-file-name "10_Outputs/" root))
          (my/practice-dir (expand-file-name "20_Practice/" root))
          (my/agenda-cache-ttl 300))
     (unwind-protect
         (progn
-          (my/gtd-test--make-note my/roam-dir "first.org")
+          (my/gtd-test--make-note my/inbox-dir "first.org")
           (my/org-invalidate-agenda-cache)
           (should (= (length (my/agenda-files t)) 1))
-          (my/gtd-test--make-note my/roam-dir "second.org")
+          (my/gtd-test--make-note my/inbox-dir "second.org")
           (should (= (length (my/agenda-files)) 1))
           (my/org-invalidate-agenda-cache)
           (should (= (length (my/agenda-files)) 2)))
@@ -262,29 +262,29 @@
 
 (ert-deftest my/gtd-agenda-cache-expires-after-its-ttl ()
   (let* ((root (make-temp-file "org-seq-gtd-ttl-" t))
-         (my/roam-dir (expand-file-name "00_Roam/" root))
+         (my/inbox-dir (expand-file-name "00_Inbox/" root))
          (my/outputs-dir (expand-file-name "10_Outputs/" root))
          (my/practice-dir (expand-file-name "20_Practice/" root))
          (my/agenda-cache-ttl 0))
     (unwind-protect
         (progn
-          (my/gtd-test--make-note my/roam-dir "first.org")
+          (my/gtd-test--make-note my/inbox-dir "first.org")
           (my/org-invalidate-agenda-cache)
           (should (= (length (my/agenda-files)) 1))
-          (my/gtd-test--make-note my/roam-dir "second.org")
+          (my/gtd-test--make-note my/inbox-dir "second.org")
           (should (= (length (my/agenda-files)) 2)))
       (my/org-invalidate-agenda-cache)
       (delete-directory root t))))
 
 (ert-deftest my/gtd-refresh-agenda-files-populates-org-agenda-files ()
   (let* ((root (make-temp-file "org-seq-gtd-refresh-" t))
-         (my/roam-dir (expand-file-name "00_Roam/" root))
+         (my/inbox-dir (expand-file-name "00_Inbox/" root))
          (my/outputs-dir (expand-file-name "10_Outputs/" root))
          (my/practice-dir (expand-file-name "20_Practice/" root))
          (org-agenda-files nil))
     (unwind-protect
         (progn
-          (my/gtd-test--make-note my/roam-dir "note.org")
+          (my/gtd-test--make-note my/inbox-dir "note.org")
           (my/org-invalidate-agenda-cache)
           (my/org-refresh-agenda-files)
           (should (= (length org-agenda-files) 1)))

@@ -19,14 +19,14 @@
   (declare (indent 0))
   `(let* ((root (file-name-as-directory (make-temp-file "org-seq-index-" t)))
           (my/note-home (expand-file-name "library/" root))
-          (my/roam-dir (expand-file-name "00_Roam/" my/note-home))
+          (my/inbox-dir (expand-file-name "00_Inbox/" my/note-home))
           (my/library-dir (expand-file-name "30_Library/" my/note-home))
           (my/archives-dir (expand-file-name "40_Archives/" my/note-home))
           (my/index-file (expand-file-name "index.db" root))
           (my/index-sync-interval 0)
           (inhibit-message t))
      (unwind-protect
-         (progn (make-directory my/roam-dir t) ,@body)
+         (progn (make-directory my/inbox-dir t) ,@body)
        (my/index-close)
        (delete-directory root t))))
 
@@ -99,13 +99,11 @@ Closing words.
 
 (ert-deftest my/index-refreshes-incrementally-and-forgets-deleted-files ()
   (my/test-index--with-library
-    (let ((note (expand-file-name "wm.org" my/roam-dir))
-          (other (expand-file-name "other.org" my/roam-dir)))
+    (let ((note (expand-file-name "wm.org" my/inbox-dir))
+          (other (expand-file-name "other.org" my/inbox-dir)))
       (my/test-index--write note my/test-index--note)
       (my/test-index--write other ":PROPERTIES:\n:ID: other-1\n:END:\n#+title: Other\n")
-      ;; Files outside the scope are not nodes.
-      (my/test-index--write (expand-file-name "ref.org" my/library-dir)
-                            ":PROPERTIES:\n:ID: ref-1\n:END:\n#+title: Ref\n")
+      ;; Hidden directories are outside the scope.
       (my/test-index--write (expand-file-name ".orgseq/types.org" my/note-home)
                             "* Type\n:PROPERTIES:\n:ID: type-1\n:END:\n")
       (should (= 2 (my/index-sync)))
@@ -142,7 +140,7 @@ Closing words.
 
 (ert-deftest my/index-search-finds-substrings-in-any-script ()
   (my/test-index--with-library
-    (my/test-index--write (expand-file-name "wm.org" my/roam-dir) my/test-index--note)
+    (my/test-index--write (expand-file-name "wm.org" my/inbox-dir) my/test-index--note)
     (should (equal (mapcar #'car (my/index-search "注意资源")) '("head-2")))
     (should (equal (mapcar #'car (my/index-search "four CHUNKS")) '("head-1")))
     ;; Titles outrank body text, and short queries still work.
@@ -164,7 +162,7 @@ Closing words.
 (ert-deftest my/index-sees-a-save-inside-the-trusted-interval ()
   (my/test-index--with-library
     (let ((my/index-sync-interval 3600)
-          (note (expand-file-name "a.org" my/roam-dir)))
+          (note (expand-file-name "a.org" my/inbox-dir)))
       (my/test-index--write note ":PROPERTIES:\n:ID: a-1\n:END:\n#+title: Before\n")
       (should (equal (plist-get (my/index-node "a-1") :title) "Before"))
       (with-current-buffer (find-file-noselect note)
@@ -197,5 +195,23 @@ Closing words.
       ;; A heading that is only a keyword has that state and no title.
       (should (equal (plist-get (cadr nodes) :todo) "TODO"))
       (should (equal (plist-get (cadr nodes) :title) "")))))
+
+(ert-deftest my/index-covers-every-layer-and-labels-records ()
+  "The reference and archive layers are indexed; records carry :layer."
+  (my/test-index--with-library
+    (let ((node ":PROPERTIES:\n:ID: %s\n:END:\n#+title: %s\n"))
+      (my/test-index--write (expand-file-name "in.org" my/inbox-dir)
+                            (format node "in-1" "In"))
+      (my/test-index--write (expand-file-name "ref.org" my/library-dir)
+                            (format node "ref-1" "Ref"))
+      (my/test-index--write (expand-file-name "old.org" my/archives-dir)
+                            (format node "old-1" "Old"))
+      (my/index-sync)
+      (let ((layers (mapcar (lambda (r) (cons (plist-get r :id)
+                                              (plist-get r :layer)))
+                            (my/index-records))))
+        (should (eq 'inbox (cdr (assoc "in-1" layers))))
+        (should (eq 'resource (cdr (assoc "ref-1" layers))))
+        (should (eq 'archive (cdr (assoc "old-1" layers))))))))
 
 ;;; test-orgseq-index.el ends here

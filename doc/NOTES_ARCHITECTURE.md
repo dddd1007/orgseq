@@ -9,7 +9,7 @@
 > 本文档记录 `~/NoteHQ/` 笔记库的**物理结构、tag 体系思路、capture 模板、dashboard 设计原则**与**生长原则**。这些内容是长期稳定的设计决策。
 >
 > **实现层面的事实**（函数名、加载顺序、键位、安装方式）请以下列源文件为准，因为它们随项目迭代而变化：
-> - `modules/notes/init-org.el` — 路径常量 `my/note-home` / `my/roam-dir` / `my/orgseq-dir` / `my/types-file`（defcustom，属于 `org-seq` customize group）
+> - `modules/notes/init-org.el` — 路径常量 `my/note-home` / `my/inbox-dir` / `my/orgseq-dir` / `my/types-file`（defcustom，属于 `org-seq` customize group）
 > - `modules/notes/init-capture.el` 与 `kernel/orgseq-note.el` — 采集、capture 模板、Daily 命令
 > - `kernel/orgseq-index.el` — 节点索引
 > - 2026-11-12：org-roam 已从 org-seq 移除，下文凡提到 org-roam 的设计说明，现由节点索引、`init-capture` 和 `init-nodes` 承担。
@@ -37,9 +37,9 @@
 
 整个笔记库的物理结构和数据流向都可以从两条原则推导出来。
 
-第一条：**把碎片想法和正式产出物物理分开存放**。原子笔记（一个想法一条）进入 `00_Roam/` 这个扁平目录，由节点索引负责检索和反向链接；正式产出物（论文、课件、申请书这类有明确交付时刻的东西）进入类 PARA 层级目录，文件结构反映可交付物自身的内在组织。两层之间通过 `[[id:...]]` 链接和 `org-transclusion` 通信，但不互相混杂。这条原则同时解决了两个常见痛点：一是当你的笔记库里混入 30 页的论文草稿，org-roam 的索引会开始变慢，搜索结果里也会出现大段无关的噪音；二是当你的项目目录里塞满未成形的想法碎片，你再也找不到"这个项目真正的可交付文件是哪几个"。分开存放让两类文件各得其所，也让两种工作模式（捕捉 vs. 打磨）保持清晰的边界。
+第一条：**把碎片想法和正式产出物物理分开存放**。原子笔记（一个想法一条）进入 `00_Inbox/` 这个扁平目录，由节点索引负责检索和反向链接；正式产出物（论文、课件、申请书这类有明确交付时刻的东西）进入类 PARA 层级目录，文件结构反映可交付物自身的内在组织。两层之间通过 `[[id:...]]` 链接和 `org-transclusion` 通信，但不互相混杂。这条原则同时解决了两个常见痛点：一是当你的笔记库里混入 30 页的论文草稿，org-roam 的索引会开始变慢，搜索结果里也会出现大段无关的噪音；二是当你的项目目录里塞满未成形的想法碎片，你再也找不到"这个项目真正的可交付文件是哪几个"。分开存放让两类文件各得其所，也让两种工作模式（捕捉 vs. 打磨）保持清晰的边界。
 
-第二条：**分类靠 tag，不靠新增类型目录**。`00_Roam/` 保留 `daily/`、`capture/` 和 `dashboards/` 等功能目录；默认独立笔记落在 `capture/`，Daily 标题也可持有自己的 Org ID。类别/主题可用标签，任务进度用 Org TODO，需要查询的附加信息用普通 Org properties，笔记间关系用 Org 链接。不是所有状态都该做成节点类型，也不要求记录时完成分类。
+第二条：**分类靠 tag，不靠新增类型目录**。`00_Inbox/` 保留 `daily/`、`capture/` 和 `dashboards/` 等功能目录；默认独立笔记落在 `capture/`，Daily 标题也可持有自己的 Org ID。类别/主题可用标签，任务进度用 Org TODO，需要查询的附加信息用普通 Org properties，笔记间关系用 Org 链接。不是所有状态都该做成节点类型，也不要求记录时完成分类。
 
 ---
 
@@ -57,7 +57,7 @@ Emacs 默认打开今天的 Daily Workspace，并在左侧显示只读的 14 日
 
 **职责 A：思维流捕捉**。一边做事一边记录进展、观察、临时想法、半成形的洞察。文字写法不严谨，可以是流水账、问句、断句。每条记录前可以用时间戳标记（手动 `[2026-04-09 14:30]` 或 `SPC b j` 插入）。
 
-**职责 B：任务录入入口**。日常 TODO 可以直接在 Daily 中就地写入。agenda 扫描 `00_Roam/`、`10_Outputs/` 和 `20_Practice/`，不扫描 Library 或 Archives；Daily 中的任务因此进入 GTD Dashboard，而不依赖节点类型。
+**职责 B：任务录入入口**。日常 TODO 可以直接在 Daily 中就地写入。agenda 扫描 `00_Inbox/`、`10_Outputs/` 和 `20_Practice/`，不扫描 Library 或 Archives；Daily 中的任务因此进入 GTD Dashboard，而不依赖节点类型。
 
 任务类型按照是否有子任务进行区分：
 
@@ -90,7 +90,7 @@ orgseq 的 GTD keyword 序列是 `PROJECT/TODO → NEXT → IN-PROGRESS → WAIT
 写 daily 时如果出现某条内容，你判断"这值得作为独立笔记长期追溯"，立刻执行：
 
 1. 把光标停在那段内容（或要新建的word）上，按 `SPC n c` 选合适的 capture 模板（多数时候用 default 即可；有对应类型时在 `t` 组下选该类型）
-2. capture 出一个新的 Roam 节点，文件落到 `00_Roam/capture` 目录，在 daily 原位置插入 `id:` 链接（`SPC n i`）
+2. capture 出一个新的 Roam 节点，文件落到 `00_Inbox/capture` 目录，在 daily 原位置插入 `id:` 链接（`SPC n i`）
 3. 从下方弹出buffer让我可以编辑这个节点内容
 4. 需要时用 `SPC # t` 加类型，`SPC # f` 填字段，`SPC # e` 编辑任意 Org property；这些都是可选的后续操作，不是记录时必须填写的表单
 5. 关闭，回到 daily 继续
@@ -113,9 +113,11 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 ## 三、物理结构
 
+2026-11-13 起笔记库分三部分：Inbox（`00_Inbox/`，对标 Tana，暂存区）、PARA（`10_Outputs/` 至 `40_Archives/`，对标 Notion）、AI System（`50_AI/`，各 AI 共用的内容）。0.2.0 之前 Inbox 叫 `00_Roam/`；仍是旧名字的笔记库照常工作，`orgseq migrate --yes`（或 `M-x my/storage-migrate-layout`）先做快照再改名。本文其余章节里“原子层”“Roam 节点”等说法指的都是 Inbox 里的节点。
+
 ```
 ~/NoteHQ/
-├── 00_Roam/                              ← 原子层 (节点索引范围)
+├── 00_Inbox/                              ← Inbox 暂存层
 │   ├── daily/                         ← 每日笔记 (唯一例外子目录)
 │   ├── dashboards/                    ← 查询入口文件 (唯一例外子目录)
 │   └── capture/20260409143022-*.org    ← 默认独立笔记,时间戳前缀文件名
@@ -133,20 +135,29 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 │   ├── references/
 │   └── pdfs/
 │
-└── 40_Archives/                          ← 归档层
+├── 40_Archives/                          ← 归档层
+│
+└── 50_AI/                                ← AI System 层
+    ├── purpose.org                    ← 知识库目标 (注入 AI 提示)
+    └── schema.org                     ← 笔记结构约定 (注入 AI 提示)
 ```
+
+从 Inbox 转入其他层用 `SPC # m`（`my/node-file`）或 `orgseq file ID LAYER`：整篇笔记直接移动，标题节点拆成独立文件并在原处留链接，ID 不变。类型标题上写 `TYPE_LAYER`（project、area、resource、archive、ai）时，这个类型的新笔记直接建在对应层。
+
+节点索引收录所有层（隐藏目录除外）；视图默认不显示归档层，过滤条件里写了 `(layer ...)` 时以它为准。
 
 ### 各层职责对照
 
 | 层 | 用途 | 进入门槛 | 寿命 |
 |---|------|---------|------|
-| `00_Roam/capture` | 原子笔记、想法碎片、文献摘要、概念定义 | 低，鼓励大量录入 | 永久 |
-| `00_Roam/daily/` | 当日意识流、工作流水、TODO 录入 | 极低，随便写 | 永久但低访问 |
-| `00_Roam/dashboards/` | 查询定义文件 | 高，只放查询不放数据 | 长期 |
+| `00_Inbox/capture` | 原子笔记、想法碎片、文献摘要、概念定义 | 低，鼓励大量录入 | 永久 |
+| `00_Inbox/daily/` | 当日意识流、工作流水、TODO 录入 | 极低，随便写 | 永久但低访问 |
+| `00_Inbox/dashboards/` | 查询定义文件 | 高，只放查询不放数据 | 长期 |
 | `10_Outputs/` | 有明确交付时刻的产出物 | 中，每个目录是一份可交付物 | 1 周到 6 个月 |
 | `20_Practice/` | 长期承担的角色与责任沉淀 | 中，每个目录是一个实践域 | 多年 |
-| `30_Library/` | 被消耗的素材库，二进制、大段非原子材料 | 高，能原子化的都该去 Roam | 长期 |
+| `30_Library/` | 被消耗的素材库，二进制、大段非原子材料 | 高，能原子化的都该去 Inbox | 长期 |
 | `40_Archives/` | 已完成或停滞的内容 | 无，按年份组织 | 永久 |
+| `50_AI/` | AI 上下文文件，以及各 AI 共用的记忆、指令和 Skills（后者尚未实现） | 由使用者和 AI 共同维护 | 长期 |
 
 ### 关键 elisp 配置
 
@@ -155,20 +166,20 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 ```elisp
 ;; init-org.el —— 所有路径的唯一真相源
 (defcustom my/note-home   (file-truename "~/NoteHQ/")             ...)  ; 总根
-(defcustom my/roam-dir    (expand-file-name "00_Roam/"   my/note-home) ...) ; 原子层
+(defcustom my/inbox-dir    (expand-file-name "00_Inbox/"   my/note-home) ...) ; 原子层
 (defcustom my/orgseq-dir  (expand-file-name ".orgseq/" my/note-home) ...); 个性化配置
 
-;; kernel/orgseq-index.el —— 节点索引读取 00_Roam/ 等层，缓存在 .cache/，不进笔记库
+;; kernel/orgseq-index.el —— 节点索引读取 00_Inbox/ 等层，缓存在 .cache/，不进笔记库
 
 ;; init-gtd.el —— agenda 跨 Roam + Outputs + Practice
 ;; daily 笔记里的 TODO/PROJECT 通过这个范围进入 GTD 视图
-(my/agenda-files)  ; returns 00_Roam/ + 10_Outputs/ + 20_Practice/ (not 30_Library/ or 40_Archives/)
+(my/agenda-files)  ; returns 00_Inbox/ + 10_Outputs/ + 20_Practice/ (not 30_Library/ or 40_Archives/)
 
 ;; init-org.el —— 节点类型注册表放在 .orgseq/,不在 agenda 扫描范围内
 (defcustom my/types-file (expand-file-name "types.org" my/orgseq-dir) ...)
 ```
 
-**重要**：org-seq 内部**没有任何模块**应该硬编码 `~/NoteHQ/00_Roam/` 字符串——全部通过 `my/roam-dir` 或 `my/note-home` 派生。如果你在新写的模块里看到硬编码路径，请统一替换成变量。
+**重要**：org-seq 内部**没有任何模块**应该硬编码 `~/NoteHQ/00_Inbox/` 字符串——全部通过 `my/inbox-dir` 或 `my/note-home` 派生。如果你在新写的模块里看到硬编码路径，请统一替换成变量。
 
 ### PARA 三层的判定测试
 
@@ -234,7 +245,7 @@ dashboard **永远不是录入入口**，永远只是窗口。任何想"在 dash
 
 只有正文没有 `Template:` 子标题的旧 `types.org` 照常使用，含义不变。
 
-`types.org` 放在 `.orgseq/`，不放在 `00_Roam/`：GTD agenda 扫描 `00_Roam/`、`10_Outputs/` 和 `20_Practice/`，模板里的 TODO 标题如果放在这些目录中会进入 agenda。文件不存在时 org-seq 自动创建一份带 Reading、Concept、Person 三个示例的起始文件。`SPC # T` 打开该文件，保存后类型立即重载（`my/node-types-reload`）。
+`types.org` 放在 `.orgseq/`，不放在 `00_Inbox/`：GTD agenda 扫描 `00_Inbox/`、`10_Outputs/` 和 `20_Practice/`，模板里的 TODO 标题如果放在这些目录中会进入 agenda。文件不存在时 org-seq 自动创建一份带 Reading、Concept、Person 三个示例的起始文件。`SPC # T` 打开该文件，保存后类型立即重载（`my/node-types-reload`）。
 
 ### 应用类型与填写字段
 
@@ -295,9 +306,9 @@ Org 文本是唯一权威。类型是标签，字段是 property，关系是 `[[
 
 Capture 模板由三个来源按顺序合并（`my/reload-capture-templates`）：
 
-1. **内置默认模板**：定义在 `modules/notes/init-capture.el`（`my/default-capture-templates`），只有一个 `d`（Default），落到 `00_Roam/capture/%<%Y%m%dT%H%M%S>-${slug}.org`，不带 filetag。这是部署时会被覆盖的部分，**不建议**修改。
+1. **内置默认模板**：定义在 `modules/notes/init-capture.el`（`my/default-capture-templates`），只有一个 `d`（Default），落到 `00_Inbox/capture/%<%Y%m%dT%H%M%S>-${slug}.org`，不带 filetag。这是部署时会被覆盖的部分，**不建议**修改。
 
-2. **类型模板**：由 `types.org` 自动生成，归在 `t`（Typed note）组下，键为 `t` 加 `TYPE_KEY`（省略 `TYPE_KEY` 时取标签首字母，重复时追加数字）。目标文件同样在 `00_Roam/capture/`，文件头带 `#+filetags: :TYPE_TAG:`，正文取自类型标题的正文。新笔记创建后自动加上该类型的空字段。修改 `types.org` 并保存后，这部分模板随之更新。
+2. **类型模板**：由 `types.org` 自动生成，归在 `t`（Typed note）组下，键为 `t` 加 `TYPE_KEY`（省略 `TYPE_KEY` 时取标签首字母，重复时追加数字）。目标文件同样在 `00_Inbox/capture/`，文件头带 `#+filetags: :TYPE_TAG:`，正文取自类型标题的正文。新笔记创建后自动加上该类型的空字段。修改 `types.org` 并保存后，这部分模板随之更新。
 
 3. **用户自由模板**：放在 `~/NoteHQ/.orgseq/capture-templates.el`，通过 `setq my/user-capture-templates` 定义，用于不需要字段和视图、只需要正文骨架的笔记。文件不存在时 `init-nodes.el` 创建一份带注释示例的骨架。以 `t` 开头的键保留给类型模板。
 
@@ -350,14 +361,14 @@ Capture 模板由三个来源按顺序合并（`my/reload-capture-templates`）�
 8. **节点操作菜单**：`my/node-action`，对应 `SPC # #` / `SPC n o` / `, # #`。
 
 9. **Dashboard 导航与创建**：
-   - `my/dashboard-find`：从 `00_Roam/dashboards/` 选择一个 dashboard 打开并刷新所有动态块。对应 `SPC n v v`。
+   - `my/dashboard-find`：从 `00_Inbox/dashboards/` 选择一个 dashboard 打开并刷新所有动态块。对应 `SPC n v v`。
    - `my/dash-index` / `my/dash-review`：命名快捷方式。对应 `SPC n v i` / `SPC n v w`。
    - `my/dashboard-create`：提示名字和类型后生成带一个 `orgseq-query` 块的新 dashboard 文件。对应 `SPC # D`。
-   - 需要更多快捷方式时，直接在 `00_Roam/dashboards/` 加文件，用 `my/dashboard-find` 访问即可，**不必再改 elisp**。
+   - 需要更多快捷方式时，直接在 `00_Inbox/dashboards/` 加文件，用 `my/dashboard-find` 访问即可，**不必再改 elisp**。
 
 10. **PARA 层导航**：`my/find-in-outputs` / `my/find-in-practice` / `my/find-in-library` / `my/ripgrep-notehq`。对应 leader key：`SPC P o` / `SPC P p` / `SPC P l` / `SPC P g`。
 
-11. **NoteHQ 目录结构 bootstrap**：`my/ensure-notehq-structure` 在启动完成后的空闲时间调用，幂等地创建 `00_Roam/daily/` / `00_Roam/capture/` / `00_Roam/dashboards/` / `10_Outputs/` / `20_Practice/` / `30_Library/` / `40_Archives/`。
+11. **NoteHQ 目录结构 bootstrap**：`my/ensure-notehq-structure` 在启动完成后的空闲时间调用，幂等地创建 `00_Inbox/daily/` / `00_Inbox/capture/` / `00_Inbox/dashboards/` / `10_Outputs/` / `20_Practice/` / `30_Library/` / `40_Archives/`。
 
 ### 加载顺序要求
 
@@ -371,7 +382,7 @@ Capture 模板由三个来源按顺序合并（`my/reload-capture-templates`）�
 
 ## 七、Dashboard 起点
 
-每个 dashboard 是 `~/NoteHQ/00_Roam/dashboards/` 下的独立 org 文件，只存查询定义。下面只给 3 个起点文件：一个总入口、一个 weekly review、一个按类型和状态分组的示例。**需要更多 dashboard 时按这个模式自己加**。
+每个 dashboard 是 `~/NoteHQ/00_Inbox/dashboards/` 下的独立 org 文件，只存查询定义。下面只给 3 个起点文件：一个总入口、一个 weekly review、一个按类型和状态分组的示例。**需要更多 dashboard 时按这个模式自己加**。
 
 ### `index.org`
 
@@ -464,7 +475,7 @@ Capture 模板由三个来源按顺序合并（`my/reload-capture-templates`）�
 
 bootstrap 脚本应该创建以下种子文件，让用户启动后立刻有可读、可编辑的真实示例。每个文件都极简，目的只是演示模式。
 
-### `00_Roam/daily/example-day.org` —— 示例 daily 笔记
+### `00_Inbox/daily/example-day.org` —— 示例 daily 笔记
 
 ```org
 #+title: 2026-04-09
@@ -499,7 +510,7 @@ bootstrap 脚本应该创建以下种子文件，让用户启动后立刻有可�
 今天主要进展见上。明天的 NEXT 已加到 GTD inbox。
 ```
 
-### `00_Roam/example-fragment.org` —— 示例 Roam 碎片
+### `00_Inbox/example-fragment.org` —— 示例 Roam 碎片
 
 ```org
 :PROPERTIES:
@@ -592,8 +603,8 @@ Library 层存放被取用而非被维护的素材:
 
 `bootstrap-notes.sh` / `bootstrap-notes.ps1` 的当前职责：
 
-1. **创建目录骨架**：`00_Roam/daily/` / `00_Roam/capture/` / `00_Roam/dashboards/` / `10_Outputs/_template/` / `20_Practice/_template/` / `30_Library/{bibliography,datasets,snippets,references,pdfs}` / `40_Archives/` / `.orgseq/`。所有目录均幂等创建。
-2. **扁平化历史子目录**：如果从旧版本升级并发现 `00_Roam/lit/` 或 `00_Roam/concepts/`，把里面的 `.org` 文件移动到 `00_Roam/` 根目录，然后删掉空子目录。
+1. **创建目录骨架**：`00_Inbox/daily/` / `00_Inbox/capture/` / `00_Inbox/dashboards/` / `10_Outputs/_template/` / `20_Practice/_template/` / `30_Library/{bibliography,datasets,snippets,references,pdfs}` / `40_Archives/` / `.orgseq/`。所有目录均幂等创建。
+2. **扁平化历史子目录**：如果从旧版本升级并发现 `00_Inbox/lit/` 或 `00_Inbox/concepts/`，把里面的 `.org` 文件移动到 `00_Inbox/` 根目录，然后删掉空子目录。
 3. **部署 NoteHQ/Codex 脚手架**：把 `notehq/AGENTS.md` 拷贝到 `~/NoteHQ/AGENTS.md`。首次执行时只创建缺失文件，不覆写已有文件。
 4. **增量更新模式**（`--update` / `-Update` flag）：当 org-seq 仓库里的 `notehq/*` 文件升级后，运行 `bash scripts/bootstrap-notes.sh --update` 或 `.\scripts\bootstrap-notes.ps1 -Update`，脚本会按内容比较，只覆写实际有变化的脚手架文件。用户内容（笔记、`types.org`、`capture-templates.el`、`ai-config.org`）**永远不会被触碰**。
 
@@ -602,7 +613,7 @@ Library 层存放被取用而非被维护的素材:
 脚本本身不会替你制定标签体系。跑完之后可以：
 
 1. 先按现有 Daily/capture 写笔记，需要时再加类型和字段（参考 §4；`SPC # T` 编辑 `types.org`）
-2. 在 `~/NoteHQ/00_Roam/dashboards/index.org` 写 dashboard 索引（参考 §7；`SPC # D` 创建）
+2. 在 `~/NoteHQ/00_Inbox/dashboards/index.org` 写 dashboard 索引（参考 §7；`SPC # D` 创建）
 3. （可选）把 Org 笔记和 `.orgseq/` 纳入版本控制；节点索引不需要纳入
 4. 运行 `M-x my/index-rebuild` 为已有笔记建立索引
 
@@ -627,7 +638,7 @@ bash scripts/bootstrap-notes.sh --update
 
 ## 十、与 Obsidian 的协作
 
-Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `00_Roam/`。这样 Obsidian 能浏览全部内容（Roam 碎片 + PARA 产出物 + Library）。
+Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `00_Inbox/`。这样 Obsidian 能浏览全部内容（Roam 碎片 + PARA 产出物 + Library）。
 
 ### 职责边界
 
@@ -692,7 +703,11 @@ Obsidian vault 直接指向 `~/NoteHQ/`（vault 根目录），不要单独指 `
 
 笔记库之外的内容只通过下面几条通道进出（2026-11-12 起）：
 
-- 导入：`SPC n S i`（`my/storage-import`）或 `orgseq import DIR`，把一个文件夹复制进来。带有 `00_Roam/` 或 `.orgseq/` 的文件夹按层合并，其他文件夹整体放到 `30_Library/` 下的同名子目录。只复制笔记库里没有的文件，不覆盖已有文件，不改动来源。旧的 `~/NoteHQ/` 也走这条通道，存在且未导入时只在回显区提示一次，并一直显示在存储状态里。
+- 导入：`SPC n S i`（`my/storage-import`）或 `orgseq import DIR`，把一个文件夹复制进来。带有 `00_Inbox/` 或 `.orgseq/` 的文件夹按层合并，其他文件夹整体放到 `30_Library/` 下的同名子目录。只复制笔记库里没有的文件，不覆盖已有文件，不改动来源。旧的 `~/NoteHQ/` 也走这条通道，存在且未导入时只在回显区提示一次，并一直显示在存储状态里。
+- Notion 导入：`SPC n S n`（`my/notion-import-folder`）或 `orgseq import-notion DIR [--db-type 数据库名=类型]... [--type T] [--layer L] [--folder F] [--map 属性=字段] [--private] --yes`，把解压后的 Notion 导出（Markdown & CSV）转成笔记。每篇笔记用属性 `NOTION_ID` 记录来源页，再次运行会跳过；页面链接转成 id 链接，数据库属性转成 Org 属性，附件复制到笔记旁的 `assets/`。不带 `--yes` 只预览。`--route 路径=去向` 按导出里的路径把页面送到某一层、隔离区或跳过，并保留其下的文件夹层级；`--profile 文件` 把路由、类型和改名写在一个文件里。每个数据库另有一篇同名笔记，用 `orgseq-view` 块按文件夹列出它的行。细节见 [DESIGN.md](DESIGN.md) 第六节。
+- Tana 导入：`SPC n S T`（`my/tana-import-file`）或 `orgseq import-tana 文件.json [--profile 文件] [--route 路径=去向]... --yes`。日记日追加到当天的 Daily 文件，带 SuperTag 的节点变成笔记（字段变属性），其余是正文里的列表；用 `TANA_ID` 记录来源，可重复运行。默认落在 `00_Inbox/tana/`。
+- 视图过滤条件 `(folder "20_Practice/教学")`：文件在笔记库的这个文件夹里（任意深度）。
+- 隔离区：`private/`（`my/private-dir`）与笔记库并列，不属于笔记库，放咨询记录这类不能被顺手搜到的资料。不进索引、不同步、不被全文搜索和 AI 触及；`SPC n P o` 打开，`SPC n P n` 新建。文件不加密。
 - 导出：`SPC n S e`（`my/storage-export`）或 `orgseq export DIR`，把整个笔记库复制到一个带日期的新文件夹。
 - 快照：`SPC n S b`（`my/storage-snapshot`）或 `orgseq snapshot`，把笔记库复制到 Emacs 目录之外的快照目录（Linux 为 `~/.local/share/org-seq/snapshots/`）。笔记库有改动的日子自动做一次，导入前和同步做全量比较前也各做一次，保留最近 `my/storage-snapshot-keep` 份（默认 10）。删除或替换 Emacs 目录不会同时丢掉笔记库和快照。
 - 恢复：`my/storage-restore`（建议绑定 `SPC n S R`）或 `orgseq restore NAME --yes`，把整个笔记库恢复到某一份快照的状态；`orgseq snapshots` 列出快照。恢复前先给当前笔记库做一份快照，失败则不改动任何文件，所以恢复本身可以撤销（恢复那份撤销快照即可）。快照覆盖范围内的文件按快照覆盖，快照里没有的文件被删除，因此删除也是恢复的一部分；范围之外的 `org-roam.db`、`.git/`、字节码、锁文件和备份文件不动。恢复出的文件使用当前时间作为修改时间：同步用“较新者胜出”解决冲突，保留快照的旧时间会让远端副本在下次同步时把恢复结果盖掉。已打开且未修改的缓冲区会重新读取，被删除文件的缓冲区只给出提示。设置了同步远端时，下次同步会把恢复后的状态（包括删除）带到远端，建议先运行 `my/sync-preview`。

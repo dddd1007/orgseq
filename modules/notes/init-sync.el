@@ -35,9 +35,14 @@
 (defvar my/note-home)
 (defvar my/note-home-legacy)
 (defvar my/snapshot-dir)
-(defvar my/roam-dir)
+(defvar my/inbox-dir)
 (defvar my/orgseq-dir)
 (defvar my/library-dir)
+(defvar my/ai-dir)
+(defvar my/dashboards-dir)
+(defvar my/inbox-dir-legacy-name)
+(declare-function my/inbox-dir--resolve-default "orgseq-paths" ())
+(declare-function my/ai--context-file "init-ai" (name))
 (defvar my/sync-remote)
 
 (require 'cl-lib)
@@ -45,6 +50,7 @@
 
 (declare-function my/index-sync "orgseq-index" (&optional force))
 (declare-function my/node-types-reload "init-nodes" ())
+(declare-function my/private-info "init-private" ())
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; Section 1: Device-local state
@@ -243,17 +249,72 @@ from one."
   (and (my/storage--legacy-dir)
        (not (eq (plist-get (my/sync--state) :legacy-import) 'done))))
 
+(defconst my/storage--inbox-names '("00_Inbox" "00_Roam")
+  "Directory names of the Inbox layer: the current one and the old one.")
+
+(defconst my/storage--ai-context-files
+  '("purpose.org" "schema.org" "overview.org")
+  "AI context files that sat at the top of the Inbox layer before 0.2.0.")
+
 (defun my/storage--library-shaped-p (dir)
   "Return non-nil when DIR is laid out like an org-seq library."
-  (cl-some (lambda (layer)
-             (file-directory-p
-              (expand-file-name
-               (file-name-nondirectory (directory-file-name layer)) dir)))
-           (list my/roam-dir my/orgseq-dir)))
+  (cl-some (lambda (name) (file-directory-p (expand-file-name name dir)))
+           (append my/storage--inbox-names
+                   (list (file-name-nondirectory
+                          (directory-file-name my/orgseq-dir))))))
+
+(defun my/storage--legacy-layout-p (&optional dir)
+  "Return non-nil when library DIR still uses the old Inbox directory name."
+  (let ((dir (or dir my/note-home)))
+    (and (file-directory-p (expand-file-name my/inbox-dir-legacy-name dir))
+         (not (file-directory-p (expand-file-name "00_Inbox/" dir))))))
+
+(defun my/storage--copy-library (source home)
+  "Copy the files of library SOURCE that are missing from library HOME.
+The Inbox layer of SOURCE goes into the Inbox layer of HOME whatever
+either is called.  When HOME has the current layout, AI context files
+found at the top of an old Inbox layer go to `my/ai-dir'.  Return the
+number of files copied."
+  (let ((count 0)
+        (current (not (my/storage--legacy-layout-p home))))
+    (make-directory home t)
+    (dolist (entry (directory-files source nil directory-files-no-dot-files-regexp))
+      (let ((from (expand-file-name entry source)))
+        (cond
+         ((string-match-p my/storage--skip-regexp entry))
+         ((equal entry ".git"))
+         ((file-symlink-p from))
+         ((and (member entry my/storage--inbox-names) (file-directory-p from))
+          (make-directory my/inbox-dir t)
+          (dolist (sub (directory-files from nil directory-files-no-dot-files-regexp))
+            (let ((sub-from (expand-file-name sub from)))
+              (cond
+               ((string-match-p my/storage--skip-regexp sub))
+               ((file-symlink-p sub-from))
+               ((file-directory-p sub-from)
+                (cl-incf count (my/storage-copy-missing
+                                sub-from (expand-file-name sub my/inbox-dir))))
+               (t
+                (let ((to (expand-file-name
+                           sub (if (and current
+                                        (member sub my/storage--ai-context-files))
+                                   my/ai-dir
+                                 my/inbox-dir))))
+                  (unless (file-exists-p to)
+                    (make-directory (file-name-directory to) t)
+                    (copy-file sub-from to nil t)
+                    (cl-incf count))))))))
+         ((file-directory-p from)
+          (cl-incf count (my/storage-copy-missing
+                          from (expand-file-name entry home))))
+         ((not (file-exists-p (expand-file-name entry home)))
+          (copy-file from (expand-file-name entry home) nil t)
+          (cl-incf count)))))
+    count))
 
 (defun my/storage-import (dir)
   "Copy notes from folder DIR into the library.
-A folder laid out like an org-seq library (it has the Roam layer or
+A folder laid out like an org-seq library (it has the Inbox layer or
 .orgseq/) is merged layer by layer.  Any other folder is copied as one
 subfolder of the reference layer (`my/library-dir').  Only files missing
 from the library are copied, nothing is overwritten, and DIR is never
@@ -269,12 +330,15 @@ of files copied."
     (when (or (file-in-directory-p source home) (file-in-directory-p home source))
       (user-error "%s overlaps the library; choose a folder outside it" source))
     (my/storage-snapshot)
-    (let* ((target (if (my/storage--library-shaped-p source)
+    (let* ((shaped (my/storage--library-shaped-p source))
+           (target (if shaped
                        home
                      (expand-file-name
                       (file-name-nondirectory (directory-file-name source))
                       my/library-dir)))
-           (count (my/storage-copy-missing source target)))
+           (count (if shaped
+                      (my/storage--copy-library source home)
+                    (my/storage-copy-missing source target))))
       (when (and (my/storage--legacy-dir)
                  (file-equal-p source (my/storage--legacy-dir)))
         (my/sync--state-put :legacy-import 'done))
@@ -300,6 +364,119 @@ Return that folder.  The library itself is not changed."
       (message "org-seq: exported %d files to %s"
                count (abbreviate-file-name target)))
     (file-name-as-directory target)))
+
+;; -- Layout migration --
+;;
+;; Before 0.2.0 the Inbox layer was called 00_Roam/ and held the AI
+;; context files.  A library with that layout keeps working from the old
+;; name (`my/inbox-dir--resolve-default'); this command renames it.
+
+(defun my/storage-layout-plan (&optional dir)
+  "Return what migrating library DIR to the current layout would move.
+A list of (FROM . TO) names relative to DIR, nil when nothing is to do.
+Nothing is changed."
+  (let* ((home (my/storage--dir (or dir my/note-home)))
+         (old (expand-file-name my/inbox-dir-legacy-name home))
+         plan)
+    (when (file-directory-p old)
+      (dolist (file (directory-files-recursively old "" nil))
+        (unless (file-symlink-p file)
+          (let* ((rel (file-relative-name file old))
+                 (to (if (member rel my/storage--ai-context-files)
+                         (concat "50_AI/" rel)
+                       (concat "00_Inbox/" rel))))
+            (push (cons (file-relative-name file home) to) plan)))))
+    (nreverse plan)))
+
+(defun my/storage--refresh-layout ()
+  "Point the layer variables at the directories the library has now.
+Only values that still name a default location are changed."
+  (let ((old (my/storage--dir (expand-file-name my/inbox-dir-legacy-name
+                                                my/note-home)))
+        (new (my/storage--dir (expand-file-name "00_Inbox/" my/note-home))))
+    (when (member (my/storage--dir my/inbox-dir) (list old new))
+      (let ((was (my/storage--dir my/inbox-dir)))
+        (setq my/inbox-dir (my/inbox-dir--resolve-default))
+        (when (and (boundp 'my/dashboards-dir)
+                   (equal (my/storage--dir my/dashboards-dir)
+                          (expand-file-name "dashboards/" was)))
+          (setq my/dashboards-dir
+                (expand-file-name "dashboards/" my/inbox-dir)))))
+    (when (fboundp 'my/ai--context-file)
+      (dolist (pair '((my/ai-purpose-file . "purpose.org")
+                      (my/ai-schema-file . "schema.org")))
+        (when (and (boundp (car pair))
+                   (member (file-name-directory
+                            (expand-file-name (symbol-value (car pair))))
+                           (list old new (my/storage--dir my/ai-dir))))
+          (set (car pair) (my/ai--context-file (cdr pair))))))))
+
+(defun my/storage-migrate-layout ()
+  "Rename the old Inbox directory of the library to the current layout.
+00_Roam/ becomes 00_Inbox/ and the AI context files at its top move to
+50_AI/.  The library is copied into a snapshot first and nothing is
+changed when that fails.  A file whose new name already exists is left
+where it is.  Org IDs do not change, so links keep working.  Return a
+plist with :moved, :skipped and :snapshot, or nil when the library
+already has the current layout."
+  (interactive)
+  (my/storage--check-overlap)
+  (let* ((home (my/storage--dir my/note-home))
+         (plan (my/storage-layout-plan home))
+         (moved 0) (skipped 0) snapshot)
+    (if (null plan)
+        (progn
+          (when (file-directory-p (expand-file-name my/inbox-dir-legacy-name home))
+            (ignore-errors
+              (delete-directory
+               (expand-file-name my/inbox-dir-legacy-name home))))
+          (my/storage--refresh-layout)
+          (when (called-interactively-p 'interactive)
+            (message "org-seq: the library already has the current layout"))
+          nil)
+      (my/sync--save-note-buffers)
+      (let ((before (my/storage--files home)))
+        (setq snapshot (let ((my/storage-snapshot-keep most-positive-fixnum))
+                         (my/storage-snapshot)))
+        (unless (and snapshot
+                     (= (length (my/storage--files snapshot)) (length before)))
+          (user-error "Could not snapshot the library; nothing was changed")))
+      (dolist (move plan)
+        (let ((from (expand-file-name (car move) home))
+              (to (expand-file-name (cdr move) home)))
+          (if (file-exists-p to)
+              (cl-incf skipped)
+            (make-directory (file-name-directory to) t)
+            (rename-file from to)
+            (when-let* ((buffer (get-file-buffer from)))
+              (with-current-buffer buffer
+                (set-visited-file-name to t t)))
+            (cl-incf moved))))
+      ;; Remove the directories the moves emptied, deepest first.
+      (let ((old (expand-file-name my/inbox-dir-legacy-name home)))
+        (dolist (dir (sort (cl-remove-if-not
+                            #'file-directory-p
+                            (directory-files-recursively old "" t))
+                           (lambda (a b) (> (length a) (length b)))))
+          (ignore-errors (delete-directory dir)))
+        (ignore-errors (delete-directory old)))
+      (make-directory (expand-file-name "50_AI/" home) t)
+      (my/storage--refresh-layout)
+      (my/sync--refresh-index)
+      (when (fboundp 'my/index-sync)
+        (my/index-sync 'check))
+      (message "org-seq: moved %d files to the current layout%s; the state before is in %s%s"
+               moved
+               (if (> skipped 0)
+                   (format ", left %d in %s because the new name exists"
+                           skipped my/inbox-dir-legacy-name)
+                 "")
+               (abbreviate-file-name snapshot)
+               (if my/sync-remote
+                   ".  The next sync will carry the renames to the remote; run M-x my/sync-preview first"
+                 ".  Restart Emacs so every module uses the new directories"))
+      (list :moved moved :skipped skipped
+            :snapshot (directory-file-name snapshot)))))
 
 ;; -- Restore --
 
@@ -481,6 +658,8 @@ links and `.git' are neither read nor changed.  Return a plist with
                 (error-message-string err) (or undo "no snapshot (it was empty)")))))
     (my/storage--refresh-buffers visiting)
     (my/storage--prune-snapshots (list source undo))
+    ;; A snapshot from before 0.2.0 brings the old Inbox directory back.
+    (my/storage--refresh-layout)
     (my/sync--refresh-index)
     (when (fboundp 'my/index-sync)
       (my/index-sync 'check))
@@ -510,7 +689,8 @@ Read-only: creates no file or directory."
           :snapshot-dir (my/storage--dir my/snapshot-dir)
           :snapshots (length snapshots)
           :last-snapshot (and snapshots (file-name-nondirectory (car snapshots)))
-          :legacy (and (my/storage--legacy-pending-p) (my/storage--legacy-dir)))))
+          :legacy (and (my/storage--legacy-pending-p) (my/storage--legacy-dir))
+          :old-layout (and (my/storage-layout-plan) t))))
 
 (defun my/storage-status ()
   "Show where the library lives, its size, sync state and snapshots."
@@ -534,6 +714,17 @@ Read-only: creates no file or directory."
          (if (plist-get info :legacy)
              (format "Old library %s has not been imported (M-x my/storage-import)\n"
                      (abbreviate-file-name (plist-get info :legacy)))
+           "")
+         (if (plist-get info :old-layout)
+             (format "Layout     old (%s); M-x my/storage-migrate-layout renames it to 00_Inbox/\n"
+                     my/inbox-dir-legacy-name)
+           "")
+         (if (fboundp 'my/private-info)
+             (let ((private (my/private-info)))
+               (format "Private    %s (%d files; not indexed, not synced, %d local copies)\n"
+                       (abbreviate-file-name (plist-get private :dir))
+                       (plist-get private :files)
+                       (plist-get private :snapshots)))
            "")
          "\nCommands   my/storage-import   my/storage-export   my/storage-snapshot\n"
          "           my/storage-restore  my/sync-setup       my/sync-now\n"

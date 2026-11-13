@@ -106,7 +106,8 @@ archive_legacy_claude_scaffold() {
 
 # --- Migrate old layout to numeric-prefixed layout (idempotent) ---
 # Old layout (pre-numbering): Roam / Outputs / Practice / Library / Archives
-# New layout: 00_Roam / 10_Outputs / 20_Practice / 30_Library / 40_Archives
+# New layout: 00_Inbox / 10_Outputs / 20_Practice / 30_Library / 40_Archives / 50_AI
+# (the Inbox layer was called 00_Roam before org-seq 0.2.0)
 migrate_layer() {
   local old="$1" new="$2"
   if [ -d "$NOTE_HOME/$old" ] && [ ! -d "$NOTE_HOME/$new" ]; then
@@ -114,7 +115,8 @@ migrate_layer() {
     echo "  [migrated] $old -> $new"
   fi
 }
-migrate_layer "Roam"     "00_Roam"
+migrate_layer "Roam"     "00_Inbox"
+migrate_layer "00_Roam"  "00_Inbox"
 migrate_layer "Outputs"  "10_Outputs"
 migrate_layer "Practice" "20_Practice"
 migrate_layer "Library"  "30_Library"
@@ -122,9 +124,9 @@ migrate_layer "Archives" "40_Archives"
 
 # --- Create directory tree (idempotent) ---
 dirs=(
-  "$NOTE_HOME/00_Roam/daily"
-  "$NOTE_HOME/00_Roam/capture"
-  "$NOTE_HOME/00_Roam/dashboards"
+  "$NOTE_HOME/00_Inbox/daily"
+  "$NOTE_HOME/00_Inbox/capture"
+  "$NOTE_HOME/00_Inbox/dashboards"
   "$NOTE_HOME/10_Outputs/_template"
   "$NOTE_HOME/20_Practice/_template"
   "$NOTE_HOME/30_Library/bibliography"
@@ -133,6 +135,7 @@ dirs=(
   "$NOTE_HOME/30_Library/references"
   "$NOTE_HOME/30_Library/pdfs"
   "$NOTE_HOME/40_Archives"
+  "$NOTE_HOME/50_AI"
   "$NOTE_HOME/.orgseq"
 )
 
@@ -144,22 +147,22 @@ done
 echo ""
 
 # --- Flatten legacy Roam subdirectories (lit/, concepts/) ---
-# (Works against the post-migration 00_Roam name; if the old Roam
+# (Works against the post-migration 00_Inbox name; if the old Roam
 # layout hasn't been migrated yet the migrate_layer block above has
 # already renamed it.)
 legacy_dirs=("lit" "concepts")
 
 for sub in "${legacy_dirs[@]}"; do
-  src="$NOTE_HOME/00_Roam/$sub"
+  src="$NOTE_HOME/00_Inbox/$sub"
   if [ -d "$src" ]; then
     files=("$src"/*.org)
     if [ ${#files[@]} -gt 0 ]; then
-      echo "  Flattening $src/ -> 00_Roam/ ..."
+      echo "  Flattening $src/ -> 00_Inbox/ ..."
       for f in "${files[@]}"; do
         base="$(basename "$f")"
-        dest="$NOTE_HOME/00_Roam/$base"
+        dest="$NOTE_HOME/00_Inbox/$base"
         if [ -e "$dest" ]; then
-          echo "    [skip] $base (already exists in 00_Roam/)"
+          echo "    [skip] $base (already exists in 00_Inbox/)"
         else
           mv "$f" "$dest"
           echo "    [moved] $base"

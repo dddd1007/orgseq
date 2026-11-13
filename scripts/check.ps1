@@ -297,10 +297,10 @@ try {
     $validationRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("org-seq-check-{0}" -f [guid]::NewGuid())
     $null = New-Item -ItemType Directory -Path $validationRoot -Force
     $noteDirectories = @(
-        '00_Roam',
-        '00_Roam/daily',
-        '00_Roam/capture',
-        '00_Roam/dashboards',
+        '00_Inbox',
+        '00_Inbox/daily',
+        '00_Inbox/capture',
+        '00_Inbox/dashboards',
         '10_Outputs',
         '20_Practice',
         '30_Library',

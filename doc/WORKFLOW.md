@@ -37,7 +37,7 @@ SPC n d a  → 追加或复用一个带 ID 的时间节点
 SPC n d c  → 在今日 daily note 中 capture（需要模板时）
 ```
 
-这些文件放在 `~/.emacs.d/notes/00_Roam/daily/` 下，以日期命名。Daily 笔记是这套系统里最"多功能"的一类文件，它同时承担两个看起来不相关但实际上高度互补的职责。
+这些文件放在 `~/.emacs.d/notes/00_Inbox/daily/` 下，以日期命名。Daily 笔记是这套系统里最"多功能"的一类文件，它同时承担两个看起来不相关但实际上高度互补的职责。
 Daily 文件只是一天的容器；每次快速记录位于一个带 `:ID:` 的一级时间标题下。
 先写内容，不必在捕捉瞬间决定结构。需要整理时，把光标放回该标题，
 使用 `, # a` 添加标签，再用 `, # e` 编辑普通 Org property。保存 Daily
@@ -161,7 +161,7 @@ Zettelkasten 的核心动作不是"建立分类体系"，而是**识别哪些想
 识别出来之后，从 daily 里把它"提升"成独立节点的完整动作是这样的：
 
 1. 按 `SPC n c` 打开 capture 模板选择菜单，大多数情况选 `d`（default）就够了——你不需要一开始就为每类笔记设计专门的模板。
-2. 新节点会落到 `~/.emacs.d/notes/00_Roam/capture/` 下，文件名是时间戳前缀加 slug（比如 `20260410T143022-atomic-notes-as-conversation.org`）。这个命名方案保证了两点：节点之间不会因为重名冲突，以及将来你可以用文件名时间戳回溯"某一周我写了哪些新东西"。
+2. 新节点会落到 `~/.emacs.d/notes/00_Inbox/capture/` 下，文件名是时间戳前缀加 slug（比如 `20260410T143022-atomic-notes-as-conversation.org`）。这个命名方案保证了两点：节点之间不会因为重名冲突，以及将来你可以用文件名时间戳回溯"某一周我写了哪些新东西"。
 3. 屏幕下方会弹出一个窗口让你编辑新节点的正文——写几句话阐明这个想法就够了。不要在第一版就追求完美，原子笔记的价值来自数量积累而非单条完美。
 4. 写完后回到原来的 daily 位置（可以 `C-x b` 切回去，或用 `SPC b b`），按 `SPC n i` 插入一个 `[[id:...]]` 链接指向新节点。这样以后你在 daily 里看到这条"已经被提升"的想法时，可以一键跳过去查看它演化成了什么样子。
 5. 需要时按 `SPC # t` 加 `Concept` / `Reading` 等类型，再用 `SPC # f` 填写该类型的字段。没有合适的类型就跳过，不要求先设计类型体系。
@@ -171,7 +171,7 @@ Zettelkasten 的核心动作不是"建立分类体系"，而是**识别哪些想
 
 这个过程你会做得越来越快。第一周可能每条都要想 2-3 分钟，一个月后大约每条 30 秒就能完成提取。重点是养成"看到值得的想法就提升"的本能反应——漏掉几条没关系，僵化的仪式才是真正的敌人。
 
-**分类由标签和类型承担，不由目录承担**。除了 `daily/`、`capture/`、`dashboards/` 三个特殊子目录，`00_Roam/` 完全扁平——没有什么 `literature/` / `concepts/` / `people/` 之类的层级。如果你发现自己在思考"这条笔记应该放在哪个目录"，那是旧的文件系统思维在捣乱——答案是"放在 capture/ 里，让标签或类型告诉你它是什么"。
+**分类由标签和类型承担，不由目录承担**。除了 `daily/`、`capture/`、`dashboards/` 三个特殊子目录，`00_Inbox/` 完全扁平——没有什么 `literature/` / `concepts/` / `people/` 之类的层级。如果你发现自己在思考"这条笔记应该放在哪个目录"，那是旧的文件系统思维在捣乱——答案是"放在 capture/ 里，让标签或类型告诉你它是什么"。
 
 ### Capture 模板
 
@@ -286,7 +286,7 @@ SPC n v i  → Dashboard index
 SPC # D  → 创建新 dashboard
 ```
 
-新 dashboard 保存在 `~/.emacs.d/notes/00_Roam/dashboards/` 下。查询写成 `orgseq-query` 动态块：
+新 dashboard 保存在 `~/.emacs.d/notes/00_Inbox/dashboards/` 下。查询写成 `orgseq-query` 动态块：
 
 ```org
 #+BEGIN: orgseq-query :type "reading" :where (("STATUS" "reading")) :columns ("AUTHORS" "YEAR")
@@ -320,13 +320,13 @@ SPC # r  → 列出最近 14 天修改过、没有类型或没有链接的笔记
 
 ## 五、PARA 工作流
 
-NoteHQ 分为两大区域：**00_Roam/（原子层）** 和 **PARA 层（产出/实践/资源/归档）**。两层通过 `id:` 链接和 `org-transclusion` 通信。
+NoteHQ 分为两大区域：**00_Inbox/（原子层）** 和 **PARA 层（产出/实践/资源/归档）**。两层通过 `id:` 链接和 `org-transclusion` 通信。
 
 ### 目录结构
 
 ```
 ~/.emacs.d/notes/
-├── 00_Roam/                   ← 原子层 (节点索引范围)
+├── 00_Inbox/                   ← 原子层 (节点索引范围)
 │   ├── daily/              ← 每日笔记
 │   ├── dashboards/         ← 查询入口文件
 │   └── capture/            ← 所有 capture 落地（扁平，时间戳前缀）
@@ -565,7 +565,7 @@ Dashboard 按天展示彩色时间线（█ flow / ▓ normal / ░ unfocused）
 | yazi 弹窗 | `SPC o y` | 底部 yazi，适合快速选择文件 |
 | yazi 当前窗口 | `SPC o Y` | 沉浸式 yazi，适合连续浏览目录 |
 | 跳到当前文件目录 | `SPC f j` 或 `SPC o d` | dired-jump |
-| Quick-access 菜单 | 在 dirvish 内按 `a` | 一键跳 00_Roam/capture/daily/dashboards/10_Outputs/20_Practice/30_Library/... |
+| Quick-access 菜单 | 在 dirvish 内按 `a` | 一键跳 00_Inbox/capture/daily/dashboards/10_Outputs/20_Practice/30_Library/... |
 | 子目录展开 | 在 dirvish 内按 `TAB` | 在当前行原位展开/折叠 |
 | Casual 菜单 | 在 dirvish 内按 `C-o` | Transient 菜单（所有 dired 操作） |
 

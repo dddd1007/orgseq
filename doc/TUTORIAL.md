@@ -52,7 +52,7 @@ init-capture  ←  采集层（capture、Daily、节点查找、链接、反链�
 
 ```
 ~/.emacs.d/notes/
-├── 00_Roam/               ← 原子笔记（Zettelkasten 节点）
+├── 00_Inbox/               ← 原子笔记（Zettelkasten 节点）
 │   ├── capture/           ← 新捕获的笔记落点
 │   ├── daily/             ← 每日笔记（YYYY-MM-DD.org）
 │   ├── dashboards/        ← 动态查询仪表盘（只读查询视图）
@@ -80,19 +80,19 @@ export ORG_SEQ_NOTE_HOME="/mnt/c/Users/exrld/notes"
 $env:ORG_SEQ_NOTE_HOME = "$HOME\notes"
 ```
 
-GTD Agenda 扫描 `00_Roam/`、`10_Outputs/`、`20_Practice/` 三个目录，不扫描 `30_Library/` 和 `40_Archives/`。这个设计有意为之：参考素材和归档内容不应进入任务视图，制造噪音。
+GTD Agenda 扫描 `00_Inbox/`、`10_Outputs/`、`20_Practice/` 三个目录，不扫描 `30_Library/` 和 `40_Archives/`。这个设计有意为之：参考素材和归档内容不应进入任务视图，制造噪音。
 
 ### PARA 的逻辑
 
 PARA 是组织文件的骨架，Zettelkasten 是组织知识的骨架，二者分工不同。
 
-- `00_Roam/`：原子笔记，每条笔记只讲一件事，有全局 ID，可以被任意文件引用
+- `00_Inbox/`：原子笔记，每条笔记只讲一件事，有全局 ID，可以被任意文件引用
 - `10_Outputs/`：一篇论文、一门课的讲义、一份报告——有明确交付时刻
 - `20_Practice/`：教学、咨询、研究——持续的角色与职责
 - `30_Library/`：文献 PDF、参考书——被取用但不产出的素材
 - `40_Archives/`：项目完成后归档，保留但不活跃
 
-日常工作流的路径是：`00_Roam/` 生长出想法 → 想法聚合进 `10_Outputs/` 项目 → 项目完成后进 `40_Archives/`。
+日常工作流的路径是：`00_Inbox/` 生长出想法 → 想法聚合进 `10_Outputs/` 项目 → 项目完成后进 `40_Archives/`。
 
 ---
 
@@ -153,7 +153,7 @@ ORG_SEQ_CLIENT=tty ~/.emacs.d/ec file.org
 
 treemacs 侧栏的根目录是 `my/note-home`（默认 `~/.emacs.d/notes/`，可由 `ORG_SEQ_NOTE_HOME` 覆盖）。在 treemacs 内，`TAB` 展开/折叠目录节点。
 
-如果用 dirvish 浏览文件（`SPC o f` 打开），按 `a` 键弹出快速访问菜单，预设了 NoteHQ 各目录的跳转入口：`n` → NoteHQ 根、`r` → 00_Roam、`c` → capture、`d` → daily、`o` → Outputs、`p` → Practice。偏好 yazi 的时候，`SPC o y` 会从底部唤出 yazi，`SPC o Y` 会在当前窗口打开 yazi。
+如果用 dirvish 浏览文件（`SPC o f` 打开），按 `a` 键弹出快速访问菜单，预设了 NoteHQ 各目录的跳转入口：`n` → NoteHQ 根、`r` → 00_Inbox、`c` → capture、`d` → daily、`o` → Outputs、`p` → Practice。偏好 yazi 的时候，`SPC o y` 会从底部唤出 yazi，`SPC o Y` 会在当前窗口打开 yazi。
 
 ### 视觉效果
 
@@ -466,7 +466,7 @@ machine openrouter.ai login apikey password sk-or-YOUR-KEY
 | `SPC a K` | 从底部唤出 NoteHQ 的 kimi-cli |
 | `SPC a C` | 打开 Claude Code CLI Transient 菜单 |
 
-`SPC a o`（知识库概览）收集节点索引的统计数据——总节点数、前 15 个高频 tag、最近 10 条笔记标题——发送给 LLM，生成包含四个部分的分析报告：主要知识领域、欠充分的主题、可能的意外关联、建议探索的方向。结果保存到 `00_Roam/overview.org`，带时间戳，覆盖写入。
+`SPC a o`（知识库概览）收集节点索引的统计数据——总节点数、前 15 个高频 tag、最近 10 条笔记标题——发送给 LLM，生成包含四个部分的分析报告：主要知识领域、欠充分的主题、可能的意外关联、建议探索的方向。结果保存到 `00_Inbox/overview.org`，带时间戳，覆盖写入。
 
 ### ob-gptel：笔记里的 AI 代码块
 
@@ -499,7 +499,7 @@ machine openrouter.ai login apikey password sk-or-YOUR-KEY
 
 **当前 buffer**：`SPC s s`（consult-line）在当前文件内增量搜索，`SPC s i` 按 heading 导航（imenu）。
 
-**Roam 层**：`SPC n n` 搜节点标题（模糊，带元数据），`SPC n /` 对 `00_Roam/` 全文搜索（ripgrep）。
+**Roam 层**：`SPC n n` 搜节点标题（模糊，带元数据），`SPC n /` 对 `00_Inbox/` 全文搜索（ripgrep）。
 
 **全库**：`SPC n s`（Deft）实时过滤 NoteHQ 所有笔记，`SPC P g` 对整个 NoteHQ 全文搜索（ripgrep + consult）。
 
@@ -710,7 +710,7 @@ emacsclient -s org-seq -c    ← 连接 daemon，今日 Daily Workspace 出现
 | `SPC n l` | 正向链接列表 |
 | `SPC n o` | 节点操作菜单（Tana `/ ` 命令等价）|
 | `SPC n s` | Deft 全库搜索 |
-| `SPC n /` | ripgrep 搜索 00_Roam |
+| `SPC n /` | ripgrep 搜索 00_Inbox |
 | `SPC n a` | 给当前节点添加别名 |
 | `SPC n L` | 从剪贴板粘贴 URL 并自动获取标题 |
 

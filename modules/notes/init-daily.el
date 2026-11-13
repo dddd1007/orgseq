@@ -11,7 +11,7 @@
 (require 'subr-x)
 (require 'orgseq-note)
 
-(defvar my/roam-dir)
+(defvar my/inbox-dir)
 
 (declare-function my/daily-open-date "init-capture" (time))
 (declare-function my/workspace-close-treemacs "init-workspace" ())
@@ -332,9 +332,9 @@ OFFSET is the number of days between RECORD and today."
   "Visit the Daily note of TIME through `my/daily-open-date'."
   (let ((file (my/daily--file-for-time time)))
     (when (and (not (file-exists-p file))
-               (file-exists-p my/roam-dir)
-               (not (file-writable-p my/roam-dir)))
-      (user-error "Roam directory is not writable: %s" my/roam-dir))
+               (file-exists-p my/inbox-dir)
+               (not (file-writable-p my/inbox-dir)))
+      (user-error "Inbox directory is not writable: %s" my/inbox-dir))
     (my/daily-open-date time)
     (my/daily-note-mode 1)
     (current-buffer)))

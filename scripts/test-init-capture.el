@@ -40,7 +40,7 @@
   (declare (indent 0))
   `(let* ((root (file-name-as-directory (make-temp-file "org-seq-capture-" t)))
           (my/note-home (expand-file-name "notes/" root))
-          (my/roam-dir (expand-file-name "00_Roam/" my/note-home))
+          (my/inbox-dir (expand-file-name "00_Inbox/" my/note-home))
           (my/library-dir (expand-file-name "30_Library/" my/note-home))
           (my/archives-dir (expand-file-name "40_Archives/" my/note-home))
           (my/orgseq-dir (expand-file-name ".orgseq/" my/note-home))
@@ -57,7 +57,7 @@
           (my/capture--warned (make-hash-table :test 'equal))
           (inhibit-message t))
      (unwind-protect
-         (progn (make-directory my/roam-dir t) ,@body)
+         (progn (make-directory my/inbox-dir t) ,@body)
        (dolist (buffer (buffer-list))
          (let ((file (buffer-file-name buffer)))
            (when (and file (string-prefix-p root file))
@@ -147,7 +147,7 @@
            (text (my/test-capture--contents file)))
       (should (equal file (expand-file-name
                            (format-time-string "meetings/%Y-kick_off_call.org")
-                           my/roam-dir)))
+                           my/inbox-dir)))
       (should (string-prefix-p (format ":PROPERTIES:\n:ID:       %s\n:END:\n"
                                        (plist-get note :id))
                                text))
@@ -219,11 +219,11 @@
       (should (string-match-p (format "\\`:PROPERTIES:\n:ID:       %s\n:AUTHORS: \n:YEAR: 2001\n:STATUS: \n:END:\n#\\+title: From CLI\n#\\+filetags: :reading:\n\n\\* Summary"
                                       (regexp-quote (alist-get 'id created)))
                               text))
-      (should (string-prefix-p (expand-file-name "capture/" my/roam-dir) file)))))
+      (should (string-prefix-p (expand-file-name "capture/" my/inbox-dir) file)))))
 
 (ert-deftest my/node-capture-region-replaces-the-region-with-a-link ()
   (my/test-capture--with-library
-    (let ((source (expand-file-name "source.org" my/roam-dir)))
+    (let ((source (expand-file-name "source.org" my/inbox-dir)))
       (my/test-capture--write source ":PROPERTIES:\n:ID:       src-1\n:END:\n#+title: Source\n\nKeep this. Move this part.\n")
       (with-current-buffer (find-file-noselect source)
         (org-mode)
@@ -249,7 +249,7 @@
   (my/test-capture--with-library
     (let* ((time (encode-time 0 30 9 14 7 2026))
            (file (my/daily-file-for-date time)))
-      (should (equal file (expand-file-name "daily/2026-07-14.org" my/roam-dir)))
+      (should (equal file (expand-file-name "daily/2026-07-14.org" my/inbox-dir)))
       (should-not (file-exists-p file))
       (let ((entry (my/daily-append "first thought" time)))
         (should (equal (plist-get entry :file) file))
@@ -267,7 +267,7 @@
 (ert-deftest my/daily-open-and-step-between-existing-days ()
   (my/test-capture--with-library
     (dolist (date '("2026-07-01" "2026-07-03" "2026-07-09"))
-      (my/test-capture--write (expand-file-name (concat "daily/" date ".org") my/roam-dir)
+      (my/test-capture--write (expand-file-name (concat "daily/" date ".org") my/inbox-dir)
                               (format "#+title: %s\n" date)))
     (should (equal (mapcar #'file-name-base (my/daily-files))
                    '("2026-07-01" "2026-07-03" "2026-07-09")))
@@ -298,7 +298,7 @@
 (defun my/test-capture--write-graph ()
   "Write `my/test-capture--graph' into the roam directory."
   (pcase-dolist (`(,name . ,text) my/test-capture--graph)
-    (my/test-capture--write (expand-file-name name my/roam-dir) text)))
+    (my/test-capture--write (expand-file-name name my/inbox-dir) text)))
 
 (ert-deftest my/node-candidates-include-aliases-and-disambiguate ()
   (my/test-capture--with-library
@@ -411,7 +411,7 @@
 
 (ert-deftest my/new-heading-id-is-found-without-org-roam ()
   (my/test-capture--with-library
-    (let ((file (expand-file-name "fresh.org" my/roam-dir)))
+    (let ((file (expand-file-name "fresh.org" my/inbox-dir)))
       (my/test-capture--write file "#+title: Fresh\n\n* New heading\n")
       (with-current-buffer (find-file-noselect file)
         (org-mode)

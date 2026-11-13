@@ -16,7 +16,7 @@ Any package under `packages/<name>/` should be able to leave this repository wit
 ## What Does Not Belong Here
 
 - No `my/` prefix.
-- No references to `my/note-home`, `my/roam-dir`, `my/orgseq-dir`, or other org-seq internals.
+- No references to `my/note-home`, `my/inbox-dir`, `my/orgseq-dir`, or other org-seq internals.
 - No references to org-seq leader keys.
 - No `require` of `init-*` modules.
 - No `:group 'org-seq` in package customizations.

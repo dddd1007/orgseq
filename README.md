@@ -129,6 +129,26 @@ Emacs directory. Everything else moves copies in or out of it:
   laid out like a library is merged layer by layer; any other folder becomes
   a subfolder of `30_Library/`. Existing files are never overwritten and the
   source is never modified.
+- **Notion import** (`SPC n S n`, `orgseq import-notion DIR
+  [--db-type DATABASE=TYPE]... [--type T] [--map NAME=FIELD] [--private] --yes`) turns an extracted Notion export
+  (Markdown & CSV) into notes. Each note keeps its page id in `NOTION_ID`, so
+  a second run skips what was imported; page links become id links, database
+  properties become Org properties, attachments are copied beside the note.
+  Without `--yes` it only shows what would happen. `--route PREFIX=DEST`
+  sends the pages below a path of the export to a layer, to the private zone
+  (`private/...`) or nowhere (`skip`) and keeps the folders below it;
+  `--profile FILE` holds routes, database types and renames for a whole
+  migration. Every database gets a note that lists its rows.
+- **Tana import** (`SPC n S T`, `orgseq import-tana FILE.json [--profile FILE]
+  --yes`) turns a Tana JSON export into notes: days are appended to the Daily
+  files, nodes with a supertag become notes with their fields as properties
+  (`TANA_ID`), everything else is outline text. Unrouted notes wait in
+  `00_Inbox/tana/`.
+- **Private zone** (`SPC n P o` / `SPC n P n`): `private/` beside the library
+  holds notes that must not be found by accident (counseling records). It is outside the library, so it is not indexed, not synced, not
+  searched, not reachable from the command line or MCP, and the AI helpers
+  refuse its buffers. It has dated local copies of its own. It is not
+  encrypted.
 - **Export** (`SPC n S e`, `orgseq export DIR`) copies the whole library into
   a new dated folder.
 - **Snapshots** (`SPC n S b`, `orgseq snapshot`) are dated copies kept outside
@@ -231,6 +251,7 @@ orgseq daily "idea worth keeping"                        # append to today's Dai
 orgseq search attachment                                 # titles and text
 orgseq query --type reading --group STATUS --columns YEAR,AUTHORS
 orgseq show ID          orgseq set ID STATUS read        # read and edit a node
+orgseq file ID resource --type reading                   # move a node out of the Inbox
 orgseq sync             orgseq doctor       orgseq update
 orgseq help                                              # everything else
 ```
@@ -242,6 +263,10 @@ notes, run views, sync, and run the self-check. For Claude Code:
 ```bash
 claude mcp add org-seq -- ~/.emacs.d/bin/orgseq mcp
 ```
+
+`orgseq mcp --access LEVEL` limits what a client may do: `read` (search and
+read), `inbox` (also add notes to the Inbox and to today's Daily), `write`
+(the default; also change, retype and file nodes), `structure` (also sync).
 
 Each call starts a batch Emacs (about three seconds). The command line keeps
 its own node index in `.cache/` and rebuilds it from the Org files, so it
@@ -357,7 +382,7 @@ owns this layer.
 | Menu bar | Always on; the **NoteHQ** menu holds the core workflow (Daily, notes, GTD views, AI, terminal, package update/rollback). Toggle with `SPC u b` |
 | Click-driven GTD/Daily | Daily sidebar dates, GTD dashboard rows, and agenda entries all open with a single left click |
 | Clickable buffer tabs | The tab-line across the top of each window lists the window's buffers; click a tab to switch, click its `x` to kill. Toggle with `SPC u T` (utility/side buffers are excluded automatically) |
-| Drag and drop | Drop files into org buffers to attach/link/insert; drag files out of dired to other programs; drag selected text between buffers and programs; dropped images are saved under `00_Roam/assets/` |
+| Drag and drop | Drop files into org buffers to attach/link/insert; drag files out of dired to other programs; drag selected text between buffers and programs; dropped images are saved under `00_Inbox/assets/` |
 | Wheel / side buttons | Smooth scroll, `Shift`+wheel horizontal, side buttons back/forward, middle-click paste at point |
 | Terminal mouse | Mouse and context menus also work in terminal frames |
 
@@ -456,7 +481,7 @@ notes.
 New notes of a type are also available from `SPC c` under the `t` (Typed note)
 group; free-form templates from `.orgseq/capture-templates.el` follow them.
 
-Dashboards in `00_Roam/dashboards/` are query-only. A table is an
+Dashboards in `00_Inbox/dashboards/` are query-only. A table is an
 `orgseq-query` dynamic block; its parameters are those of `my/node-query`
 (`:type`, `:where`, `:recent-days`, `:sort`, `:order`, `:limit`) plus
 `:columns`:
@@ -493,7 +518,7 @@ the forms `(tag ...)`, `(property K V)`, `(recent-days N)`, and `(and ...)`.
 | `SPC a K` | Toggle NoteHQ kimi-cli popup |
 | `SPC a C` | Claude Code transient |
 
-All AI commands are enriched with your **purpose.org** and **schema.org** context files (stored in `~/NoteHQ/00_Roam/`). Edit these files to customize how the LLM understands your knowledge base — no manual repetition needed.
+All AI commands are enriched with your **purpose.org** and **schema.org** context files (stored in the library's `50_AI/` layer). Edit these files to customize how the LLM understands your knowledge base — no manual repetition needed.
 Summarize, tag-suggestion, and connection commands send an active region
 directly; without a region they confirm before sending the entire buffer.
 Customize `my/ai-confirm-full-buffer-send` to change that default.
@@ -717,6 +742,8 @@ guarded module list below.
 | 16 | `init-nodes.el` | Node types, fields, table views, review, `orgseq-query` dashboards, node action menu, capture-template merging, PARA navigation, NoteHQ bootstrap |
 | 16a | `init-views.el` | Saved views: table, list and board layouts, filter language, `orgseq-view` dynamic block |
 | 16b | `init-sync.el` | Library location state, one-time `~/NoteHQ/` import, rclone-based sync (WebDAV, OneDrive, Google Drive) |
+| 16c | `init-private.el` | Private zone outside the library (not indexed, not synced, refused by the AI helpers) and its local copies |
+| 16d | `init-import.el` | Notion and Tana export import: routes to layers and the private zone, Markdown to Org nodes, database properties and supertag fields to properties, re-runs skip what was imported |
 | 17 | `init-daily.el` | Daily Workspace, 14-day sidebar, capture-ready ID nodes |
 | 18 | `init-terminal.el` | Ghostel terminal backend + shared popup placement and lifecycle |
 | 19 | `init-ai.el` | gptel (OpenRouter) + ob-gptel + .orgseq AI config + KB overview |
@@ -800,7 +827,7 @@ Notes live under `my/note-home`, which defaults to `~/.emacs.d/notes/` and can b
 
 ```
 ~/.emacs.d/notes/
-├── 00_Roam/             ← Atomic notes — flat, plus daily/, capture/, dashboards/
+├── 00_Inbox/            ← Inbox: Daily notes, drafts, captures (daily/, capture/, dashboards/)
 │   ├── daily/           ← Daily journal entries
 │   ├── capture/         ← Captured notes (timestamp-prefixed)
 │   └── dashboards/      ← Read-only orgseq-query views
@@ -808,12 +835,13 @@ Notes live under `my/note-home`, which defaults to `~/.emacs.d/notes/` and can b
 ├── 20_Practice/         ← PARA: long-term responsibility domains
 ├── 30_Library/          ← PARA: reference materials
 ├── 40_Archives/         ← Completed/paused work
+├── 50_AI/               ← AI System: context files, shared memory for AI clients
 └── .orgseq/             ← Per-library config (types.org, capture-templates.el, ai-config.org)
 ```
 
-The numeric prefixes (10-step gaps) exist so the sidebar sorts the layers in workflow priority order (Roam first, Archives last) instead of alphabetical-by-name order.
+The numeric prefixes (10-step gaps) exist so the sidebar sorts the layers in workflow priority order (Inbox first, AI System last) instead of alphabetical-by-name order.
 
-Classification is by **node type** (an Org tag defined in `.orgseq/types.org`), not directory — `00_Roam/` itself is flat. GTD agenda scans `00_Roam/` + `10_Outputs/` + `20_Practice/` (skips `30_Library/` and `40_Archives/`). The node index covers `00_Roam/`, `10_Outputs/`, and `20_Practice/`.
+Classification is by **node type** (an Org tag defined in `.orgseq/types.org`), not directory — `00_Inbox/` itself is flat. GTD agenda scans `00_Inbox/` + `10_Outputs/` + `20_Practice/` (skips `30_Library/`, `40_Archives/` and `50_AI/`). The node index covers every layer; views leave out `40_Archives/` unless their filter has a `(layer ...)` condition. A library created before 0.2.0 still has `00_Roam/` instead of `00_Inbox/` and keeps working; `orgseq migrate --yes` renames it after taking a snapshot.
 
 The node index is **Org-only** (Markdown files are not indexed). First-time index of existing notes: `M-x my/index-rebuild`.
 

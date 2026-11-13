@@ -18,7 +18,7 @@ Whether you're sending a PR or returning to the codebase later, this is the orie
 init-doctor  →  init-packages  →  init-popup  →  init-keymap  →  init-ui  →  init-completion  →  init-pyim
         →  init-python  →  init-markdown
         →  init-languages  →  init-org  →  init-capture  →  init-gtd  →  init-gtd-dashboard  →  init-focus  →  init-pkm
-        →  init-nodes  →  init-views  →  init-sync  →  init-daily  →  init-terminal  →  init-ai  →  init-ai-cli  →  init-dashboard  →  init-dired
+        →  init-nodes  →  init-views  →  init-sync  →  init-private  →  init-import  →  init-daily  →  init-terminal  →  init-ai  →  init-ai-cli  →  init-dashboard  →  init-dired
         →  init-mouse  →  init-frame  →  init-workspace  →  init-update  →  init-tty  →  init-evil
 ```
 
@@ -40,6 +40,8 @@ The short version:
 - `init-nodes` owns node types, fields, table views, `orgseq-query` dashboard blocks, type capture templates, node find, link insertion, backlinks, forward links, id-link following, and NoteHQ directory bootstrap
 - `init-views` owns saved views (table, list, board), the filter language, and the `orgseq-view` dynamic block
 - `init-sync` owns the library location's device-local state, the one-time `~/NoteHQ/` import, and rclone-based cloud sync
+- `init-private` owns the private zone (`my/private-dir`, outside the library: not indexed, not synced, refused by the AI helpers) and its local copies
+- `init-import` owns the Notion and Tana export imports (routes and profiles, Markdown to Org, `NOTION_ID` / `TANA_ID` for re-runs, database properties and supertag fields to properties)
 - `core/orgseq-cli.el` (loaded only by `bin/orgseq`) owns the command line and the MCP server
 - `init-daily` owns Daily Workspace orchestration, read-only recent-date rendering, and capture-ready Daily nodes
 - Daily sidebar tests must use temporary NoteHQ roots and must prove that rendering does not create missing notes

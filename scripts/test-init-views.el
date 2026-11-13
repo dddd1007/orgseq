@@ -542,4 +542,33 @@
                      "29"))
       (should (< (- (float-time) start) 10)))))
 
+(ert-deftest my/view-hides-the-archive-layer-unless-a-layer-is-named ()
+  (let* ((my/node-types (my/test-views--types))
+         (records
+          (list (list :id "k1" :title "Kept" :tags '("reading")
+                      :file "/lib/k1.org" :level 0 :layer 'resource
+                      :mtime (current-time))
+                (list :id "o1" :title "Old" :tags '("reading")
+                      :file "/lib/o1.org" :level 0 :layer 'archive
+                      :mtime (current-time))
+                (list :id "i1" :title "Draft" :tags '("reading")
+                      :file "/lib/i1.org" :level 0 :layer 'inbox
+                      :mtime (current-time))))
+         (my/view--ctx (my/view--make-ctx records nil
+                                          (cons (make-hash-table :test 'equal)
+                                                (make-hash-table :test 'equal))))
+         (ids (lambda (view)
+                (sort (mapcar (lambda (r) (plist-get r :id))
+                              (apply #'append
+                                     (mapcar #'cdr
+                                             (plist-get (my/view-run view)
+                                                        :groups))))
+                      #'string<))))
+    (should (equal (funcall ids '(:type "reading")) '("i1" "k1")))
+    (should (equal (funcall ids '(:type "reading" :filter (layer archive)))
+                   '("o1")))
+    (should (equal (funcall ids '(:filter (or (layer inbox) (layer archive))))
+                   '("i1" "o1")))
+    (should-error (my/view--compile '(layer nowhere)))))
+
 ;;; test-init-views.el ends here

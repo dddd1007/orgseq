@@ -373,7 +373,7 @@ Absent optional packages are skipped silently, matching module loading."
 ;; `my/init-module-requires'): doctor -> packages -> popup -> keymap -> UI -> completion -> pyim -> python
 ;; -> markdown -> languages -> org -> capture
 ;; -> gtd -> gtd-dashboard -> focus -> pkm -> nodes -> views -> palette -> sync
-;; -> daily -> terminal
+;; -> private -> import -> daily -> terminal
 ;; -> ai -> ai-cli -> dashboard -> dired
 ;; -> mouse -> frame -> workspace -> welcome -> update -> tty -> evil (last)
 ;; Each require is guarded so a single broken module does not kill the
@@ -406,6 +406,8 @@ Absent optional packages are skipped silently, matching module loading."
     init-views
     init-palette
     init-sync
+    init-private
+    init-import
     init-daily
     init-terminal
     init-ai
@@ -500,6 +502,8 @@ Return non-nil when the file was loaded."
     (init-views         . (init-org init-nodes))
     (init-palette       . (init-org init-nodes init-views))
     (init-sync          . (init-org))
+    (init-private       . (init-org init-sync))
+    (init-import        . (init-org init-nodes init-views init-sync init-private))
     (init-daily         . (init-capture init-ui))
     (init-terminal      . (init-popup init-org))
     (init-ai            . (init-org init-packages init-popup))
